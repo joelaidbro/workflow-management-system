@@ -43,8 +43,8 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - Project skeleton created (`main.py`, `database.py`, `models.py`, `.env`, `requirements.txt`)
 - Five foundation tables modelled: `companies`, `users`, `sessions`, `current_status`, `activity_logs`
 - Alembic configured. Initial migration file created.
-- Dependencies installed (`pip install -r requirements.txt`)
-- Migration applied to database (`alembic upgrade head`)
+- [x] Dependencies installed (`pip install -r requirements.txt`)
+- [x] Migration applied to database (`alembic upgrade head`)
 - Authentication routes built (login, logout, get current user)
 
 ## Key design decisions to always follow
