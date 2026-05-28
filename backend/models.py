@@ -46,6 +46,11 @@ class User(Base):
         uselist=False,
     )
     activity_logs = relationship("ActivityLog", back_populates="user")
+    machine_token = relationship(
+        "MachineToken",
+        back_populates="user",
+        uselist=False,
+    )
 
 
 class Session(Base):
@@ -87,6 +92,24 @@ class ActivityLog(Base):
     user = relationship("User", back_populates="activity_logs")
 
 
+class MachineToken(Base):
+    __tablename__ = "machine_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False,
+        unique=True,
+    )
+    token = Column(String(255), unique=True, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="machine_token")
+
+
 Index(
     "ix_activity_logs_company_id_user_id_timestamp",
     ActivityLog.company_id,
@@ -95,3 +118,4 @@ Index(
 )
 Index("ix_users_company_id", User.company_id)
 Index("ix_sessions_token", Session.token)
+Index("ix_machine_tokens_token", MachineToken.token)

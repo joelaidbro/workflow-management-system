@@ -38,14 +38,24 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - Phase 5 - Leave management
 - Phase 6 - Config layer, platform admin panel, polish
 
-## Current state - Phase 0 in progress
+## Current state - Phase 1 in progress
 
-- Project skeleton created (`main.py`, `database.py`, `models.py`, `.env`, `requirements.txt`)
-- Five foundation tables modelled: `companies`, `users`, `sessions`, `current_status`, `activity_logs`
-- Alembic configured. Initial migration file created.
-- [x] Dependencies installed (`pip install -r requirements.txt`)
-- [x] Migration applied to database (`alembic upgrade head`)
-- Authentication routes built (login, logout, get current user)
+### Phase 0 - Foundation Complete
+
+- Project skeleton created
+- Five foundation tables: `companies`, `users`, `sessions`, `current_status`, `activity_logs`
+- Alembic configured and migration applied
+- Dependencies installed
+- Authentication built and tested - login, logout, `/me` routes working
+- JWT httpOnly cookie authentication confirmed working
+- CORS configured for React frontend
+
+### Phase 1 - Monitoring In progress
+
+- Background agent - heartbeat, idle detection, screen lock detection
+- Agent installer with machine token
+- Live status API routes
+- Admin dashboard data routes
 
 ## Key design decisions to always follow
 
