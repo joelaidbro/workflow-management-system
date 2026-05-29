@@ -38,7 +38,7 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - Phase 5 - Leave management
 - Phase 6 - Config layer, platform admin panel, polish
 
-## Current state - Phase 1 in progress
+## Current state - Phase 3 in progress
 
 ### Phase 0 - Foundation Complete
 
@@ -50,12 +50,34 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - JWT httpOnly cookie authentication confirmed working
 - CORS configured for React frontend
 
-### Phase 1 - Monitoring In progress
+### Phase 1 - Monitoring Complete
 
-- Background agent - heartbeat, idle detection, screen lock detection
-- Agent installer with machine token
-- Live status API routes
-- Admin dashboard data routes
+- Background agent - heartbeat and idle detection
+- `machine_tokens` table for secure agent authentication
+- Heartbeat route - updates `current_status`, logs status changes only
+- Offline detection background task on server
+- Team status route with 2-minute staleness check
+- Agent only reports active or idle - break/meeting/offline handled server side
+- Screen lock detection removed - idle detection covers the use case
+
+### Phase 2 - Alerts Complete
+
+- `alerts` and `alert_recipients` tables created
+- `POST /api/alerts/send` - direct and broadcast, info and urgent types
+- `GET /api/alerts/pending` - agent polls every 15 seconds
+- `POST /api/alerts/acknowledge` - agent confirms after staff clicks OK
+- `GET /api/alerts/delivery-report/{alert_id}` - sender sees acknowledgement status
+- Windows popup via ctypes MessageBox confirmed working
+- Alert expiry handled - expired alerts not delivered
+- Separate heartbeat (60s) and alert polling (15s) cycles
+
+### Phase 3 - Chat In progress
+
+- Chat messages table
+- WebSocket connection manager
+- Send and receive messages in real time
+- Unread message count
+- Message history route
 
 ## Key design decisions to always follow
 

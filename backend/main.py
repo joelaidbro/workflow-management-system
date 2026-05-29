@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import SessionLocal
 from models import ActivityLog, CurrentStatus, User
 from routers.agent import router as agent_router
+from routers.alerts import router as alerts_router
 from routers.auth import router as auth_router
 from routers.status import router as status_router
 
@@ -86,6 +87,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(agent_router, prefix="/api")
 app.include_router(status_router, prefix="/api")
+app.include_router(alerts_router, prefix="/api")
 
 
 @app.get("/health")

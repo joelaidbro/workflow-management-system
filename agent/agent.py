@@ -1,3 +1,4 @@
+import ctypes
 import json
 import logging
 import time
@@ -10,7 +11,8 @@ BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.json"
 LOG_PATH = BASE_DIR / "agent.log"
 IDLE_THRESHOLD_SECONDS = 600
-HEARTBEAT_INTERVAL_SECONDS = 60
+HEARTBEAT_INTERVAL = 60
+ALERT_INTERVAL = 15
 
 logging.basicConfig(
     filename=LOG_PATH,
@@ -85,14 +87,72 @@ def send_heartbeat():
         logging.exception("Heartbeat failed: %s", exc)
 
 
+def check_alerts():
+    try:
+        response = requests.get(
+            f"{server_url}/api/alerts/pending",
+            params={
+                "staff_id": staff_id,
+                "machine_token": machine_token,
+            },
+            timeout=10,
+        )
+        if response.status_code != 200:
+            logging.error("Alert polling failed: %s", response.text)
+            return
+
+        alerts = response.json()
+        for alert in alerts:
+            show_alert_popup(alert)
+            acknowledge_alert(alert["alert_recipient_id"])
+    except Exception as exc:
+        logging.exception("Alert polling failed: %s", exc)
+
+
+def show_alert_popup(alert: dict):
+    if alert["alert_type"] == "urgent":
+        title = "⚠️ Urgent"
+    else:
+        title = "ℹ️ Info"
+
+    body = f"{alert['sender_name']}:\n\n{alert['message']}"
+    ctypes.windll.user32.MessageBoxW(0, body, title, 0)
+
+
+def acknowledge_alert(alert_recipient_id: str):
+    try:
+        requests.post(
+            f"{server_url}/api/alerts/acknowledge",
+            params={
+                "staff_id": staff_id,
+                "machine_token": machine_token,
+            },
+            json={
+                "alert_recipient_id": alert_recipient_id,
+                "reply": None,
+            },
+            timeout=10,
+        )
+    except Exception as exc:
+        logging.exception("Alert acknowledgement failed: %s", exc)
+
+
 def main():
+    last_heartbeat = 0
+
     while True:
         try:
-            send_heartbeat()
-        except Exception as exc:
-            logging.exception("Agent loop failed: %s", exc)
+            now = time.time()
 
-        time.sleep(HEARTBEAT_INTERVAL_SECONDS)
+            check_alerts()
+
+            if now - last_heartbeat >= HEARTBEAT_INTERVAL:
+                send_heartbeat()
+                last_heartbeat = now
+        except Exception as exc:
+            logging.exception("Main loop error: %s", exc)
+
+        time.sleep(ALERT_INTERVAL)
 
 
 if __name__ == "__main__":
@@ -103,4 +163,4 @@ if __name__ == "__main__":
     except Exception as exc:
         logging.exception("Agent startup failed: %s", exc)
         while True:
-            time.sleep(HEARTBEAT_INTERVAL_SECONDS)
+            time.sleep(ALERT_INTERVAL)

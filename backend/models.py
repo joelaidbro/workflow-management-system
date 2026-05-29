@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, JSON, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, JSON, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -50,6 +50,15 @@ class User(Base):
         "MachineToken",
         back_populates="user",
         uselist=False,
+    )
+    sent_alerts = relationship(
+        "Alert",
+        back_populates="sender",
+        foreign_keys="Alert.sender_id",
+    )
+    alert_recipients = relationship(
+        "AlertRecipient",
+        back_populates="recipient",
     )
 
 
@@ -110,6 +119,40 @@ class MachineToken(Base):
     user = relationship("User", back_populates="machine_token")
 
 
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    recipient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    alert_type = Column(String(10), nullable=False)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+
+    sender = relationship(
+        "User",
+        back_populates="sent_alerts",
+        foreign_keys=[sender_id],
+    )
+    recipients = relationship("AlertRecipient", back_populates="alert")
+
+
+class AlertRecipient(Base):
+    __tablename__ = "alert_recipients"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alert_id = Column(UUID(as_uuid=True), ForeignKey("alerts.id"), nullable=False)
+    recipient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    acknowledged_at = Column(DateTime, nullable=True)
+    reply = Column(Text, nullable=True)
+
+    alert = relationship("Alert", back_populates="recipients")
+    recipient = relationship("User", back_populates="alert_recipients")
+
+
 Index(
     "ix_activity_logs_company_id_user_id_timestamp",
     ActivityLog.company_id,
@@ -119,3 +162,14 @@ Index(
 Index("ix_users_company_id", User.company_id)
 Index("ix_sessions_token", Session.token)
 Index("ix_machine_tokens_token", MachineToken.token)
+Index(
+    "ix_alert_recipients_alert_id_recipient_id",
+    AlertRecipient.alert_id,
+    AlertRecipient.recipient_id,
+)
+Index(
+    "ix_alert_recipients_recipient_id_status",
+    AlertRecipient.recipient_id,
+    AlertRecipient.status,
+)
+Index("ix_alerts_company_id_created_at", Alert.company_id, Alert.created_at)
