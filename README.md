@@ -38,7 +38,7 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - Phase 5 - Leave management
 - Phase 6 - Config layer, platform admin panel, polish
 
-## Current state - Phase 3 in progress
+## Current state - Phase 4 in progress
 
 ### Phase 0 - Foundation Complete
 
@@ -71,13 +71,24 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - Alert expiry handled - expired alerts not delivered
 - Separate heartbeat (60s) and alert polling (15s) cycles
 
-### Phase 3 - Chat In progress
+### Phase 3 - Chat Complete
 
-- Chat messages table
-- WebSocket connection manager
-- Send and receive messages in real time
-- Unread message count
-- Message history route
+- `messages` table created
+- WebSocket connection manager built
+- WebSocket `/api/chat/ws/{user_id}` - real-time messaging
+- `GET /api/chat/history/{other_user_id}` - message history with pagination
+- `GET /api/chat/conversations` - conversation list with unread counts
+- `GET /api/auth/token` - JWT token endpoint for WebSocket auth
+- Message delivery confirmed working - `new_message` and `message_sent` events
+- Messages stored in database with `is_read` tracking
+
+### Phase 4 - Attendance & Daily Reports In progress
+
+- Daily reports table
+- End day logout with report submission
+- Admin report review and reply
+- Attendance calculation per staff per month
+- Salary calculation route
 
 ## Key design decisions to always follow
 

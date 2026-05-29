@@ -60,6 +60,16 @@ class User(Base):
         "AlertRecipient",
         back_populates="recipient",
     )
+    sent_messages = relationship(
+        "Message",
+        back_populates="sender",
+        foreign_keys="Message.sender_id",
+    )
+    received_messages = relationship(
+        "Message",
+        back_populates="recipient",
+        foreign_keys="Message.recipient_id",
+    )
 
 
 class Session(Base):
@@ -153,6 +163,29 @@ class AlertRecipient(Base):
     recipient = relationship("User", back_populates="alert_recipients")
 
 
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    recipient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    sender = relationship(
+        "User",
+        back_populates="sent_messages",
+        foreign_keys=[sender_id],
+    )
+    recipient = relationship(
+        "User",
+        back_populates="received_messages",
+        foreign_keys=[recipient_id],
+    )
+
+
 Index(
     "ix_activity_logs_company_id_user_id_timestamp",
     ActivityLog.company_id,
@@ -173,3 +206,10 @@ Index(
     AlertRecipient.status,
 )
 Index("ix_alerts_company_id_created_at", Alert.company_id, Alert.created_at)
+Index(
+    "ix_messages_company_id_sender_id_recipient_id",
+    Message.company_id,
+    Message.sender_id,
+    Message.recipient_id,
+)
+Index("ix_messages_recipient_id_is_read", Message.recipient_id, Message.is_read)

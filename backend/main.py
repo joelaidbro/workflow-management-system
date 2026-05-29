@@ -12,6 +12,7 @@ from models import ActivityLog, CurrentStatus, User
 from routers.agent import router as agent_router
 from routers.alerts import router as alerts_router
 from routers.auth import router as auth_router
+from routers.chat import router as chat_router
 from routers.status import router as status_router
 
 load_dotenv()
@@ -88,6 +89,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(agent_router, prefix="/api")
 app.include_router(status_router, prefix="/api")
 app.include_router(alerts_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 
 
 @app.get("/health")
