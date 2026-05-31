@@ -100,6 +100,16 @@ class User(Base):
         back_populates="approver",
         foreign_keys="SalaryRecord.approved_by",
     )
+    leave_requests = relationship(
+        "LeaveRequest",
+        back_populates="user",
+        foreign_keys="LeaveRequest.user_id",
+    )
+    reviewed_leave_requests = relationship(
+        "LeaveRequest",
+        back_populates="reviewer",
+        foreign_keys="LeaveRequest.reviewed_by",
+    )
 
 
 class Session(Base):
@@ -293,6 +303,35 @@ class SalaryRecord(Base):
     )
 
 
+class LeaveRequest(Base):
+    __tablename__ = "leave_requests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    leave_type = Column(String(50), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    total_days = Column(Integer, nullable=False)
+    reason = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="pending")
+    reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    admin_comment = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship(
+        "User",
+        back_populates="leave_requests",
+        foreign_keys=[user_id],
+    )
+    reviewer = relationship(
+        "User",
+        back_populates="reviewed_leave_requests",
+        foreign_keys=[reviewed_by],
+    )
+
+
 Index(
     "ix_activity_logs_company_id_user_id_timestamp",
     ActivityLog.company_id,
@@ -343,3 +382,15 @@ Index(
     Attendance.date,
 )
 Index("ix_attendance_company_id_date", Attendance.company_id, Attendance.date)
+Index(
+    "ix_leave_requests_company_id_user_id_status",
+    LeaveRequest.company_id,
+    LeaveRequest.user_id,
+    LeaveRequest.status,
+)
+Index(
+    "ix_leave_requests_company_id_status_created_at",
+    LeaveRequest.company_id,
+    LeaveRequest.status,
+    LeaveRequest.created_at,
+)

@@ -38,7 +38,7 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - Phase 5 - Leave management
 - Phase 6 - Config layer, platform admin panel, polish
 
-## Current state - Phase 5 in progress
+## Current state - Phase 6 in progress
 
 ### Phase 0 - Foundation Complete
 
@@ -98,14 +98,25 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - `POST /api/attendance/salary/{user_id}/approve` - super admin approves salary
 - Full flow tested end to end - staff and admin roles verified
 
-### Phase 5 - Leave Management In progress
+### Phase 5 - Leave Management Complete
 
-- Leave types config
-- Leave requests table
-- Submit leave request route
-- Admin approve/reject route
-- Leave balance tracking
-- Leave reflected in attendance and salary
+- `leave_requests` table created
+- `POST /api/leave/request` - staff submits leave with date validation and overlap check
+- `GET /api/leave/my-requests` - staff views own requests with status filter
+- `GET /api/leave/team-requests` - admin views team requests
+- `POST /api/leave/requests/{id}/review` - admin approves or rejects
+- Approved leave automatically marks attendance days as present
+- Rejected leave does not affect attendance
+- `GET /api/leave/balance/{user_id}` - leave balance from company config
+- Full flow tested - submit, approve, reject, attendance verified
+
+### Phase 6 - Frontend In progress
+
+- React project setup with TailwindCSS
+- Login page
+- Staff dashboard - status, chat, alerts
+- Admin dashboard - team status, reports, leave requests
+- Real-time WebSocket integration
 
 ## Key design decisions to always follow
 
