@@ -1,7 +1,20 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, JSON, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -34,6 +47,7 @@ class User(Base):
     role = Column(String(20), nullable=False)
     work_type = Column(String(10), nullable=False, default="office")
     password_hash = Column(String(255), nullable=False)
+    base_salary = Column(Numeric(10, 2), default=0)
     is_active = Column(Boolean, default=True)
     joining_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -69,6 +83,22 @@ class User(Base):
         "Message",
         back_populates="recipient",
         foreign_keys="Message.recipient_id",
+    )
+    daily_reports = relationship(
+        "DailyReport",
+        back_populates="user",
+        foreign_keys="DailyReport.user_id",
+    )
+    replied_reports = relationship(
+        "DailyReport",
+        back_populates="reply_admin",
+        foreign_keys="DailyReport.replied_by",
+    )
+    attendance_records = relationship("Attendance", back_populates="user")
+    approved_salary_records = relationship(
+        "SalaryRecord",
+        back_populates="approver",
+        foreign_keys="SalaryRecord.approved_by",
     )
 
 
@@ -186,6 +216,83 @@ class Message(Base):
     )
 
 
+class DailyReport(Base):
+    __tablename__ = "daily_reports"
+    __table_args__ = (
+        UniqueConstraint("user_id", "report_date", name="uq_daily_reports_user_date"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    report_date = Column(Date, nullable=False)
+    content = Column(Text, nullable=False)
+    submitted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    admin_reply = Column(Text, nullable=True)
+    admin_reply_at = Column(DateTime, nullable=True)
+    replied_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    is_read_by_admin = Column(Boolean, default=False, nullable=False)
+
+    user = relationship(
+        "User",
+        back_populates="daily_reports",
+        foreign_keys=[user_id],
+    )
+    reply_admin = relationship(
+        "User",
+        back_populates="replied_reports",
+        foreign_keys=[replied_by],
+    )
+
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_attendance_user_date"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    logged_in = Column(Boolean, default=False, nullable=False)
+    report_submitted = Column(Boolean, default=False, nullable=False)
+    is_present = Column(Boolean, default=False, nullable=False)
+    work_mode = Column(String(10), nullable=True)
+    login_time = Column(DateTime, nullable=True)
+    logout_time = Column(DateTime, nullable=True)
+    working_minutes = Column(Integer, default=0)
+    break_minutes = Column(Integer, default=0)
+    meeting_minutes = Column(Integer, default=0)
+
+    user = relationship("User", back_populates="attendance_records")
+
+
+class SalaryRecord(Base):
+    __tablename__ = "salary_records"
+    __table_args__ = (
+        UniqueConstraint("user_id", "month", "year", name="uq_salary_user_month_year"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    month = Column(Integer, nullable=False)
+    year = Column(Integer, nullable=False)
+    base_salary = Column(Numeric(10, 2))
+    calculated_salary = Column(Numeric(10, 2))
+    final_salary = Column(Numeric(10, 2))
+    is_approved = Column(Boolean, default=False)
+    approved_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    approved_at = Column(DateTime)
+
+    approver = relationship(
+        "User",
+        back_populates="approved_salary_records",
+        foreign_keys=[approved_by],
+    )
+
+
 Index(
     "ix_activity_logs_company_id_user_id_timestamp",
     ActivityLog.company_id,
@@ -213,3 +320,26 @@ Index(
     Message.recipient_id,
 )
 Index("ix_messages_recipient_id_is_read", Message.recipient_id, Message.is_read)
+Index(
+    "ix_daily_reports_company_id_user_id_report_date",
+    DailyReport.company_id,
+    DailyReport.user_id,
+    DailyReport.report_date,
+)
+Index(
+    "ix_daily_reports_company_id_report_date",
+    DailyReport.company_id,
+    DailyReport.report_date,
+)
+Index(
+    "ix_daily_reports_company_id_is_read_by_admin",
+    DailyReport.company_id,
+    DailyReport.is_read_by_admin,
+)
+Index(
+    "ix_attendance_company_id_user_id_date",
+    Attendance.company_id,
+    Attendance.user_id,
+    Attendance.date,
+)
+Index("ix_attendance_company_id_date", Attendance.company_id, Attendance.date)

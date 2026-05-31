@@ -38,7 +38,7 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - Phase 5 - Leave management
 - Phase 6 - Config layer, platform admin panel, polish
 
-## Current state - Phase 4 in progress
+## Current state - Phase 5 in progress
 
 ### Phase 0 - Foundation Complete
 
@@ -82,13 +82,30 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 - Message delivery confirmed working - `new_message` and `message_sent` events
 - Messages stored in database with `is_read` tracking
 
-### Phase 4 - Attendance & Daily Reports In progress
+### Phase 4 - Attendance & Daily Reports Complete
 
-- Daily reports table
-- End day logout with report submission
-- Admin report review and reply
-- Attendance calculation per staff per month
-- Salary calculation route
+- `daily_reports` table created
+- `attendance` table created
+- `salary_records` table created
+- `POST /api/attendance/start-day` - staff clocks in with work mode
+- `POST /api/attendance/end-day` - submits report and marks day present
+- `GET /api/attendance/today` - current day status
+- `GET /api/attendance/reports/my-reports` - staff views own report history
+- `GET /api/attendance/reports/team` - admin views team reports
+- `POST /api/attendance/reports/{id}/reply` - admin replies to report
+- `GET /api/attendance/summary/{user_id}` - monthly attendance breakdown
+- `GET /api/attendance/salary/{user_id}` - salary calculation with formula
+- `POST /api/attendance/salary/{user_id}/approve` - super admin approves salary
+- Full flow tested end to end - staff and admin roles verified
+
+### Phase 5 - Leave Management In progress
+
+- Leave types config
+- Leave requests table
+- Submit leave request route
+- Admin approve/reject route
+- Leave balance tracking
+- Leave reflected in attendance and salary
 
 ## Key design decisions to always follow
 
