@@ -4,12 +4,13 @@ from datetime import date as date_type
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from main import limiter
 from models import Attendance, Company, DailyReport, SalaryRecord, User
 
 router = APIRouter()
@@ -228,7 +229,9 @@ def start_day(
 
 
 @router.post("/attendance/end-day")
+@limiter.limit("5/minute")
 def end_day(
+    request: Request,
     end_data: EndDayRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

@@ -47,7 +47,12 @@ def decode_jwt(token: str) -> dict | None:
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
-    token = request.cookies.get("access_token")
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1]
+    else:
+        token = request.cookies.get("access_token")
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -58,7 +63,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
+            detail="Invalid or expired token",
         )
 
     user_id = payload.get("user_id")
@@ -68,11 +73,11 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
             detail="Not authenticated",
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.is_active:
+    user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
+            detail="User not found",
         )
 
     return user

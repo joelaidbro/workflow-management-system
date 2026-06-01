@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
@@ -11,6 +12,7 @@ from auth import (
     verify_password,
 )
 from database import get_db
+from main import limiter
 from models import Session as SessionModel
 from models import User
 
@@ -23,7 +25,9 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/auth/login")
+@limiter.limit("10/minute")
 def login(
+    request: Request,
     login_data: LoginRequest,
     response: Response,
     db: DBSession = Depends(get_db),
@@ -63,19 +67,24 @@ def login(
             "company_id": str(user.company_id),
         }
     )
-    response.set_cookie(
+    response_body = JSONResponse(
+        content={
+            "user_id": str(user.id),
+            "full_name": user.full_name,
+            "role": user.role,
+            "company_id": str(user.company_id),
+            "access_token": jwt_token,
+        }
+    )
+    response_body.set_cookie(
         key="access_token",
         value=jwt_token,
         httponly=True,
-        samesite="lax",
+        samesite="none",
+        secure=False,
     )
 
-    return {
-        "user_id": str(user.id),
-        "full_name": user.full_name,
-        "role": user.role,
-        "company_id": str(user.company_id),
-    }
+    return response_body
 
 
 @router.post("/auth/logout")
@@ -98,7 +107,7 @@ def logout(
         session.is_active = False
         db.commit()
 
-    response.delete_cookie(key="access_token", samesite="lax")
+    response.delete_cookie(key="access_token", samesite="none", secure=False)
     return {"message": "Logged out successfully"}
 
 

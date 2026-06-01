@@ -1,0 +1,287 @@
+import secrets
+import uuid
+from datetime import date as date_type
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from auth import get_current_user, hash_password
+from database import get_db
+from models import MachineToken, User
+
+router = APIRouter()
+
+VALID_CREATE_ROLES = {"staff", "admin"}
+VALID_WORK_TYPES = {"office", "wfh"}
+
+
+class CreateUserRequest(BaseModel):
+    full_name: str
+    email: str
+    employee_id: str
+    department: str | None = None
+    job_title: str | None = None
+    phone: str | None = None
+    role: str
+    work_type: str
+    password: str
+    joining_date: date_type | None = None
+
+
+class UpdateUserRequest(BaseModel):
+    full_name: str | None = None
+    department: str | None = None
+    job_title: str | None = None
+    phone: str | None = None
+    work_type: str | None = None
+    base_salary: Decimal | None = None
+
+
+def require_super_admin(current_user: User):
+    if current_user.role != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+
+def require_admin_or_super_admin(current_user: User):
+    if current_user.role not in {"admin", "super_admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+
+def format_user(user: User):
+    return {
+        "id": str(user.id),
+        "company_id": str(user.company_id),
+        "employee_id": user.employee_id,
+        "full_name": user.full_name,
+        "email": user.email,
+        "phone": user.phone,
+        "department": user.department,
+        "job_title": user.job_title,
+        "role": user.role,
+        "work_type": user.work_type,
+        "base_salary": user.base_salary,
+        "is_active": user.is_active,
+        "joining_date": user.joining_date,
+        "created_at": user.created_at,
+    }
+
+
+def get_company_user(user_id: str, current_user: User, db: Session):
+    try:
+        user_uuid = uuid.UUID(str(user_id))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_uuid,
+            User.company_id == current_user.company_id,
+        )
+        .first()
+    )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    return user
+
+
+@router.post("/users/create")
+def create_user(
+    user_data: CreateUserRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+
+    if user_data.role not in VALID_CREATE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid role",
+        )
+
+    if user_data.work_type not in VALID_WORK_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid work type",
+        )
+
+    existing_email = (
+        db.query(User)
+        .filter(
+            User.company_id == current_user.company_id,
+            User.email == user_data.email,
+        )
+        .first()
+    )
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already exists",
+        )
+
+    existing_employee_id = (
+        db.query(User)
+        .filter(
+            User.company_id == current_user.company_id,
+            User.employee_id == user_data.employee_id,
+        )
+        .first()
+    )
+    if existing_employee_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Employee ID already exists",
+        )
+
+    user = User(
+        company_id=current_user.company_id,
+        employee_id=user_data.employee_id,
+        full_name=user_data.full_name,
+        email=user_data.email,
+        phone=user_data.phone,
+        department=user_data.department,
+        job_title=user_data.job_title,
+        role=user_data.role,
+        work_type=user_data.work_type,
+        password_hash=hash_password(user_data.password),
+        joining_date=user_data.joining_date,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "User created",
+        "user_id": str(user.id),
+        "employee_id": user.employee_id,
+    }
+
+
+@router.get("/users/list")
+def list_users(
+    role: str | None = None,
+    department: str | None = None,
+    is_active: bool = True,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_admin_or_super_admin(current_user)
+
+    query = db.query(User).filter(
+        User.company_id == current_user.company_id,
+        User.is_active == is_active,
+    )
+
+    if current_user.role == "admin":
+        query = query.filter(User.role == "staff")
+    elif role:
+        query = query.filter(User.role == role)
+
+    if department:
+        query = query.filter(User.department == department)
+
+    users = query.order_by(User.full_name.asc()).all()
+    return [format_user(user) for user in users]
+
+
+@router.patch("/users/{user_id}")
+def update_user(
+    user_id: str,
+    user_data: UpdateUserRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+    user = get_company_user(user_id, current_user, db)
+
+    update_data = user_data.model_dump(exclude_unset=True)
+    if "work_type" in update_data and update_data["work_type"] not in VALID_WORK_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid work type",
+        )
+
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
+    return format_user(user)
+
+
+@router.post("/users/{user_id}/deactivate")
+def deactivate_user(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+    user = get_company_user(user_id, current_user, db)
+    user.is_active = False
+
+    machine_token = (
+        db.query(MachineToken)
+        .filter(MachineToken.user_id == user.id, MachineToken.is_active.is_(True))
+        .first()
+    )
+    if machine_token:
+        machine_token.is_active = False
+
+    db.commit()
+    return {"message": "User deactivated"}
+
+
+@router.post("/users/{user_id}/generate-agent-token")
+def generate_agent_token(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+    user = get_company_user(user_id, current_user, db)
+
+    if user.role != "staff":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Agent token can only be generated for staff users",
+        )
+
+    existing_tokens = (
+        db.query(MachineToken)
+        .filter(MachineToken.user_id == user.id, MachineToken.is_active.is_(True))
+        .all()
+    )
+    for existing_token in existing_tokens:
+        existing_token.is_active = False
+
+    token = secrets.token_hex(32)
+    machine_token = MachineToken(
+        company_id=user.company_id,
+        user_id=user.id,
+        token=token,
+        is_active=True,
+    )
+    db.add(machine_token)
+    db.commit()
+
+    return {
+        "machine_token": token,
+        "staff_id": str(user.id),
+        "install_url": f"/agent/install?token={token}&staff_id={user.id}",
+    }

@@ -20,3 +20,16 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Node modules - never commit these
+node_modules/
+frontend/node_modules/
+
+# Frontend build output
+frontend/dist/
+frontend/.vite/
+
+# Environment files
+frontend/.env
+frontend/.env.local
+frontend/.env.production

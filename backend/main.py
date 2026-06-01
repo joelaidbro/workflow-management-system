@@ -6,9 +6,15 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from database import SessionLocal
 from models import ActivityLog, CurrentStatus, User
+
+limiter = Limiter(key_func=get_remote_address)
+
 from routers.agent import router as agent_router
 from routers.alerts import router as alerts_router
 from routers.attendance import router as attendance_router
@@ -16,6 +22,7 @@ from routers.auth import router as auth_router
 from routers.chat import router as chat_router
 from routers.leave import router as leave_router
 from routers.status import router as status_router
+from routers.users import router as users_router
 
 load_dotenv()
 
@@ -75,6 +82,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
 allowed_origins = [origin.strip() for origin in allowed_origins.split(",")]
@@ -94,6 +103,7 @@ app.include_router(alerts_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(attendance_router, prefix="/api")
 app.include_router(leave_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
 
 
 @app.get("/health")

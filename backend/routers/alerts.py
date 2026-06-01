@@ -2,12 +2,13 @@ import re
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from main import limiter
 from models import Alert, AlertRecipient, Company, User
 from routers.agent import verify_machine_token
 
@@ -33,7 +34,9 @@ def strip_html_tags(message: str) -> str:
 
 
 @router.post("/alerts/send")
+@limiter.limit("30/minute")
 def send_alert(
+    request: Request,
     alert_data: SendAlertRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
