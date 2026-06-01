@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import PlatformDashboard from "./pages/PlatformDashboard.jsx";
 import StaffDashboard from "./pages/StaffDashboard.jsx";
 
 function App() {
@@ -21,8 +22,16 @@ function App() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute allowedRoles={["admin", "super_admin", "platform_admin"]}>
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/platform"
+        element={
+          <ProtectedRoute allowedRoles={["platform_admin"]}>
+            <PlatformDashboard />
           </ProtectedRoute>
         }
       />

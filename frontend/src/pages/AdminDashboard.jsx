@@ -263,6 +263,7 @@ function ReportsPanel() {
   const [replyText, setReplyText] = useState({});
   const [replyErrors, setReplyErrors] = useState({});
   const [submittingReplyId, setSubmittingReplyId] = useState(null);
+  const [downloadingTeamReport, setDownloadingTeamReport] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -340,6 +341,32 @@ function ReportsPanel() {
     }
   };
 
+  const handleDownloadTeamReport = async () => {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    setDownloadingTeamReport(true);
+
+    try {
+      const response = await api.get("/api/attendance/export/team-excel", {
+        params: { month: currentMonth, year: currentYear },
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `attendance_${currentMonth}_${currentYear}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("Could not download team report");
+    } finally {
+      setDownloadingTeamReport(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
@@ -371,6 +398,14 @@ function ReportsPanel() {
             Unread Only
           </button>
         </div>
+        <button
+          type="button"
+          onClick={handleDownloadTeamReport}
+          disabled={downloadingTeamReport}
+          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {downloadingTeamReport ? "Downloading..." : "↓ Download Team Report"}
+        </button>
       </div>
 
       {error && <div className="text-sm font-medium text-red-600">{error}</div>}
@@ -1196,6 +1231,16 @@ function StaffManagementPanel() {
   const [createError, setCreateError] = useState("");
   const [creating, setCreating] = useState(false);
   const [tokenModal, setTokenModal] = useState(null);
+  const [salarySlipModal, setSalarySlipModal] = useState(null);
+  const [salarySlipDate, setSalarySlipDate] = useState(() => {
+    const previousMonth = new Date();
+    previousMonth.setMonth(previousMonth.getMonth() - 1);
+    return {
+      month: previousMonth.getMonth() + 1,
+      year: previousMonth.getFullYear(),
+    };
+  });
+  const [downloadingSalarySlip, setDownloadingSalarySlip] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -1268,6 +1313,43 @@ function StaffManagementPanel() {
       );
     } catch (error) {
       toast.error("Could not deactivate user");
+    }
+  };
+
+  const handleSalarySlipDownload = async () => {
+    if (!salarySlipModal) {
+      return;
+    }
+
+    setDownloadingSalarySlip(true);
+    try {
+      const response = await api.get(
+        `/api/attendance/export/salary-slip/${salarySlipModal.id}`,
+        {
+          params: salarySlipDate,
+          responseType: "blob",
+        }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `salary_slip_${salarySlipModal.employee_id}_${salarySlipDate.month}_${salarySlipDate.year}.pdf`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setSalarySlipModal(null);
+    } catch (error) {
+      if (error.response?.status === 400) {
+        toast.error("Salary not yet approved for this period");
+      } else {
+        toast.error("Could not download salary slip");
+      }
+    } finally {
+      setDownloadingSalarySlip(false);
     }
   };
 
@@ -1453,6 +1535,13 @@ function StaffManagementPanel() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => setSalarySlipModal(user)}
+                        className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700"
+                      >
+                        Salary Slip
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleDeactivate(user.id)}
                         className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
                       >
@@ -1491,6 +1580,628 @@ function StaffManagementPanel() {
           </div>
         </div>
       )}
+
+      {salarySlipModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-xl font-bold text-gray-900">Download Salary Slip</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              {salarySlipModal.full_name}
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Month
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  max="12"
+                  value={salarySlipDate.month}
+                  onChange={(event) =>
+                    setSalarySlipDate((current) => ({
+                      ...current,
+                      month: parseInt(event.target.value, 10) || 1,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Year
+                </span>
+                <input
+                  type="number"
+                  value={salarySlipDate.year}
+                  onChange={(event) =>
+                    setSalarySlipDate((current) => ({
+                      ...current,
+                      year: parseInt(event.target.value, 10) || new Date().getFullYear(),
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setSalarySlipModal(null)}
+                className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSalarySlipDownload}
+                disabled={downloadingSalarySlip}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {downloadingSalarySlip ? "Downloading..." : "Download PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToggleSwitch({ value, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className={`flex h-7 w-12 items-center rounded-full p-1 transition ${
+        value ? "bg-blue-700" : "bg-gray-300"
+      }`}
+    >
+      <span
+        className={`h-5 w-5 rounded-full bg-white shadow transition ${
+          value ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
+
+function SettingsPanel() {
+  const [activeTab, setActiveTab] = useState("monitoring");
+  const [config, setConfig] = useState(null);
+  const [monitoringSettings, setMonitoringSettings] = useState({
+    idle_timeout_minutes: 10,
+    break_limit_minutes: 60,
+    working_hours_start: "09:00",
+    working_hours_end: "18:00",
+    working_days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+  });
+  const [securitySettings, setSecuritySettings] = useState({
+    failed_login_lockout_attempts: 5,
+    lockout_duration_minutes: 30,
+    password_min_length: 8,
+  });
+  const [chatSettings, setChatSettings] = useState({
+    chat_enabled: true,
+    staff_to_staff_chat_enabled: true,
+    read_receipts_enabled: true,
+    chat_retention_months: 6,
+  });
+  const [attendanceSettings, setAttendanceSettings] = useState({
+    working_days_per_month: 22,
+    currency_symbol: "₹",
+    salary_visibility_to_staff: false,
+    daily_report_enabled: true,
+    report_deadline_time: "21:00",
+  });
+  const [leaveSettings, setLeaveSettings] = useState({
+    half_day_leave_enabled: false,
+    leave_carry_forward: false,
+  });
+  const [loading, setLoading] = useState(true);
+  const [newLeaveType, setNewLeaveType] = useState({
+    name: "",
+    annual_limit: 1,
+    carry_forward: false,
+  });
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await api.get("/api/settings/config");
+        setConfig(response.data);
+      } catch (error) {
+        toast.error("Could not load settings");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConfig();
+  }, []);
+
+  useEffect(() => {
+    if (!config) {
+      return;
+    }
+
+    setMonitoringSettings({
+      idle_timeout_minutes: config.idle_timeout_minutes ?? 10,
+      break_limit_minutes: config.break_limit_minutes ?? 60,
+      working_hours_start: config.working_hours_start || "09:00",
+      working_hours_end: config.working_hours_end || "18:00",
+      working_days: config.working_days ?? [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+      ],
+    });
+    setSecuritySettings({
+      failed_login_lockout_attempts: config.failed_login_lockout_attempts ?? 5,
+      lockout_duration_minutes: config.lockout_duration_minutes ?? 30,
+      password_min_length: config.password_min_length ?? 8,
+    });
+    setChatSettings({
+      chat_enabled: config.chat_enabled ?? true,
+      staff_to_staff_chat_enabled: config.staff_to_staff_chat_enabled ?? true,
+      read_receipts_enabled: config.read_receipts_enabled ?? true,
+      chat_retention_months: config.chat_retention_months ?? 6,
+    });
+    setAttendanceSettings({
+      working_days_per_month: config.working_days_per_month ?? 22,
+      currency_symbol: config.currency_symbol ?? "₹",
+      salary_visibility_to_staff: config.salary_visibility_to_staff ?? false,
+      daily_report_enabled: config.daily_report_enabled ?? true,
+      report_deadline_time: config.report_deadline_time || "21:00",
+    });
+    setLeaveSettings({
+      half_day_leave_enabled: config.half_day_leave_enabled ?? false,
+      leave_carry_forward: config.leave_carry_forward ?? false,
+    });
+  }, [config]);
+
+  const tabs = [
+    { id: "monitoring", label: "Monitoring" },
+    { id: "security", label: "Security" },
+    { id: "chat", label: "Chat" },
+    { id: "attendance", label: "Attendance & Salary" },
+    { id: "leave", label: "Leave Management" },
+  ];
+
+  const days = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ];
+
+  const updateConfig = (key, value) => {
+    setConfig((current) => ({ ...current, [key]: value }));
+  };
+
+  const toggleWorkingDay = (day) => {
+    const workingDays = monitoringSettings.working_days || [];
+    setMonitoringSettings((current) => ({
+      ...current,
+      working_days: workingDays.includes(day)
+        ? workingDays.filter((item) => item !== day)
+        : [...workingDays, day],
+    }));
+  };
+
+  const saveSettings = async (payload) => {
+    try {
+      const response = await api.patch("/api/settings/config", payload);
+      setConfig(response.data);
+      toast.success("Settings saved");
+    } catch (error) {
+      toast.error("Could not save settings");
+    }
+  };
+
+  const deleteLeaveType = async (name) => {
+    try {
+      await api.delete(`/api/settings/leave-types/${encodeURIComponent(name)}`);
+      updateConfig(
+        "leave_types",
+        (config.leave_types || []).filter((leaveType) => leaveType.name !== name)
+      );
+      toast.success("Leave type removed");
+    } catch (error) {
+      toast.error("Could not remove leave type");
+    }
+  };
+
+  const addLeaveType = async () => {
+    if (!newLeaveType.name.trim() || Number(newLeaveType.annual_limit) <= 0) {
+      toast.error("Enter a valid leave type");
+      return;
+    }
+
+    try {
+      const response = await api.post("/api/settings/leave-types", {
+        name: newLeaveType.name,
+        annual_limit: Number(newLeaveType.annual_limit),
+        carry_forward: newLeaveType.carry_forward,
+      });
+      updateConfig("leave_types", response.data);
+      setNewLeaveType({ name: "", annual_limit: 1, carry_forward: false });
+      toast.success("Leave type added");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not add leave type");
+    }
+  };
+
+  const renderNumberInput = (label, field, state, setState, min, max) => (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-gray-700">{label}</span>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={state[field] ?? ""}
+        onChange={(event) =>
+          setState((current) => ({
+            ...current,
+            [field]: parseInt(event.target.value, 10) || 0,
+          }))
+        }
+        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+      />
+    </label>
+  );
+
+  const renderTextInput = (label, field, state, setState, maxLength) => (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-gray-700">{label}</span>
+      <input
+        type="text"
+        maxLength={maxLength}
+        value={state[field] ?? ""}
+        onChange={(event) =>
+          setState((current) => ({ ...current, [field]: event.target.value }))
+        }
+        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+      />
+    </label>
+  );
+
+  const renderTimeInput = (label, field, state, setState, fallback) => (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-gray-700">{label}</span>
+      <input
+        type="time"
+        value={state[field] || fallback}
+        onChange={(event) =>
+          setState((current) => ({ ...current, [field]: event.target.value }))
+        }
+        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+      />
+    </label>
+  );
+
+  const renderToggleRow = (label, field, state, setState) => (
+    <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
+      <span className="text-sm font-medium text-gray-700">{label}</span>
+      <ToggleSwitch
+        value={Boolean(state[field])}
+        onChange={(value) =>
+          setState((current) => ({ ...current, [field]: value }))
+        }
+      />
+    </div>
+  );
+
+  if (loading || !config) {
+    return (
+      <div className="flex min-h-80 items-center justify-center text-gray-500">
+        Loading settings...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-gray-200 bg-white p-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              activeTab === tab.id
+                ? "bg-blue-700 text-white"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        {activeTab === "monitoring" && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              {renderNumberInput(
+                "Idle timeout (minutes)",
+                "idle_timeout_minutes",
+                monitoringSettings,
+                setMonitoringSettings,
+                5,
+                60
+              )}
+              {renderNumberInput(
+                "Break limit (minutes)",
+                "break_limit_minutes",
+                monitoringSettings,
+                setMonitoringSettings,
+                15,
+                240
+              )}
+              {renderTimeInput(
+                "Working hours start",
+                "working_hours_start",
+                monitoringSettings,
+                setMonitoringSettings,
+                "09:00"
+              )}
+              {renderTimeInput(
+                "Working hours end",
+                "working_hours_end",
+                monitoringSettings,
+                setMonitoringSettings,
+                "18:00"
+              )}
+            </div>
+            <div>
+              <div className="mb-2 text-sm font-medium text-gray-700">
+                Working days
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {days.map((day) => (
+                  <label key={day} className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={(monitoringSettings.working_days || []).includes(day)}
+                      onChange={() => toggleWorkingDay(day)}
+                    />
+                    {day}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => saveSettings(monitoringSettings)}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+            >
+              Save Changes
+            </button>
+          </div>
+        )}
+
+        {activeTab === "security" && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-3 gap-4">
+              {renderNumberInput(
+                "Failed login lockout attempts",
+                "failed_login_lockout_attempts",
+                securitySettings,
+                setSecuritySettings,
+                3,
+                10
+              )}
+              {renderNumberInput(
+                "Lockout duration (minutes)",
+                "lockout_duration_minutes",
+                securitySettings,
+                setSecuritySettings
+              )}
+              {renderNumberInput(
+                "Password minimum length",
+                "password_min_length",
+                securitySettings,
+                setSecuritySettings,
+                6,
+                20
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => saveSettings(securitySettings)}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+            >
+              Save Changes
+            </button>
+          </div>
+        )}
+
+        {activeTab === "chat" && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              {renderToggleRow(
+                "Chat enabled",
+                "chat_enabled",
+                chatSettings,
+                setChatSettings
+              )}
+              {renderToggleRow(
+                "Staff to staff chat enabled",
+                "staff_to_staff_chat_enabled",
+                chatSettings,
+                setChatSettings
+              )}
+              {renderToggleRow(
+                "Read receipts enabled",
+                "read_receipts_enabled",
+                chatSettings,
+                setChatSettings
+              )}
+              {renderNumberInput(
+                "Chat retention months",
+                "chat_retention_months",
+                chatSettings,
+                setChatSettings
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => saveSettings(chatSettings)}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+            >
+              Save Changes
+            </button>
+          </div>
+        )}
+
+        {activeTab === "attendance" && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              {renderNumberInput(
+                "Working days per month",
+                "working_days_per_month",
+                attendanceSettings,
+                setAttendanceSettings
+              )}
+              {renderTextInput(
+                "Currency symbol",
+                "currency_symbol",
+                attendanceSettings,
+                setAttendanceSettings,
+                3
+              )}
+              {renderTimeInput(
+                "Report deadline time",
+                "report_deadline_time",
+                attendanceSettings,
+                setAttendanceSettings,
+                "21:00"
+              )}
+              {renderToggleRow(
+                "Salary visibility to staff",
+                "salary_visibility_to_staff",
+                attendanceSettings,
+                setAttendanceSettings
+              )}
+              {renderToggleRow(
+                "Daily report enabled",
+                "daily_report_enabled",
+                attendanceSettings,
+                setAttendanceSettings
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => saveSettings(attendanceSettings)}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+            >
+              Save Changes
+            </button>
+          </div>
+        )}
+
+        {activeTab === "leave" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              {renderToggleRow(
+                "Half day leave enabled",
+                "half_day_leave_enabled",
+                leaveSettings,
+                setLeaveSettings
+              )}
+              {renderToggleRow(
+                "Leave carry forward",
+                "leave_carry_forward",
+                leaveSettings,
+                setLeaveSettings
+              )}
+            </div>
+
+            <div className="grid gap-3">
+              {(config.leave_types || []).map((leaveType) => (
+                <div
+                  key={leaveType.name}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
+                >
+                  <div>
+                    <div className="font-semibold text-gray-900">{leaveType.name}</div>
+                    <div className="text-sm text-gray-500">
+                      Annual limit: {leaveType.annual_limit}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => deleteLeaveType(leaveType.name)}
+                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-4 gap-3 rounded-lg bg-gray-50 p-4">
+              <input
+                type="text"
+                value={newLeaveType.name}
+                onChange={(event) =>
+                  setNewLeaveType((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
+                }
+                placeholder="Name"
+                className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+              />
+              <input
+                type="number"
+                value={newLeaveType.annual_limit}
+                onChange={(event) =>
+                  setNewLeaveType((current) => ({
+                    ...current,
+                    annual_limit: event.target.value,
+                  }))
+                }
+                placeholder="Annual limit"
+                className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+              />
+              <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4">
+                <span className="text-sm text-gray-700">Carry forward</span>
+                <ToggleSwitch
+                  value={newLeaveType.carry_forward}
+                  onChange={(value) =>
+                    setNewLeaveType((current) => ({
+                      ...current,
+                      carry_forward: value,
+                    }))
+                  }
+                />
+              </div>
+              <button
+                type="button"
+                onClick={addLeaveType}
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+              >
+                Add Leave Type
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => saveSettings(leaveSettings)}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+            >
+              Save Changes
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1537,6 +2248,10 @@ function AdminDashboard() {
   };
 
   const renderContent = () => {
+    if (activeSection === "settings") {
+      return <SettingsPanel />;
+    }
+
     if (activeSection === "staff-management") {
       return <StaffManagementPanel />;
     }
@@ -1584,6 +2299,19 @@ function AdminDashboard() {
                 {item.label}
               </button>
             ))}
+            {user?.role === "super_admin" && (
+              <button
+                type="button"
+                onClick={() => setActiveSection("settings")}
+                className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
+                  activeSection === "settings"
+                    ? "bg-blue-700 text-white"
+                    : "text-blue-100 hover:bg-blue-800"
+                }`}
+              >
+                Settings
+              </button>
+            )}
           </div>
         </nav>
 

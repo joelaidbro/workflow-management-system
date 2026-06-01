@@ -1,10 +1,12 @@
 import re
 import uuid
+from io import BytesIO
 from datetime import date as date_type
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -471,6 +473,205 @@ def reply_to_report(
     db.commit()
 
     return {"message": "Reply submitted"}
+
+
+@router.get("/attendance/export/team-excel")
+def export_team_attendance_excel(
+    month: int,
+    year: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    require_admin(current_user)
+    staff_members = (
+        db.query(User)
+        .filter(
+            User.company_id == current_user.company_id,
+            User.role == "staff",
+            User.is_active.is_(True),
+        )
+        .order_by(User.full_name.asc())
+        .all()
+    )
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = f"Attendance {month}-{year}"
+
+    headers = [
+        "Full Name",
+        "Employee ID",
+        "Department",
+        "Days Present",
+        "Days Absent",
+        "Total Working Hours",
+        "Total Break Hours",
+        "Base Salary",
+        "Calculated Salary",
+        "Salary Approved",
+    ]
+    worksheet.append(headers)
+
+    header_fill = PatternFill("solid", fgColor="1E3A8A")
+    header_font = Font(color="FFFFFF", bold=True)
+    alternate_fill = PatternFill("solid", fgColor="F3F4F6")
+
+    for cell in worksheet[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+
+    for staff in staff_members:
+        summary = build_attendance_summary(staff, month, year, db)
+        calculated_salary = calculate_monthly_salary(staff, summary, db)
+        salary_record = (
+            db.query(SalaryRecord)
+            .filter(
+                SalaryRecord.user_id == staff.id,
+                SalaryRecord.month == month,
+                SalaryRecord.year == year,
+            )
+            .first()
+        )
+
+        worksheet.append(
+            [
+                staff.full_name,
+                staff.employee_id,
+                staff.department,
+                summary["days_present"],
+                summary["days_absent"],
+                round(summary["total_working_minutes"] / 60, 1),
+                round(summary["total_break_minutes"] / 60, 1),
+                float(staff.base_salary or 0),
+                float(calculated_salary),
+                "Yes" if salary_record and salary_record.is_approved else "No",
+            ]
+        )
+
+    for row in worksheet.iter_rows(min_row=2):
+        if row[0].row % 2 == 0:
+            for cell in row:
+                cell.fill = alternate_fill
+
+    for column_cells in worksheet.columns:
+        max_length = max(
+            len(str(cell.value)) if cell.value is not None else 0
+            for cell in column_cells
+        )
+        worksheet.column_dimensions[get_column_letter(column_cells[0].column)].width = (
+            max_length + 2
+        )
+
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": f"attachment; filename=attendance_{month}_{year}.xlsx"
+        },
+    )
+
+
+@router.get("/attendance/export/salary-slip/{user_id}")
+def export_salary_slip_pdf(
+    user_id: str,
+    month: int,
+    year: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    staff = get_staff_for_attendance(user_id, current_user, db)
+    salary_record = (
+        db.query(SalaryRecord)
+        .filter(
+            SalaryRecord.user_id == staff.id,
+            SalaryRecord.month == month,
+            SalaryRecord.year == year,
+            SalaryRecord.is_approved.is_(True),
+        )
+        .first()
+    )
+    if not salary_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Salary not yet approved for this period",
+        )
+
+    company = db.query(Company).filter(Company.id == staff.company_id).first()
+    summary = build_attendance_summary(staff, month, year, db)
+
+    output = BytesIO()
+    document = SimpleDocTemplate(output, pagesize=A4)
+    styles = getSampleStyleSheet()
+    elements = [
+        Paragraph(company.name if company else "Company", styles["Title"]),
+        Paragraph("SALARY SLIP", styles["Heading1"]),
+        Paragraph(f"Month: {month} / Year: {year}", styles["Normal"]),
+        Spacer(1, 16),
+        Paragraph(f"Full Name: {staff.full_name}", styles["Normal"]),
+        Paragraph(f"Employee ID: {staff.employee_id}", styles["Normal"]),
+        Paragraph(f"Department: {staff.department or 'N/A'}", styles["Normal"]),
+        Paragraph(f"Job Title: {staff.job_title or 'N/A'}", styles["Normal"]),
+        Spacer(1, 16),
+    ]
+
+    salary_table = Table(
+        [
+            ["Basic Salary", f"{salary_record.base_salary}"],
+            ["Working Days in Month", summary["total_working_days"]],
+            ["Days Present", summary["days_present"]],
+            ["Days Absent", summary["days_absent"]],
+            ["Calculated Salary", f"{salary_record.calculated_salary}"],
+            ["Final Approved Salary", f"{salary_record.final_salary}"],
+        ],
+        colWidths=[220, 220],
+    )
+    salary_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, -1), (-1, -1), 13),
+                ("BACKGROUND", (0, -1), (-1, -1), colors.whitesmoke),
+                ("PADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    elements.extend(
+        [
+            salary_table,
+            Spacer(1, 24),
+            Paragraph("This is a computer generated document", styles["Italic"]),
+        ]
+    )
+
+    document.build(elements)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=salary_slip_{staff.employee_id}_{month}_{year}.pdf"
+            )
+        },
+    )
 
 
 @router.get("/attendance/summary/{user_id}")

@@ -1,0 +1,232 @@
+from copy import deepcopy
+from datetime import datetime, time
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from auth import get_current_user, hash_password
+from database import get_db
+from models import Alert, Company, CurrentStatus, Message, User
+from routers.settings import DEFAULT_CONFIG
+
+router = APIRouter()
+
+
+class CreateCompanyRequest(BaseModel):
+    company_name: str
+    admin_full_name: str
+    admin_email: str
+    admin_password: str
+
+
+class UpdateCompanyRequest(BaseModel):
+    name: str | None = None
+    is_active: bool | None = None
+
+
+def require_platform_admin(current_user=Depends(get_current_user)):
+    if current_user.role != "platform_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform admin access required",
+        )
+    return current_user
+
+
+def format_company(company: Company):
+    return {
+        "id": str(company.id),
+        "name": company.name,
+        "is_active": company.is_active,
+        "created_at": company.created_at,
+    }
+
+
+def get_company_or_404(company_id: str, db: Session):
+    try:
+        company_uuid = uuid.UUID(str(company_id))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+
+    company = db.query(Company).filter(Company.id == company_uuid).first()
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+    return company
+
+
+def format_user(user: User):
+    return {
+        "id": str(user.id),
+        "company_id": str(user.company_id),
+        "employee_id": user.employee_id,
+        "full_name": user.full_name,
+        "email": user.email,
+        "phone": user.phone,
+        "department": user.department,
+        "job_title": user.job_title,
+        "role": user.role,
+        "work_type": user.work_type,
+        "base_salary": user.base_salary,
+        "is_active": user.is_active,
+        "joining_date": user.joining_date,
+        "created_at": user.created_at,
+    }
+
+
+@router.get("/platform/companies")
+def list_companies(
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    companies = db.query(Company).order_by(Company.created_at.desc()).all()
+    response = []
+
+    for company in companies:
+        staff_count = (
+            db.query(User)
+            .filter(
+                User.company_id == company.id,
+                User.is_active.is_(True),
+                User.role == "staff",
+            )
+            .count()
+        )
+        admin_count = (
+            db.query(User)
+            .filter(
+                User.company_id == company.id,
+                User.is_active.is_(True),
+                User.role.in_(["admin", "super_admin"]),
+            )
+            .count()
+        )
+        last_active = (
+            db.query(func.max(CurrentStatus.updated_at))
+            .join(User, User.id == CurrentStatus.user_id)
+            .filter(User.company_id == company.id)
+            .scalar()
+        )
+
+        response.append(
+            {
+                **format_company(company),
+                "staff_count": staff_count,
+                "admin_count": admin_count,
+                "last_active": last_active,
+            }
+        )
+
+    return response
+
+
+@router.post("/platform/companies")
+def create_company(
+    company_data: CreateCompanyRequest,
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    company = Company(
+        name=company_data.company_name,
+        config=deepcopy(DEFAULT_CONFIG),
+        is_active=True,
+    )
+    db.add(company)
+    db.flush()
+
+    super_admin = User(
+        company_id=company.id,
+        employee_id="SA-001",
+        full_name=company_data.admin_full_name,
+        email=company_data.admin_email,
+        role="super_admin",
+        work_type="office",
+        password_hash=hash_password(company_data.admin_password),
+        is_active=True,
+    )
+    db.add(super_admin)
+    db.commit()
+    db.refresh(company)
+    db.refresh(super_admin)
+
+    return {
+        "company_id": str(company.id),
+        "super_admin_id": str(super_admin.id),
+        "message": "Company created",
+    }
+
+
+@router.patch("/platform/companies/{company_id}")
+def update_company(
+    company_id: str,
+    company_data: UpdateCompanyRequest,
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    company = get_company_or_404(company_id, db)
+
+    if company_data.name is not None:
+        company.name = company_data.name
+
+    if company_data.is_active is not None:
+        company.is_active = company_data.is_active
+        if company_data.is_active is False:
+            users = db.query(User).filter(User.company_id == company.id).all()
+            for user in users:
+                user.is_active = False
+
+    db.commit()
+    db.refresh(company)
+    return format_company(company)
+
+
+@router.get("/platform/companies/{company_id}/users")
+def get_company_users(
+    company_id: str,
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    company = get_company_or_404(company_id, db)
+    users = (
+        db.query(User)
+        .filter(User.company_id == company.id)
+        .order_by(User.role.asc(), User.full_name.asc())
+        .all()
+    )
+
+    grouped_users = {}
+    for user in users:
+        grouped_users.setdefault(user.role, []).append(format_user(user))
+
+    return grouped_users
+
+
+@router.get("/platform/stats")
+def get_platform_stats(
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    today_start = datetime.combine(datetime.utcnow().date(), time.min)
+
+    return {
+        "total_companies": db.query(Company).count(),
+        "active_companies": db.query(Company)
+        .filter(Company.is_active.is_(True))
+        .count(),
+        "total_users": db.query(User).count(),
+        "active_users": db.query(User).filter(User.is_active.is_(True)).count(),
+        "total_messages_today": db.query(Message)
+        .filter(Message.created_at >= today_start)
+        .count(),
+        "total_alerts_today": db.query(Alert)
+        .filter(Alert.created_at >= today_start)
+        .count(),
+    }

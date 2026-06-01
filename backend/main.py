@@ -21,6 +21,8 @@ from routers.attendance import router as attendance_router
 from routers.auth import router as auth_router
 from routers.chat import router as chat_router
 from routers.leave import router as leave_router
+from routers.platform import router as platform_router
+from routers.settings import router as settings_router
 from routers.status import router as status_router
 from routers.users import router as users_router
 
@@ -104,6 +106,8 @@ app.include_router(chat_router, prefix="/api")
 app.include_router(attendance_router, prefix="/api")
 app.include_router(leave_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
+app.include_router(settings_router, prefix="/api")
+app.include_router(platform_router, prefix="/api")
 
 
 @app.get("/health")

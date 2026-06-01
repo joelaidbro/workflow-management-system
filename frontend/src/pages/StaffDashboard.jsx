@@ -60,6 +60,7 @@ function StaffDashboard() {
   const [showEndDayModal, setShowEndDayModal] = useState(false);
   const [reportContent, setReportContent] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [downloadingSalarySlip, setDownloadingSalarySlip] = useState(null);
 
   const [reports, setReports] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -228,6 +229,42 @@ function StaffDashboard() {
       toast.error("Could not end day");
     } finally {
       setSubmittingReport(false);
+    }
+  };
+
+  const handleDownloadSalarySlip = async (report) => {
+    const reportDate = new Date(report.report_date);
+    const month = reportDate.getMonth() + 1;
+    const year = reportDate.getFullYear();
+    setDownloadingSalarySlip(report.id);
+
+    try {
+      const response = await api.get(
+        `/api/attendance/export/salary-slip/${currentUserId}`,
+        {
+          params: { month, year },
+          responseType: "blob",
+        }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `salary_slip_${currentUserId}_${month}_${year}.pdf`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      if (error.response?.status === 400) {
+        toast.error("Salary not yet approved for this period");
+      } else {
+        toast.error("Could not download salary slip");
+      }
+    } finally {
+      setDownloadingSalarySlip(null);
     }
   };
 
@@ -419,11 +456,23 @@ function StaffDashboard() {
                     <div className="font-semibold text-gray-900">
                       {formatDate(report.report_date)}
                     </div>
-                    {report.admin_reply && (
-                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                        Replied
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {report.admin_reply && (
+                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                          Replied
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadSalarySlip(report)}
+                        disabled={downloadingSalarySlip === report.id}
+                        className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {downloadingSalarySlip === report.id
+                          ? "Downloading..."
+                          : "Download Salary Slip"}
+                      </button>
+                    </div>
                   </div>
                   <p className="mt-2 text-sm text-gray-700">
                     {truncate(report.content, 100)}

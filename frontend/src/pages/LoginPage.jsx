@@ -34,7 +34,9 @@ function LoginPage() {
       );
 
       const { role } = response.data;
-      if (role === "staff") {
+      if (role === "platform_admin") {
+        navigate("/platform");
+      } else if (role === "staff") {
         navigate("/staff");
       } else {
         navigate("/admin");
