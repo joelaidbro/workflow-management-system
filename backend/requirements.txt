@@ -9,3 +9,4 @@ python-jose[cryptography]
 slowapi
 openpyxl
 reportlab
+gunicorn
