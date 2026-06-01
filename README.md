@@ -143,6 +143,7 @@ PostgreSQL. Database name: `staffmonitor_dev`. ORM: SQLAlchemy. Migrations: Alem
 
 - Remove all debug print statements from agent
 - Environment variables review - confirm no hardcoded values
+- Replace `agent/config.json` `machine_token` and `staff_id` placeholders with real values generated through the Staff Management panel before deploying to real machines
 - Test full flow with real staff accounts
 - Deploy backend to Hostinger VPS
 - Deploy frontend build to VPS

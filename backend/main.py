@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -30,7 +31,7 @@ load_dotenv()
 
 
 async def offline_detection_task():
-    print("Offline detection task started")
+    logging.info("Offline detection task started")
     while True:
         db = SessionLocal()
         try:
@@ -87,8 +88,12 @@ app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-allowed_origins = [origin.strip() for origin in allowed_origins.split(",")]
+allowed_origins_value = os.getenv("ALLOWED_ORIGINS")
+allowed_origins = (
+    [origin.strip() for origin in allowed_origins_value.split(",")]
+    if allowed_origins_value
+    else []
+)
 
 app.add_middleware(
     CORSMiddleware,

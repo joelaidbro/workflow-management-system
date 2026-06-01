@@ -16,7 +16,7 @@ ALERT_INTERVAL = 15
 
 logging.basicConfig(
     filename=LOG_PATH,
-    level=logging.ERROR,
+    level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
@@ -66,14 +66,14 @@ def get_current_status() -> str:
     else:
         status = "active"
 
-    print(f"idle_seconds={idle_seconds}, returning={status}")
+    logging.info("idle_seconds=%s, returning=%s", idle_seconds, status)
     return status
 
 
 def send_heartbeat():
     try:
         status = get_current_status()
-        print(f"Sending heartbeat with status: {status}")
+        logging.info("Sending heartbeat with status: %s", status)
         requests.post(
             f"{server_url}/api/agent/heartbeat",
             json={
