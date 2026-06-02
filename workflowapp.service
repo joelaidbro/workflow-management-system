@@ -3,8 +3,8 @@ Description=WorkFlow App Backend
 After=network.target postgresql.service
 
 [Service]
-User=nobody
-Group=nobody
+User=root
+Group=root
 WorkingDirectory=/home/teams.aidbro.com/workflow/backend
 Environment="PATH=/home/teams.aidbro.com/workflow/backend/.venv/bin"
 EnvironmentFile=/home/teams.aidbro.com/workflow/backend/.env
