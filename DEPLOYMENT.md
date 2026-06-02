@@ -22,6 +22,10 @@
   agent/
 ```
 
+## Backend Port
+
+The backend runs on `127.0.0.1:8001` because port `8000` is used by an existing service on the VPS.
+
 ## First Time Deployment Steps
 
 See deployment steps in conversation history.
