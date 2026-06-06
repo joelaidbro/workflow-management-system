@@ -61,6 +61,8 @@ function StaffDashboard() {
   const [reportContent, setReportContent] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
   const [downloadingSalarySlip, setDownloadingSalarySlip] = useState(null);
+  const [currentStatus, setCurrentStatus] = useState("not_started");
+  const [breakStartedAt, setBreakStartedAt] = useState(null);
 
   const [reports, setReports] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -91,6 +93,18 @@ function StaffDashboard() {
         if (response.data?.work_mode) {
           setWorkMode(response.data.work_mode);
         }
+        setCurrentStatus((previousStatus) => {
+          if (!response.data?.started) {
+            return "not_started";
+          }
+          if (response.data.logout_time) {
+            return "ended";
+          }
+          if (previousStatus === "break" || previousStatus === "meeting") {
+            return previousStatus;
+          }
+          return "active";
+        });
       } catch (error) {
         toast.error("Could not load today's attendance");
       } finally {
@@ -125,6 +139,9 @@ function StaffDashboard() {
     fetchAttendance();
     fetchReports();
     fetchConversations();
+
+    const attendanceIntervalId = setInterval(fetchAttendance, 30000);
+    return () => clearInterval(attendanceIntervalId);
   }, []);
 
   useEffect(() => {
@@ -204,8 +221,55 @@ function StaffDashboard() {
         logout_time: null,
         working_minutes: 0,
       });
+      setCurrentStatus("active");
     } catch (error) {
       toast.error("Could not start day");
+    }
+  };
+
+  const getErrorMessage = (error, fallback) => {
+    return error.response?.data?.detail || fallback;
+  };
+
+  const handleStartBreak = async () => {
+    try {
+      const response = await api.post("/api/status/break/start");
+      setCurrentStatus("break");
+      setBreakStartedAt(response.data.break_started_at);
+      toast.success("Break started");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not start break"));
+    }
+  };
+
+  const handleEndBreak = async () => {
+    try {
+      const response = await api.post("/api/status/break/end");
+      setCurrentStatus("active");
+      setBreakStartedAt(null);
+      toast.success(`Break ended - ${response.data.break_duration_minutes} minutes`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not end break"));
+    }
+  };
+
+  const handleStartMeeting = async () => {
+    try {
+      await api.post("/api/status/meeting/start");
+      setCurrentStatus("meeting");
+      toast.success("Meeting started");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not start meeting"));
+    }
+  };
+
+  const handleEndMeeting = async () => {
+    try {
+      await api.post("/api/status/meeting/end");
+      setCurrentStatus("active");
+      toast.success("Meeting ended");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not end meeting"));
     }
   };
 
@@ -314,17 +378,36 @@ function StaffDashboard() {
     setChatInput("");
   };
 
-  const liveStatus = !attendance?.started
-    ? "Not started"
-    : attendance.logout_time
-      ? "Day ended"
-      : "Working";
+  const statusLabels = {
+    not_started: "Not started",
+    ended: "Day ended",
+    active: "Active",
+    break: "On Break",
+    meeting: "In Meeting",
+    idle: "Idle",
+  };
+  const statusClasses = {
+    not_started: "bg-blue-800",
+    ended: "bg-gray-700",
+    active: "bg-green-700",
+    break: "bg-orange-500 text-orange-950",
+    meeting: "bg-blue-600",
+    idle: "bg-yellow-400 text-yellow-950",
+  };
+  const liveStatus = statusLabels[currentStatus] || "Active";
+  const breakDurationMinutes = breakStartedAt
+    ? Math.max(0, Math.floor((currentTime - new Date(breakStartedAt)) / 60000))
+    : 0;
 
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="flex items-center justify-between bg-blue-900 px-8 py-4 text-white">
         <div className="text-2xl font-bold">WorkFlow</div>
-        <div className="rounded-full bg-blue-800 px-4 py-2 text-sm font-semibold">
+        <div
+          className={`rounded-full px-4 py-2 text-sm font-semibold ${
+            statusClasses[currentStatus] || "bg-green-700"
+          }`}
+        >
           {liveStatus}
         </div>
         <div className="flex items-center gap-4">
@@ -420,17 +503,25 @@ function StaffDashboard() {
               <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
-                  onClick={() => alert("Break feature coming soon")}
+                  onClick={
+                    currentStatus === "break" ? handleEndBreak : handleStartBreak
+                  }
                   className="rounded-lg bg-orange-400 px-4 py-3 font-semibold text-orange-950 hover:bg-orange-500"
                 >
-                  Start Break
+                  {currentStatus === "break"
+                    ? `End Break (${breakDurationMinutes} min)`
+                    : "Start Break"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => alert("Meeting feature coming soon")}
+                  onClick={
+                    currentStatus === "meeting"
+                      ? handleEndMeeting
+                      : handleStartMeeting
+                  }
                   className="rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
                 >
-                  Start Meeting
+                  {currentStatus === "meeting" ? "End Meeting" : "Start Meeting"}
                 </button>
                 <button
                   type="button"
@@ -440,6 +531,11 @@ function StaffDashboard() {
                   End My Day
                 </button>
               </div>
+              {currentStatus === "meeting" && (
+                <span className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
+                  In Meeting
+                </span>
+              )}
             </div>
           )}
         </section>

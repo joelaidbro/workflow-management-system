@@ -1,5 +1,7 @@
 # Workflow Management Software (Internal codename - AidBro)
 
+CI/CD: Automated deployment via GitHub Actions on every push to main
+
 ## What this is
 
 A Staff Monitoring and Communication SaaS platform. Multi-tenant. Built for internal company use first, then commercial product.
