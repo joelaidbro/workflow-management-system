@@ -1,0 +1,50 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            echo "=== Starting deployment ==="
+
+            cd /home/teams.aidbro.com/workflow
+
+            echo "--- Pulling latest code ---"
+            git pull origin main
+
+            echo "--- Updating backend ---"
+            source backend/.venv/bin/activate
+            pip install -r backend/requirements.txt --quiet
+            cd backend
+            alembic upgrade head
+            cd ..
+
+            echo "--- Restarting backend service ---"
+            systemctl restart workflowapp
+            sleep 3
+            systemctl is-active workflowapp && echo "Backend running" || echo "Backend FAILED"
+
+            echo "--- Building frontend ---"
+            cd frontend
+            npm install --silent
+            npm run build
+            cp -r dist/* /home/teams.aidbro.com/public_html/
+            cd ..
+
+            echo "=== Deployment complete ==="
