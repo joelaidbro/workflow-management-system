@@ -1231,6 +1231,7 @@ function StaffManagementPanel() {
   const [createError, setCreateError] = useState("");
   const [creating, setCreating] = useState(false);
   const [tokenModal, setTokenModal] = useState(null);
+  const [copiedTokenField, setCopiedTokenField] = useState("");
   const [salarySlipModal, setSalarySlipModal] = useState(null);
   const [salarySlipDate, setSalarySlipDate] = useState(() => {
     const previousMonth = new Date();
@@ -1288,13 +1289,63 @@ function StaffManagementPanel() {
     }
   };
 
-  const handleGenerateToken = async (userId) => {
+  const showFirstTimeTokenModal = (tokenData, userId) => {
+    setTokenModal({
+      type: "first_time",
+      userId,
+      ...tokenData,
+    });
+  };
+
+  const handleAgentTokenClick = async (userId) => {
     try {
-      const response = await api.post(`/api/users/${userId}/generate-agent-token`);
-      setTokenModal(response.data);
+      const statusResponse = await api.get(
+        `/api/users/${userId}/agent-token-status`
+      );
+      if (!statusResponse.data.has_token) {
+        const tokenResponse = await api.post(
+          `/api/users/${userId}/generate-agent-token`
+        );
+        showFirstTimeTokenModal(tokenResponse.data, userId);
+        return;
+      }
+
+      setTokenModal({
+        type: "existing",
+        userId,
+        ...statusResponse.data,
+      });
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Could not generate token");
+      toast.error(error.response?.data?.detail || "Could not load token status");
     }
+  };
+
+  const handleRegenerateToken = async () => {
+    if (!tokenModal?.userId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure? The existing agent will stop working until config.json is updated."
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await api.post(
+        `/api/users/${tokenModal.userId}/generate-agent-token`
+      );
+      showFirstTimeTokenModal(response.data, tokenModal.userId);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not regenerate token");
+    }
+  };
+
+  const copyTokenValue = (value, field) => {
+    navigator.clipboard.writeText(value);
+    setCopiedTokenField(field);
+    setTimeout(() => setCopiedTokenField(""), 2000);
   };
 
   const handleDeactivate = async (userId) => {
@@ -1351,6 +1402,16 @@ function StaffManagementPanel() {
     } finally {
       setDownloadingSalarySlip(false);
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "Unknown";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   if (view === "create") {
@@ -1528,7 +1589,7 @@ function StaffManagementPanel() {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => handleGenerateToken(user.id)}
+                        onClick={() => handleAgentTokenClick(user.id)}
                         className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200"
                       >
                         Agent Token
@@ -1559,24 +1620,105 @@ function StaffManagementPanel() {
       {tokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900">Agent Token</h3>
-            <p className="mt-3 text-sm text-gray-600">
-              Send this token to IT to install the agent on this staff member's
-              computer
-            </p>
-            <div className="mt-5 rounded-lg bg-gray-100 p-4 font-mono text-sm text-gray-900">
-              {tokenModal.machine_token}
-            </div>
-            <div className="mt-4 text-sm text-gray-600">
-              Staff ID: <span className="font-mono">{tokenModal.staff_id}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setTokenModal(null)}
-              className="mt-6 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-            >
-              Close
-            </button>
+            {tokenModal.type === "first_time" ? (
+              <>
+                <div className="rounded-lg bg-yellow-100 px-4 py-3 text-sm font-semibold text-yellow-900">
+                  ⚠️ Copy this token now — it cannot be viewed again in full
+                </div>
+                <h3 className="mt-5 text-xl font-bold text-gray-900">
+                  Agent Token
+                </h3>
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Machine Token:
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="min-w-0 flex-1 rounded-lg bg-gray-100 p-4 font-mono text-sm text-gray-900">
+                        {tokenModal.machine_token}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyTokenValue(tokenModal.machine_token, "token")
+                        }
+                        className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                      >
+                        {copiedTokenField === "token" ? "Copied ✓" : "Copy Token"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Staff ID:
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="min-w-0 flex-1 rounded-lg bg-gray-100 p-4 font-mono text-sm text-gray-900">
+                        {tokenModal.staff_id}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyTokenValue(tokenModal.staff_id, "staff_id")
+                        }
+                        className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                      >
+                        {copiedTokenField === "staff_id"
+                          ? "Copied ✓"
+                          : "Copy Staff ID"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-5 text-sm text-gray-600">
+                  Add both values to config.json on the staff member's PC
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setTokenModal(null)}
+                  className="mt-6 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                >
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xl font-bold text-gray-900">
+                  Existing Token
+                </h3>
+                <p className="mt-3 text-sm text-gray-700">
+                  An agent token already exists for this staff member
+                </p>
+                <div className="mt-5 rounded-lg bg-gray-100 p-4 text-sm text-gray-800">
+                  Active token:{" "}
+                  <span className="font-mono">{tokenModal.token_preview}</span>
+                </div>
+                <div className="mt-3 text-sm text-gray-600">
+                  Generated on: {formatDate(tokenModal.created_at)}
+                </div>
+                <div className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-800">
+                  This will invalidate the existing agent installation. IT will
+                  need to update config.json on the staff member's PC.
+                </div>
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleRegenerateToken}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                  >
+                    Regenerate Token
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTokenModal(null)}
+                    className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

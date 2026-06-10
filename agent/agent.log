@@ -1681,3 +1681,1251 @@ Traceback (most recent call last):
   File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
     raise ConnectionError(e, request=request)
 requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:25:45,300 ERROR Alert polling failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 92, in check_alerts
+    response = requests.get(
+        f"{server_url}/api/alerts/pending",
+    ...<4 lines>...
+        timeout=10,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 87, in get
+    return request("get", url, params=params, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:25:45,415 INFO idle_seconds=2, returning=active
+2026-06-09 14:25:45,415 INFO Sending heartbeat with status: active
+2026-06-09 14:25:47,445 ERROR Heartbeat failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/agent/heartbeat (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/agent/heartbeat (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 77, in send_heartbeat
+    requests.post(
+    ~~~~~~~~~~~~~^
+        f"{server_url}/api/agent/heartbeat",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+        timeout=10,
+        ^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 134, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/agent/heartbeat (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:26:04,483 ERROR Alert polling failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 92, in check_alerts
+    response = requests.get(
+        f"{server_url}/api/alerts/pending",
+    ...<4 lines>...
+        timeout=10,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 87, in get
+    return request("get", url, params=params, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:26:21,513 ERROR Alert polling failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 92, in check_alerts
+    response = requests.get(
+        f"{server_url}/api/alerts/pending",
+    ...<4 lines>...
+        timeout=10,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 87, in get
+    return request("get", url, params=params, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:26:55,515 ERROR Alert polling failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 92, in check_alerts
+    response = requests.get(
+        f"{server_url}/api/alerts/pending",
+    ...<4 lines>...
+        timeout=10,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 87, in get
+    return request("get", url, params=params, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:26:55,526 INFO idle_seconds=0, returning=active
+2026-06-09 14:26:55,526 INFO Sending heartbeat with status: active
+2026-06-09 14:26:57,570 ERROR Heartbeat failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/agent/heartbeat (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/agent/heartbeat (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 77, in send_heartbeat
+    requests.post(
+    ~~~~~~~~~~~~~^
+        f"{server_url}/api/agent/heartbeat",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+        timeout=10,
+        ^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 134, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/agent/heartbeat (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:27:14,598 ERROR Alert polling failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 92, in check_alerts
+    response = requests.get(
+        f"{server_url}/api/alerts/pending",
+    ...<4 lines>...
+        timeout=10,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 87, in get
+    return request("get", url, params=params, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:27:31,634 ERROR Alert polling failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 92, in check_alerts
+    response = requests.get(
+        f"{server_url}/api/alerts/pending",
+    ...<4 lines>...
+        timeout=10,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 87, in get
+    return request("get", url, params=params, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:27:48,662 ERROR Alert polling failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 92, in check_alerts
+    response = requests.get(
+        f"{server_url}/api/alerts/pending",
+    ...<4 lines>...
+        timeout=10,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 87, in get
+    return request("get", url, params=params, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/alerts/pending?staff_id=0767c1aa-b574-4ad3-9cdb-2df526d12f07&machine_token=test-machine-token-001 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-06-09 14:28:03,786 INFO idle_seconds=1, returning=active
+2026-06-09 14:28:03,786 INFO Sending heartbeat with status: active
+2026-06-09 14:29:03,882 INFO idle_seconds=0, returning=active
+2026-06-09 14:29:03,882 INFO Sending heartbeat with status: active
+2026-06-09 14:30:03,958 INFO idle_seconds=2, returning=active
+2026-06-09 14:30:03,958 INFO Sending heartbeat with status: active
+2026-06-09 14:31:04,006 INFO idle_seconds=62, returning=active
+2026-06-09 14:31:04,007 INFO Sending heartbeat with status: active
+2026-06-09 14:32:04,092 INFO idle_seconds=122, returning=active
+2026-06-09 14:32:04,093 INFO Sending heartbeat with status: active
+2026-06-09 14:33:04,188 INFO idle_seconds=182, returning=active
+2026-06-09 14:33:04,188 INFO Sending heartbeat with status: active
+2026-06-09 14:34:04,258 INFO idle_seconds=242, returning=active
+2026-06-09 14:34:04,258 INFO Sending heartbeat with status: active
+2026-06-09 14:35:04,345 INFO idle_seconds=303, returning=active
+2026-06-09 14:35:04,345 INFO Sending heartbeat with status: active
+2026-06-09 14:36:04,402 INFO idle_seconds=363, returning=active
+2026-06-09 14:36:04,403 INFO Sending heartbeat with status: active
+2026-06-09 14:37:04,458 INFO idle_seconds=423, returning=active
+2026-06-09 14:37:04,459 INFO Sending heartbeat with status: active
+2026-06-09 14:38:04,544 INFO idle_seconds=483, returning=active
+2026-06-09 14:38:04,545 INFO Sending heartbeat with status: active
+2026-06-09 14:39:04,638 INFO idle_seconds=6, returning=active
+2026-06-09 14:39:04,638 INFO Sending heartbeat with status: active
+2026-06-09 14:40:04,713 INFO idle_seconds=1, returning=active
+2026-06-09 14:40:04,713 INFO Sending heartbeat with status: active
+2026-06-09 14:41:04,766 INFO idle_seconds=0, returning=active
+2026-06-09 14:41:04,766 INFO Sending heartbeat with status: active
+2026-06-09 14:42:04,833 INFO idle_seconds=0, returning=active
+2026-06-09 14:42:04,833 INFO Sending heartbeat with status: active
+2026-06-09 14:43:04,900 INFO idle_seconds=0, returning=active
+2026-06-09 14:43:04,900 INFO Sending heartbeat with status: active
+2026-06-09 14:44:04,987 INFO idle_seconds=0, returning=active
+2026-06-09 14:44:04,987 INFO Sending heartbeat with status: active
+2026-06-09 14:45:05,051 INFO idle_seconds=2, returning=active
+2026-06-09 14:45:05,051 INFO Sending heartbeat with status: active
+2026-06-09 14:46:05,137 INFO idle_seconds=0, returning=active
+2026-06-09 14:46:05,137 INFO Sending heartbeat with status: active
+2026-06-09 14:47:05,224 INFO idle_seconds=0, returning=active
+2026-06-09 14:47:05,224 INFO Sending heartbeat with status: active
+2026-06-09 14:48:05,322 INFO idle_seconds=2, returning=active
+2026-06-09 14:48:05,322 INFO Sending heartbeat with status: active
+2026-06-09 14:49:05,470 INFO idle_seconds=1, returning=active
+2026-06-09 14:49:05,470 INFO Sending heartbeat with status: active
+2026-06-09 14:50:05,601 INFO idle_seconds=2, returning=active
+2026-06-09 14:50:05,602 INFO Sending heartbeat with status: active
+2026-06-09 14:51:05,651 INFO idle_seconds=0, returning=active
+2026-06-09 14:51:05,651 INFO Sending heartbeat with status: active
+2026-06-09 14:52:05,726 INFO idle_seconds=0, returning=active
+2026-06-09 14:52:05,726 INFO Sending heartbeat with status: active
+2026-06-09 14:53:05,864 INFO idle_seconds=26, returning=active
+2026-06-09 14:53:05,865 INFO Sending heartbeat with status: active
+2026-06-09 14:54:06,176 INFO idle_seconds=86, returning=active
+2026-06-09 14:54:06,176 INFO Sending heartbeat with status: active
+2026-06-09 14:55:06,302 INFO idle_seconds=146, returning=active
+2026-06-09 14:55:06,302 INFO Sending heartbeat with status: active
+2026-06-09 14:56:06,376 INFO idle_seconds=0, returning=active
+2026-06-09 14:56:06,376 INFO Sending heartbeat with status: active
+2026-06-09 14:57:06,452 INFO idle_seconds=1, returning=active
+2026-06-09 14:57:06,452 INFO Sending heartbeat with status: active
+2026-06-09 14:58:06,507 INFO idle_seconds=0, returning=active
+2026-06-09 14:58:06,507 INFO Sending heartbeat with status: active
+2026-06-09 14:59:06,582 INFO idle_seconds=56, returning=active
+2026-06-09 14:59:06,582 INFO Sending heartbeat with status: active
+2026-06-09 15:00:06,661 INFO idle_seconds=116, returning=active
+2026-06-09 15:00:06,661 INFO Sending heartbeat with status: active
+2026-06-09 15:01:06,713 INFO idle_seconds=0, returning=active
+2026-06-09 15:01:06,713 INFO Sending heartbeat with status: active
+2026-06-09 15:02:06,772 INFO idle_seconds=26, returning=active
+2026-06-09 15:02:06,772 INFO Sending heartbeat with status: active
+2026-06-09 15:03:06,876 INFO idle_seconds=1, returning=active
+2026-06-09 15:03:06,876 INFO Sending heartbeat with status: active
+2026-06-09 15:04:06,987 INFO idle_seconds=47, returning=active
+2026-06-09 15:04:06,987 INFO Sending heartbeat with status: active
+2026-06-09 15:05:07,105 INFO idle_seconds=107, returning=active
+2026-06-09 15:05:07,106 INFO Sending heartbeat with status: active
+2026-06-09 15:06:07,206 INFO idle_seconds=167, returning=active
+2026-06-09 15:06:07,206 INFO Sending heartbeat with status: active
+2026-06-09 15:07:07,300 INFO idle_seconds=3, returning=active
+2026-06-09 15:07:07,300 INFO Sending heartbeat with status: active
+2026-06-09 15:08:07,430 INFO idle_seconds=45, returning=active
+2026-06-09 15:08:07,430 INFO Sending heartbeat with status: active
+2026-06-09 15:09:07,524 INFO idle_seconds=52, returning=active
+2026-06-09 15:09:07,524 INFO Sending heartbeat with status: active
+2026-06-09 15:10:07,608 INFO idle_seconds=112, returning=active
+2026-06-09 15:10:07,608 INFO Sending heartbeat with status: active
+2026-06-09 15:11:07,696 INFO idle_seconds=172, returning=active
+2026-06-09 15:11:07,696 INFO Sending heartbeat with status: active
+2026-06-09 15:12:07,822 INFO idle_seconds=233, returning=active
+2026-06-09 15:12:07,822 INFO Sending heartbeat with status: active
+2026-06-09 15:13:07,892 INFO idle_seconds=1, returning=active
+2026-06-09 15:13:07,892 INFO Sending heartbeat with status: active
+2026-06-09 15:14:08,038 INFO idle_seconds=61, returning=active
+2026-06-09 15:14:08,038 INFO Sending heartbeat with status: active
+2026-06-09 15:15:08,105 INFO idle_seconds=121, returning=active
+2026-06-09 15:15:08,105 INFO Sending heartbeat with status: active
+2026-06-09 15:16:08,239 INFO idle_seconds=181, returning=active
+2026-06-09 15:16:08,239 INFO Sending heartbeat with status: active
+2026-06-09 15:17:08,371 INFO idle_seconds=242, returning=active
+2026-06-09 15:17:08,371 INFO Sending heartbeat with status: active
+2026-06-09 15:18:08,493 INFO idle_seconds=302, returning=active
+2026-06-09 15:18:08,493 INFO Sending heartbeat with status: active
+2026-06-09 15:19:08,594 INFO idle_seconds=362, returning=active
+2026-06-09 15:19:08,594 INFO Sending heartbeat with status: active
+2026-06-09 15:20:08,670 INFO idle_seconds=422, returning=active
+2026-06-09 15:20:08,670 INFO Sending heartbeat with status: active
+2026-06-09 15:21:08,807 INFO idle_seconds=482, returning=active
+2026-06-09 15:21:08,807 INFO Sending heartbeat with status: active
+2026-06-09 15:22:08,941 INFO idle_seconds=542, returning=active
+2026-06-09 15:22:08,941 INFO Sending heartbeat with status: active
+2026-06-09 15:23:09,038 INFO idle_seconds=13, returning=active
+2026-06-09 15:23:09,039 INFO Sending heartbeat with status: active
+2026-06-09 15:24:09,139 INFO idle_seconds=73, returning=active
+2026-06-09 15:24:09,139 INFO Sending heartbeat with status: active
+2026-06-09 15:25:09,253 INFO idle_seconds=0, returning=active
+2026-06-09 15:25:09,253 INFO Sending heartbeat with status: active
+2026-06-09 15:26:09,327 INFO idle_seconds=0, returning=active
+2026-06-09 15:26:09,327 INFO Sending heartbeat with status: active
+2026-06-09 15:27:09,432 INFO idle_seconds=1, returning=active
+2026-06-09 15:27:09,432 INFO Sending heartbeat with status: active
+2026-06-09 15:28:09,530 INFO idle_seconds=0, returning=active
+2026-06-09 15:28:09,531 INFO Sending heartbeat with status: active
+2026-06-09 15:29:09,606 INFO idle_seconds=19, returning=active
+2026-06-09 15:29:09,606 INFO Sending heartbeat with status: active
+2026-06-09 15:30:09,680 INFO idle_seconds=0, returning=active
+2026-06-09 15:30:09,680 INFO Sending heartbeat with status: active
+2026-06-09 15:31:09,784 INFO idle_seconds=0, returning=active
+2026-06-09 15:31:09,784 INFO Sending heartbeat with status: active
+2026-06-09 15:32:09,923 INFO idle_seconds=1, returning=active
+2026-06-09 15:32:09,923 INFO Sending heartbeat with status: active
+2026-06-09 15:33:10,040 INFO idle_seconds=0, returning=active
+2026-06-09 15:33:10,041 INFO Sending heartbeat with status: active
+2026-06-09 15:34:10,133 INFO idle_seconds=0, returning=active
+2026-06-09 15:34:10,133 INFO Sending heartbeat with status: active
+2026-06-09 15:35:10,238 INFO idle_seconds=7, returning=active
+2026-06-09 15:35:10,238 INFO Sending heartbeat with status: active
+2026-06-09 15:36:10,381 INFO idle_seconds=0, returning=active
+2026-06-09 15:36:10,381 INFO Sending heartbeat with status: active
+2026-06-09 15:37:10,483 INFO idle_seconds=3, returning=active
+2026-06-09 15:37:10,483 INFO Sending heartbeat with status: active
+2026-06-09 15:38:10,585 INFO idle_seconds=63, returning=active
+2026-06-09 15:38:10,585 INFO Sending heartbeat with status: active
+2026-06-09 15:39:10,657 INFO idle_seconds=123, returning=active
+2026-06-09 15:39:10,657 INFO Sending heartbeat with status: active
+2026-06-09 15:40:10,740 INFO idle_seconds=21, returning=active
+2026-06-09 15:40:10,741 INFO Sending heartbeat with status: active
+2026-06-09 15:41:10,824 INFO idle_seconds=31, returning=active
+2026-06-09 15:41:10,824 INFO Sending heartbeat with status: active
+2026-06-09 15:42:10,896 INFO idle_seconds=2, returning=active
+2026-06-09 15:42:10,896 INFO Sending heartbeat with status: active
+2026-06-09 15:43:10,990 INFO idle_seconds=1, returning=active
+2026-06-09 15:43:10,990 INFO Sending heartbeat with status: active
+2026-06-09 15:44:11,087 INFO idle_seconds=24, returning=active
+2026-06-09 15:44:11,087 INFO Sending heartbeat with status: active
+2026-06-09 15:45:11,177 INFO idle_seconds=3, returning=active
+2026-06-09 15:45:11,178 INFO Sending heartbeat with status: active
+2026-06-09 15:46:11,259 INFO idle_seconds=0, returning=active
+2026-06-09 15:46:11,259 INFO Sending heartbeat with status: active
+2026-06-09 15:47:11,321 INFO idle_seconds=0, returning=active
+2026-06-09 15:47:11,321 INFO Sending heartbeat with status: active
+2026-06-09 15:48:11,405 INFO idle_seconds=0, returning=active
+2026-06-09 15:48:11,405 INFO Sending heartbeat with status: active
+2026-06-09 15:49:11,482 INFO idle_seconds=1, returning=active
+2026-06-09 15:49:11,482 INFO Sending heartbeat with status: active
+2026-06-09 15:50:11,607 INFO idle_seconds=0, returning=active
+2026-06-09 15:50:11,607 INFO Sending heartbeat with status: active
+2026-06-09 15:51:11,680 INFO idle_seconds=7, returning=active
+2026-06-09 15:51:11,680 INFO Sending heartbeat with status: active
+2026-06-09 15:52:11,774 INFO idle_seconds=31, returning=active
+2026-06-09 15:52:11,775 INFO Sending heartbeat with status: active
+2026-06-09 15:53:11,885 INFO idle_seconds=44, returning=active
+2026-06-09 15:53:11,885 INFO Sending heartbeat with status: active
+2026-06-09 15:54:12,006 INFO idle_seconds=2, returning=active
+2026-06-09 15:54:12,007 INFO Sending heartbeat with status: active
+2026-06-09 15:55:12,120 INFO idle_seconds=7, returning=active
+2026-06-09 15:55:12,120 INFO Sending heartbeat with status: active
+2026-06-09 15:56:12,210 INFO idle_seconds=4, returning=active
+2026-06-09 15:56:12,211 INFO Sending heartbeat with status: active
+2026-06-09 15:57:12,321 INFO idle_seconds=1, returning=active
+2026-06-09 15:57:12,321 INFO Sending heartbeat with status: active
+2026-06-09 15:58:12,456 INFO idle_seconds=0, returning=active
+2026-06-09 15:58:12,457 INFO Sending heartbeat with status: active
+2026-06-09 15:59:12,555 INFO idle_seconds=0, returning=active
+2026-06-09 15:59:12,555 INFO Sending heartbeat with status: active
+2026-06-09 16:00:12,623 INFO idle_seconds=4, returning=active
+2026-06-09 16:00:12,624 INFO Sending heartbeat with status: active
+2026-06-09 16:01:12,695 INFO idle_seconds=0, returning=active
+2026-06-09 16:01:12,695 INFO Sending heartbeat with status: active
+2026-06-09 16:02:12,760 INFO idle_seconds=0, returning=active
+2026-06-09 16:02:12,760 INFO Sending heartbeat with status: active
+2026-06-09 16:03:12,870 INFO idle_seconds=0, returning=active
+2026-06-09 16:03:12,870 INFO Sending heartbeat with status: active
+2026-06-09 16:04:13,009 INFO idle_seconds=9, returning=active
+2026-06-09 16:04:13,009 INFO Sending heartbeat with status: active
+2026-06-09 16:05:13,099 INFO idle_seconds=0, returning=active
+2026-06-09 16:05:13,099 INFO Sending heartbeat with status: active
+2026-06-09 16:06:13,196 INFO idle_seconds=0, returning=active
+2026-06-09 16:06:13,196 INFO Sending heartbeat with status: active
+2026-06-09 16:07:13,294 INFO idle_seconds=0, returning=active
+2026-06-09 16:07:13,294 INFO Sending heartbeat with status: active
+2026-06-09 16:08:13,431 INFO idle_seconds=2, returning=active
+2026-06-09 16:08:13,431 INFO Sending heartbeat with status: active
+2026-06-09 16:09:13,521 INFO idle_seconds=29, returning=active
+2026-06-09 16:09:13,521 INFO Sending heartbeat with status: active
+2026-06-09 16:10:13,607 INFO idle_seconds=56, returning=active
+2026-06-09 16:10:13,607 INFO Sending heartbeat with status: active
+2026-06-09 16:11:13,727 INFO idle_seconds=116, returning=active
+2026-06-09 16:11:13,727 INFO Sending heartbeat with status: active
+2026-06-09 16:12:13,833 INFO idle_seconds=0, returning=active
+2026-06-09 16:12:13,833 INFO Sending heartbeat with status: active
+2026-06-09 16:13:13,947 INFO idle_seconds=1, returning=active
+2026-06-09 16:13:13,948 INFO Sending heartbeat with status: active
+2026-06-09 16:14:14,023 INFO idle_seconds=0, returning=active
+2026-06-09 16:14:14,023 INFO Sending heartbeat with status: active
+2026-06-09 16:15:14,111 INFO idle_seconds=12, returning=active
+2026-06-09 16:15:14,111 INFO Sending heartbeat with status: active
+2026-06-09 16:16:14,237 INFO idle_seconds=72, returning=active
+2026-06-09 16:16:14,238 INFO Sending heartbeat with status: active
+2026-06-09 16:17:14,368 INFO idle_seconds=132, returning=active
+2026-06-09 16:17:14,369 INFO Sending heartbeat with status: active
+2026-06-09 16:18:14,463 INFO idle_seconds=193, returning=active
+2026-06-09 16:18:14,463 INFO Sending heartbeat with status: active
+2026-06-09 16:19:14,586 INFO idle_seconds=253, returning=active
+2026-06-09 16:19:14,586 INFO Sending heartbeat with status: active
+2026-06-09 16:20:14,674 INFO idle_seconds=313, returning=active
+2026-06-09 16:20:14,674 INFO Sending heartbeat with status: active
+2026-06-09 16:21:14,754 INFO idle_seconds=373, returning=active
+2026-06-09 16:21:14,754 INFO Sending heartbeat with status: active
+2026-06-09 16:22:14,853 INFO idle_seconds=433, returning=active
+2026-06-09 16:22:14,853 INFO Sending heartbeat with status: active
+2026-06-09 16:23:14,973 INFO idle_seconds=493, returning=active
+2026-06-09 16:23:14,973 INFO Sending heartbeat with status: active
+2026-06-09 16:24:15,119 INFO idle_seconds=553, returning=active
+2026-06-09 16:24:15,119 INFO Sending heartbeat with status: active
+2026-06-09 19:25:56,208 INFO idle_seconds=11454, returning=idle
+2026-06-09 19:25:56,208 INFO Sending heartbeat with status: idle
+2026-06-10 10:01:39,757 INFO idle_seconds=63998, returning=idle
+2026-06-10 10:01:39,757 INFO Sending heartbeat with status: idle
+2026-06-10 10:02:39,879 INFO idle_seconds=18, returning=active
+2026-06-10 10:02:39,879 INFO Sending heartbeat with status: active
+2026-06-10 10:03:39,951 INFO idle_seconds=3, returning=active
+2026-06-10 10:03:39,951 INFO Sending heartbeat with status: active
+2026-06-10 10:04:40,034 INFO idle_seconds=63, returning=active
+2026-06-10 10:04:40,035 INFO Sending heartbeat with status: active
+2026-06-10 10:05:40,136 INFO idle_seconds=5, returning=active
+2026-06-10 10:05:40,136 INFO Sending heartbeat with status: active
+2026-06-10 10:06:40,233 INFO idle_seconds=65, returning=active
+2026-06-10 10:06:40,234 INFO Sending heartbeat with status: active
+2026-06-10 10:07:40,319 INFO idle_seconds=4, returning=active
+2026-06-10 10:07:40,320 INFO Sending heartbeat with status: active
+2026-06-10 10:08:40,407 INFO idle_seconds=27, returning=active
+2026-06-10 10:08:40,407 INFO Sending heartbeat with status: active
+2026-06-10 10:09:40,469 INFO idle_seconds=87, returning=active
+2026-06-10 10:09:40,469 INFO Sending heartbeat with status: active
+2026-06-10 10:10:40,536 INFO idle_seconds=147, returning=active
+2026-06-10 10:10:40,536 INFO Sending heartbeat with status: active
+2026-06-10 10:11:40,599 INFO idle_seconds=33, returning=active
+2026-06-10 10:11:40,600 INFO Sending heartbeat with status: active
+2026-06-10 10:12:40,663 INFO idle_seconds=93, returning=active
+2026-06-10 10:12:40,663 INFO Sending heartbeat with status: active
+2026-06-10 10:13:40,720 INFO idle_seconds=153, returning=active
+2026-06-10 10:13:40,720 INFO Sending heartbeat with status: active
+2026-06-10 10:14:40,770 INFO idle_seconds=213, returning=active
+2026-06-10 10:14:40,770 INFO Sending heartbeat with status: active
+2026-06-10 10:15:40,827 INFO idle_seconds=8, returning=active
+2026-06-10 10:15:40,827 INFO Sending heartbeat with status: active
+2026-06-10 10:16:40,909 INFO idle_seconds=40, returning=active
+2026-06-10 10:16:40,910 INFO Sending heartbeat with status: active
+2026-06-10 10:17:40,999 INFO idle_seconds=100, returning=active
+2026-06-10 10:17:41,000 INFO Sending heartbeat with status: active
+2026-06-10 10:18:41,117 INFO idle_seconds=160, returning=active
+2026-06-10 10:18:41,117 INFO Sending heartbeat with status: active
+2026-06-10 10:19:41,877 INFO idle_seconds=221, returning=active
+2026-06-10 10:19:41,877 INFO Sending heartbeat with status: active
+2026-06-10 10:20:41,974 INFO idle_seconds=281, returning=active
+2026-06-10 10:20:41,974 INFO Sending heartbeat with status: active
+2026-06-10 10:21:42,070 INFO idle_seconds=341, returning=active
+2026-06-10 10:21:42,070 INFO Sending heartbeat with status: active
+2026-06-10 10:22:42,175 INFO idle_seconds=16, returning=active
+2026-06-10 10:22:42,176 INFO Sending heartbeat with status: active
+2026-06-10 10:23:42,255 INFO idle_seconds=19, returning=active
+2026-06-10 10:23:42,255 INFO Sending heartbeat with status: active
+2026-06-10 10:24:42,306 INFO idle_seconds=79, returning=active
+2026-06-10 10:24:42,306 INFO Sending heartbeat with status: active
+2026-06-10 10:25:42,393 INFO idle_seconds=1, returning=active
+2026-06-10 10:25:42,393 INFO Sending heartbeat with status: active
+2026-06-10 10:26:42,487 INFO idle_seconds=46, returning=active
+2026-06-10 10:26:42,487 INFO Sending heartbeat with status: active
+2026-06-10 10:27:42,570 INFO idle_seconds=107, returning=active
+2026-06-10 10:27:42,571 INFO Sending heartbeat with status: active
+2026-06-10 10:28:42,646 INFO idle_seconds=6, returning=active
+2026-06-10 10:28:42,646 INFO Sending heartbeat with status: active
+2026-06-10 10:29:42,717 INFO idle_seconds=66, returning=active
+2026-06-10 10:29:42,717 INFO Sending heartbeat with status: active
+2026-06-10 10:30:42,779 INFO idle_seconds=17, returning=active
+2026-06-10 10:30:42,779 INFO Sending heartbeat with status: active
+2026-06-10 10:31:42,852 INFO idle_seconds=77, returning=active
+2026-06-10 10:31:42,853 INFO Sending heartbeat with status: active
+2026-06-10 10:32:43,035 INFO idle_seconds=0, returning=active
+2026-06-10 10:32:43,037 INFO Sending heartbeat with status: active
+2026-06-10 10:33:43,171 INFO idle_seconds=0, returning=active
+2026-06-10 10:33:43,171 INFO Sending heartbeat with status: active
+2026-06-10 10:34:43,317 INFO idle_seconds=0, returning=active
+2026-06-10 10:34:43,317 INFO Sending heartbeat with status: active
+2026-06-10 10:35:43,408 INFO idle_seconds=0, returning=active
+2026-06-10 10:35:43,408 INFO Sending heartbeat with status: active
+2026-06-10 10:36:43,500 INFO idle_seconds=34, returning=active
+2026-06-10 10:36:43,501 INFO Sending heartbeat with status: active
+2026-06-10 10:37:43,559 INFO idle_seconds=11, returning=active
+2026-06-10 10:37:43,559 INFO Sending heartbeat with status: active
+2026-06-10 10:38:43,755 INFO idle_seconds=13, returning=active
+2026-06-10 10:38:43,755 INFO Sending heartbeat with status: active
+2026-06-10 10:39:43,840 INFO idle_seconds=11, returning=active
+2026-06-10 10:39:43,841 INFO Sending heartbeat with status: active
+2026-06-10 10:40:43,906 INFO idle_seconds=71, returning=active
+2026-06-10 10:40:43,906 INFO Sending heartbeat with status: active
+2026-06-10 10:41:43,965 INFO idle_seconds=0, returning=active
+2026-06-10 10:41:43,965 INFO Sending heartbeat with status: active
+2026-06-10 10:42:44,090 INFO idle_seconds=55, returning=active
+2026-06-10 10:42:44,091 INFO Sending heartbeat with status: active
+2026-06-10 10:43:44,149 INFO idle_seconds=116, returning=active
+2026-06-10 10:43:44,150 INFO Sending heartbeat with status: active
+2026-06-10 10:44:44,222 INFO idle_seconds=6, returning=active
+2026-06-10 10:44:44,222 INFO Sending heartbeat with status: active
+2026-06-10 10:45:44,336 INFO idle_seconds=0, returning=active
+2026-06-10 10:45:44,336 INFO Sending heartbeat with status: active
+2026-06-10 10:46:44,455 INFO idle_seconds=2, returning=active
+2026-06-10 10:46:44,455 INFO Sending heartbeat with status: active
+2026-06-10 10:47:44,529 INFO idle_seconds=4, returning=active
+2026-06-10 10:47:44,529 INFO Sending heartbeat with status: active
+2026-06-10 10:48:44,605 INFO idle_seconds=3, returning=active
+2026-06-10 10:48:44,605 INFO Sending heartbeat with status: active
+2026-06-10 10:49:44,679 INFO idle_seconds=51, returning=active
+2026-06-10 10:49:44,680 INFO Sending heartbeat with status: active
+2026-06-10 10:50:44,756 INFO idle_seconds=112, returning=active
+2026-06-10 10:50:44,756 INFO Sending heartbeat with status: active
+2026-06-10 10:51:44,810 INFO idle_seconds=172, returning=active
+2026-06-10 10:51:44,811 INFO Sending heartbeat with status: active
+2026-06-10 10:52:44,888 INFO idle_seconds=232, returning=active
+2026-06-10 10:52:44,889 INFO Sending heartbeat with status: active
+2026-06-10 10:53:44,962 INFO idle_seconds=292, returning=active
+2026-06-10 10:53:44,962 INFO Sending heartbeat with status: active
+2026-06-10 10:54:45,054 INFO idle_seconds=352, returning=active
+2026-06-10 10:54:45,054 INFO Sending heartbeat with status: active
+2026-06-10 10:55:45,133 INFO idle_seconds=412, returning=active
+2026-06-10 10:55:45,133 INFO Sending heartbeat with status: active
+2026-06-10 10:56:45,201 INFO idle_seconds=472, returning=active
+2026-06-10 10:56:45,201 INFO Sending heartbeat with status: active
+2026-06-10 10:57:45,264 INFO idle_seconds=1, returning=active
+2026-06-10 10:57:45,264 INFO Sending heartbeat with status: active
+2026-06-10 10:58:45,364 INFO idle_seconds=0, returning=active
+2026-06-10 10:58:45,364 INFO Sending heartbeat with status: active
+2026-06-10 10:59:45,436 INFO idle_seconds=14, returning=active
+2026-06-10 10:59:45,436 INFO Sending heartbeat with status: active
+2026-06-10 11:00:45,572 INFO idle_seconds=75, returning=active
+2026-06-10 11:00:45,572 INFO Sending heartbeat with status: active
+2026-06-10 11:01:45,676 INFO idle_seconds=135, returning=active
+2026-06-10 11:01:45,676 INFO Sending heartbeat with status: active
+2026-06-10 11:02:45,755 INFO idle_seconds=195, returning=active
+2026-06-10 11:02:45,756 INFO Sending heartbeat with status: active
+2026-06-10 11:03:45,866 INFO idle_seconds=255, returning=active
+2026-06-10 11:03:45,867 INFO Sending heartbeat with status: active
+2026-06-10 11:04:45,966 INFO idle_seconds=315, returning=active
+2026-06-10 11:04:45,967 INFO Sending heartbeat with status: active
+2026-06-10 11:05:46,026 INFO idle_seconds=375, returning=active
+2026-06-10 11:05:46,026 INFO Sending heartbeat with status: active
+2026-06-10 11:06:46,086 INFO idle_seconds=435, returning=active
+2026-06-10 11:06:46,086 INFO Sending heartbeat with status: active
+2026-06-10 11:07:46,161 INFO idle_seconds=495, returning=active
+2026-06-10 11:07:46,161 INFO Sending heartbeat with status: active
+2026-06-10 11:08:46,246 INFO idle_seconds=555, returning=active
+2026-06-10 11:08:46,246 INFO Sending heartbeat with status: active
+2026-06-10 11:09:46,326 INFO idle_seconds=615, returning=idle
+2026-06-10 11:09:46,326 INFO Sending heartbeat with status: idle
+2026-06-10 11:10:46,464 INFO idle_seconds=2, returning=active
+2026-06-10 11:10:46,464 INFO Sending heartbeat with status: active
+2026-06-10 11:11:46,541 INFO idle_seconds=0, returning=active
+2026-06-10 11:11:46,541 INFO Sending heartbeat with status: active
+2026-06-10 11:12:46,631 INFO idle_seconds=0, returning=active
+2026-06-10 11:12:46,631 INFO Sending heartbeat with status: active
+2026-06-10 11:13:46,700 INFO idle_seconds=0, returning=active
+2026-06-10 11:13:46,700 INFO Sending heartbeat with status: active
+2026-06-10 11:14:46,772 INFO idle_seconds=0, returning=active
+2026-06-10 11:14:46,772 INFO Sending heartbeat with status: active
+2026-06-10 11:15:46,888 INFO idle_seconds=5, returning=active
+2026-06-10 11:15:46,889 INFO Sending heartbeat with status: active
+2026-06-10 11:16:46,970 INFO idle_seconds=0, returning=active
+2026-06-10 11:16:46,970 INFO Sending heartbeat with status: active
+2026-06-10 11:17:47,046 INFO idle_seconds=0, returning=active
+2026-06-10 11:17:47,046 INFO Sending heartbeat with status: active

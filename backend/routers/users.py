@@ -270,18 +270,45 @@ def generate_agent_token(
     for existing_token in existing_tokens:
         existing_token.is_active = False
 
-    token = secrets.token_hex(32)
+    new_token = secrets.token_hex(32)
     machine_token = MachineToken(
         company_id=user.company_id,
         user_id=user.id,
-        token=token,
+        token=new_token,
         is_active=True,
     )
     db.add(machine_token)
     db.commit()
 
     return {
-        "machine_token": token,
+        "machine_token": new_token,
         "staff_id": str(user.id),
-        "install_url": f"/agent/install?token={token}&staff_id={user.id}",
+        "token_preview": f"••••••••{new_token[-8:]}",
+        "message": "Save this token now — it will not be shown again in full",
+    }
+
+
+@router.get("/users/{user_id}/agent-token-status")
+def get_agent_token_status(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+    user = get_company_user(user_id, current_user, db)
+
+    machine_token = (
+        db.query(MachineToken)
+        .filter(MachineToken.user_id == user.id)
+        .order_by(MachineToken.created_at.desc())
+        .first()
+    )
+    if not machine_token:
+        return {"has_token": False}
+
+    return {
+        "has_token": True,
+        "token_preview": f"••••••••{machine_token.token[-8:]}",
+        "is_active": machine_token.is_active,
+        "created_at": machine_token.created_at,
     }
