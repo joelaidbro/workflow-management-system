@@ -916,14 +916,14 @@ function ChatPanel() {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
-  const currentUserId = user?.user_id;
+  const currentUserId = user?.user_id || user?.id;
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const websocketRef = useRef(null);
+  const wsRef = useRef(null);
   const selectedConversationRef = useRef(null);
 
   useEffect(() => {
@@ -947,21 +947,41 @@ function ChatPanel() {
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
+    console.log("token:", token);
+    console.log("currentUserId:", currentUserId);
+    console.log("Will initialize websocket?", !!token && !!currentUserId);
     if (!token || !currentUserId) {
       return;
     }
 
-    const websocket = new WebSocket(
-      `ws://127.0.0.1:8000/api/chat/ws/${currentUserId}`
-    );
-    websocketRef.current = websocket;
+    const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+    const wsUrl = apiUrl.replace("https://", "wss://").replace("http://", "ws://");
+    const ws = new WebSocket(`${wsUrl}/api/chat/ws/${currentUserId}`);
+    wsRef.current = ws;
 
-    websocket.onopen = () => {
-      websocket.send(JSON.stringify({ token }));
+    ws.onopen = () => {
+      console.log("WebSocket connected successfully");
+      ws.send(JSON.stringify({ token }));
+      console.log("Auth token sent");
     };
 
-    websocket.onmessage = (event) => {
+    ws.onerror = (error) => {
+      console.log("WebSocket error:", error);
+    };
+
+    ws.onclose = (event) => {
+      console.log(
+        "WebSocket closed. Code:",
+        event.code,
+        "Reason:",
+        event.reason
+      );
+      wsRef.current = null;
+    };
+
+    ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log("WebSocket message received:", data);
 
       if (data.type === "new_message") {
         const activeConversation = selectedConversationRef.current;
@@ -995,7 +1015,8 @@ function ChatPanel() {
     };
 
     return () => {
-      websocket.close();
+      ws.close();
+      wsRef.current = null;
     };
   }, [currentUserId]);
 
@@ -1021,8 +1042,17 @@ function ChatPanel() {
   };
 
   const handleSendMessage = () => {
+    console.log("Send attempted. Input:", messageText);
+    console.log("WebSocket state:", wsRef.current?.readyState);
+    console.log("Selected conversation:", selectedConversation);
+
     const content = messageText.trim();
-    if (!content || !selectedConversation || !websocketRef.current) {
+    if (!content || !selectedConversation) {
+      return;
+    }
+
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.log("WebSocket not connected. State:", wsRef.current?.readyState);
       return;
     }
 
@@ -1036,6 +1066,7 @@ function ChatPanel() {
     };
 
     setMessages((current) => [...current, optimisticMessage]);
+    console.log("Optimistic message added:", optimisticMessage);
     setConversations((current) =>
       current.map((conversation) =>
         conversation.user_id === selectedConversation.user_id
@@ -1047,12 +1078,13 @@ function ChatPanel() {
           : conversation
       )
     );
-    websocketRef.current.send(
+    wsRef.current.send(
       JSON.stringify({
         recipient_id: selectedConversation.user_id,
         content,
       })
     );
+    console.log("WebSocket send completed");
     setMessageText("");
   };
 

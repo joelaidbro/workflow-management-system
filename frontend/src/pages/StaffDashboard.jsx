@@ -70,7 +70,7 @@ function StaffDashboard() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const websocketRef = useRef(null);
+  const wsRef = useRef(null);
   const selectedConversationRef = useRef(null);
 
   useEffect(() => {
@@ -150,17 +150,34 @@ function StaffDashboard() {
       return;
     }
 
-    const websocket = new WebSocket(
-      `ws://127.0.0.1:8000/api/chat/ws/${currentUserId}`
-    );
-    websocketRef.current = websocket;
+    const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+    const wsUrl = apiUrl.replace("https://", "wss://").replace("http://", "ws://");
+    const ws = new WebSocket(`${wsUrl}/api/chat/ws/${currentUserId}`);
+    wsRef.current = ws;
 
-    websocket.onopen = () => {
-      websocket.send(JSON.stringify({ token }));
+    ws.onopen = () => {
+      console.log("WebSocket connected successfully");
+      ws.send(JSON.stringify({ token }));
+      console.log("Auth token sent");
     };
 
-    websocket.onmessage = (event) => {
+    ws.onerror = (error) => {
+      console.log("WebSocket error:", error);
+    };
+
+    ws.onclose = (event) => {
+      console.log(
+        "WebSocket closed. Code:",
+        event.code,
+        "Reason:",
+        event.reason
+      );
+      wsRef.current = null;
+    };
+
+    ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log("WebSocket message received:", data);
       if (data.type !== "new_message") {
         return;
       }
@@ -195,7 +212,8 @@ function StaffDashboard() {
     };
 
     return () => {
-      websocket.close();
+      ws.close();
+      wsRef.current = null;
     };
   }, [currentUserId]);
 
@@ -354,8 +372,17 @@ function StaffDashboard() {
   };
 
   const handleSendMessage = () => {
+    console.log("Send attempted. Input:", chatInput);
+    console.log("WebSocket state:", wsRef.current?.readyState);
+    console.log("Selected conversation:", selectedConversation);
+
     const content = chatInput.trim();
-    if (!content || !selectedConversation || !websocketRef.current) {
+    if (!content || !selectedConversation) {
+      return;
+    }
+
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.log("WebSocket not connected. State:", wsRef.current?.readyState);
       return;
     }
 
@@ -369,12 +396,14 @@ function StaffDashboard() {
     };
 
     setChatMessages((current) => [...current, optimisticMessage]);
-    websocketRef.current.send(
+    console.log("Optimistic message added:", optimisticMessage);
+    wsRef.current.send(
       JSON.stringify({
         recipient_id: selectedConversation.user_id,
         content,
       })
     );
+    console.log("WebSocket send completed");
     setChatInput("");
   };
 
