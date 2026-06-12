@@ -200,6 +200,34 @@ def list_users(
     return [format_user(user) for user in users]
 
 
+@router.get("/users/chat-members")
+def list_chat_members(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    users = (
+        db.query(User)
+        .filter(
+            User.company_id == current_user.company_id,
+            User.is_active.is_(True),
+            User.id != current_user.id,
+        )
+        .order_by(User.full_name.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": str(user.id),
+            "full_name": user.full_name,
+            "department": user.department,
+            "role": user.role,
+            "employee_id": user.employee_id,
+        }
+        for user in users
+    ]
+
+
 @router.patch("/users/{user_id}")
 def update_user(
     user_id: str,

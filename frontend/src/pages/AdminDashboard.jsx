@@ -53,7 +53,7 @@ function getBreakMinutes(startValue) {
   return Math.max(0, Math.floor((new Date() - new Date(startValue)) / 60000));
 }
 
-function TeamStatusPanel() {
+function TeamStatusPanel({ setActiveSection, setChatWithUser }) {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -236,7 +236,14 @@ function TeamStatusPanel() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => alert("Coming soon")}
+                        onClick={() => {
+                          setChatWithUser({
+                            user_id: staff.user_id,
+                            full_name: staff.full_name,
+                            department: staff.department,
+                          });
+                          setActiveSection("chat");
+                        }}
                         className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
                       >
                         Open Chat
@@ -911,7 +918,7 @@ function AlertsPanel() {
   );
 }
 
-function ChatPanel() {
+function ChatPanel({ chatWithUser }) {
   const user = useMemo(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -923,8 +930,12 @@ function ChatPanel() {
   const [messageText, setMessageText] = useState("");
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [showNewChatSelector, setShowNewChatSelector] = useState(false);
+  const [availableChatUsers, setAvailableChatUsers] = useState([]);
+  const [loadingChatUsers, setLoadingChatUsers] = useState(false);
   const wsRef = useRef(null);
   const selectedConversationRef = useRef(null);
+  const lastSentMessageRef = useRef("");
 
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
@@ -961,6 +972,8 @@ function ChatPanel() {
 
     ws.onopen = () => {
       console.log("WebSocket connected successfully");
+      console.log("OPEN READY STATE:", ws.readyState);
+      console.log("wsRef.current === ws ?", wsRef.current === ws);
       ws.send(JSON.stringify({ token }));
       console.log("Auth token sent");
     };
@@ -976,12 +989,41 @@ function ChatPanel() {
         "Reason:",
         event.reason
       );
+      console.log("CLOSED", event.code);
+      console.log("wsRef.current before null:", wsRef.current);
       wsRef.current = null;
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       console.log("WebSocket message received:", data);
+
+      if (data.type === "message_sent") {
+        const activeConversation = selectedConversationRef.current;
+        if (activeConversation) {
+          setConversations((current) => {
+            const exists = current.some(
+              (conversation) =>
+                conversation.user_id === activeConversation.user_id
+            );
+            if (exists) {
+              return current;
+            }
+
+            return [
+              {
+                user_id: activeConversation.user_id,
+                full_name: activeConversation.full_name,
+                department: activeConversation.department,
+                last_message: lastSentMessageRef.current,
+                last_message_at: data.created_at,
+                unread_count: 0,
+              },
+              ...current,
+            ];
+          });
+        }
+      }
 
       if (data.type === "new_message") {
         const activeConversation = selectedConversationRef.current;
@@ -1020,25 +1062,75 @@ function ChatPanel() {
     };
   }, [currentUserId]);
 
-  const handleSelectConversation = async (conversation) => {
-    setSelectedConversation(conversation);
+  const openConversation = async (conversation) => {
+    const existingConversation = conversations.find(
+      (item) => item.user_id === conversation.user_id
+    );
+    const conversationToOpen = existingConversation || {
+      user_id: conversation.user_id,
+      full_name: conversation.full_name,
+      department: conversation.department,
+      last_message: "",
+      last_message_at: null,
+      unread_count: 0,
+      is_new: true,
+    };
+
+    setSelectedConversation(conversationToOpen);
     setLoadingMessages(true);
     setConversations((current) =>
       current.map((item) =>
-        item.user_id === conversation.user_id
+        item.user_id === conversationToOpen.user_id
           ? { ...item, unread_count: 0 }
           : item
       )
     );
 
     try {
-      const response = await api.get(`/api/chat/history/${conversation.user_id}`);
+      const response = await api.get(
+        `/api/chat/history/${conversationToOpen.user_id}`
+      );
       setMessages(response.data);
     } catch (err) {
       toast.error("Could not load messages");
     } finally {
       setLoadingMessages(false);
     }
+  };
+
+  useEffect(() => {
+    if (chatWithUser) {
+      openConversation(chatWithUser);
+    }
+  }, [chatWithUser]);
+
+  const fetchAvailableChatUsers = async () => {
+    setShowNewChatSelector((current) => !current);
+    if (availableChatUsers.length > 0) {
+      return;
+    }
+
+    setLoadingChatUsers(true);
+    try {
+      const response = await api.get("/api/users/list");
+      setAvailableChatUsers(
+        response.data
+          .filter((item) => item.role === "staff")
+          .map((item) => ({
+            user_id: item.id,
+            full_name: item.full_name,
+            department: item.department,
+          }))
+      );
+    } catch (err) {
+      toast.error("Could not load staff");
+    } finally {
+      setLoadingChatUsers(false);
+    }
+  };
+
+  const handleSelectConversation = async (conversation) => {
+    openConversation(conversation);
   };
 
   const handleSendMessage = () => {
@@ -1067,6 +1159,7 @@ function ChatPanel() {
 
     setMessages((current) => [...current, optimisticMessage]);
     console.log("Optimistic message added:", optimisticMessage);
+    lastSentMessageRef.current = content;
     setConversations((current) =>
       current.map((conversation) =>
         conversation.user_id === selectedConversation.user_id
@@ -1107,7 +1200,45 @@ function ChatPanel() {
     <div className="flex h-[calc(100vh-9rem)] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <aside className="w-1/3 border-r border-gray-200">
         <div className="border-b border-gray-200 p-5">
-          <h3 className="text-xl font-bold text-gray-900">Messages</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-xl font-bold text-gray-900">Messages</h3>
+            <button
+              type="button"
+              onClick={fetchAvailableChatUsers}
+              className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+            >
+              New Chat
+            </button>
+          </div>
+          {showNewChatSelector && (
+            <div className="mt-4">
+              <select
+                defaultValue=""
+                onChange={(event) => {
+                  const selectedUser = availableChatUsers.find(
+                    (item) => item.user_id === event.target.value
+                  );
+                  if (selectedUser) {
+                    openConversation(selectedUser);
+                    setShowNewChatSelector(false);
+                    event.target.value = "";
+                  }
+                }}
+                disabled={loadingChatUsers}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+              >
+                <option value="">
+                  {loadingChatUsers ? "Loading staff..." : "Select staff member"}
+                </option>
+                {availableChatUsers.map((item) => (
+                  <option key={item.user_id} value={item.user_id}>
+                    {item.full_name}
+                    {item.department ? ` - ${item.department}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="h-full overflow-y-auto">
@@ -1179,6 +1310,10 @@ function ChatPanel() {
             <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-5">
               {loadingMessages ? (
                 <div className="text-center text-gray-500">Loading messages...</div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center text-gray-500">
+                  Start a conversation with {selectedConversation.full_name}
+                </div>
               ) : (
                 messages.map((message) => {
                   const sentByMe = message.sender_id === currentUserId;
@@ -2392,6 +2527,7 @@ const navItems = [
 function AdminDashboard() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [chatWithUser, setChatWithUser] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const user = useMemo(() => {
@@ -2443,10 +2579,15 @@ function AdminDashboard() {
     }
 
     if (activeSection === "chat") {
-      return <ChatPanel />;
+      return <ChatPanel chatWithUser={chatWithUser} />;
     }
 
-    return <TeamStatusPanel />;
+    return (
+      <TeamStatusPanel
+        setActiveSection={setActiveSection}
+        setChatWithUser={setChatWithUser}
+      />
+    );
   };
 
   return (

@@ -5506,3 +5506,1037 @@ requests.exceptions.ConnectionError: ('Connection aborted.', ConnectionResetErro
 2026-06-12 11:36:15,566 INFO Sending heartbeat with status: active
 2026-06-12 11:37:15,647 INFO idle_seconds=2, returning=active
 2026-06-12 11:37:15,647 INFO Sending heartbeat with status: active
+2026-06-12 11:38:16,001 INFO idle_seconds=0, returning=active
+2026-06-12 11:38:16,003 INFO Sending heartbeat with status: active
+2026-06-12 11:39:16,306 INFO idle_seconds=0, returning=active
+2026-06-12 11:39:16,401 INFO Sending heartbeat with status: active
+2026-06-12 11:40:21,025 INFO idle_seconds=2, returning=active
+2026-06-12 11:40:21,025 INFO Sending heartbeat with status: active
+2026-06-12 11:41:21,131 INFO idle_seconds=1, returning=active
+2026-06-12 11:41:21,131 INFO Sending heartbeat with status: active
+2026-06-12 11:42:21,203 INFO idle_seconds=1, returning=active
+2026-06-12 11:42:21,203 INFO Sending heartbeat with status: active
+2026-06-12 11:43:21,291 INFO idle_seconds=0, returning=active
+2026-06-12 11:43:21,292 INFO Sending heartbeat with status: active
+2026-06-12 11:44:21,650 INFO idle_seconds=0, returning=active
+2026-06-12 11:44:21,650 INFO Sending heartbeat with status: active
+2026-06-12 11:45:21,725 INFO idle_seconds=0, returning=active
+2026-06-12 11:45:21,726 INFO Sending heartbeat with status: active
+2026-06-12 11:46:21,781 INFO idle_seconds=1, returning=active
+2026-06-12 11:46:21,781 INFO Sending heartbeat with status: active
+2026-06-12 11:47:21,871 INFO idle_seconds=1, returning=active
+2026-06-12 11:47:21,871 INFO Sending heartbeat with status: active
+2026-06-12 11:48:23,588 INFO idle_seconds=0, returning=active
+2026-06-12 11:48:23,589 INFO Sending heartbeat with status: active
+2026-06-12 11:49:24,128 INFO idle_seconds=0, returning=active
+2026-06-12 11:49:24,129 INFO Sending heartbeat with status: active
+2026-06-12 11:50:24,215 INFO idle_seconds=0, returning=active
+2026-06-12 11:50:24,215 INFO Sending heartbeat with status: active
+2026-06-12 11:51:24,322 INFO idle_seconds=0, returning=active
+2026-06-12 11:51:24,322 INFO Sending heartbeat with status: active
+2026-06-12 11:52:24,419 INFO idle_seconds=0, returning=active
+2026-06-12 11:52:24,419 INFO Sending heartbeat with status: active
+2026-06-12 11:53:24,597 INFO idle_seconds=0, returning=active
+2026-06-12 11:53:24,598 INFO Sending heartbeat with status: active
+2026-06-12 11:54:24,685 INFO idle_seconds=0, returning=active
+2026-06-12 11:54:24,686 INFO Sending heartbeat with status: active
+2026-06-12 11:55:24,754 INFO idle_seconds=0, returning=active
+2026-06-12 11:55:24,754 INFO Sending heartbeat with status: active
+2026-06-12 11:56:24,853 INFO idle_seconds=0, returning=active
+2026-06-12 11:56:24,854 INFO Sending heartbeat with status: active
+2026-06-12 11:57:24,958 INFO idle_seconds=0, returning=active
+2026-06-12 11:57:24,958 INFO Sending heartbeat with status: active
+2026-06-12 11:58:25,066 INFO idle_seconds=3, returning=active
+2026-06-12 11:58:25,066 INFO Sending heartbeat with status: active
+2026-06-12 11:59:25,114 INFO idle_seconds=5, returning=active
+2026-06-12 11:59:25,114 INFO Sending heartbeat with status: active
+2026-06-12 12:00:25,204 INFO idle_seconds=65, returning=active
+2026-06-12 12:00:25,204 INFO Sending heartbeat with status: active
+2026-06-12 12:01:25,253 INFO idle_seconds=36, returning=active
+2026-06-12 12:01:25,253 INFO Sending heartbeat with status: active
+2026-06-12 12:02:25,341 INFO idle_seconds=96, returning=active
+2026-06-12 12:02:25,341 INFO Sending heartbeat with status: active
+2026-06-12 12:03:25,456 INFO idle_seconds=156, returning=active
+2026-06-12 12:03:25,456 INFO Sending heartbeat with status: active
+2026-06-12 12:04:25,607 INFO idle_seconds=217, returning=active
+2026-06-12 12:04:25,607 INFO Sending heartbeat with status: active
+2026-06-12 12:05:25,685 INFO idle_seconds=277, returning=active
+2026-06-12 12:05:25,685 INFO Sending heartbeat with status: active
+2026-06-12 12:06:25,752 INFO idle_seconds=337, returning=active
+2026-06-12 12:06:25,752 INFO Sending heartbeat with status: active
+2026-06-12 12:07:25,814 INFO idle_seconds=397, returning=active
+2026-06-12 12:07:25,814 INFO Sending heartbeat with status: active
+2026-06-12 12:08:25,885 INFO idle_seconds=457, returning=active
+2026-06-12 12:08:25,885 INFO Sending heartbeat with status: active
+2026-06-12 12:09:25,979 INFO idle_seconds=517, returning=active
+2026-06-12 12:09:25,979 INFO Sending heartbeat with status: active
+2026-06-12 12:10:26,064 INFO idle_seconds=577, returning=active
+2026-06-12 12:10:26,064 INFO Sending heartbeat with status: active
+2026-06-12 12:11:26,158 INFO idle_seconds=0, returning=active
+2026-06-12 12:11:26,158 INFO Sending heartbeat with status: active
+2026-06-12 12:12:26,278 INFO idle_seconds=24, returning=active
+2026-06-12 12:12:26,278 INFO Sending heartbeat with status: active
+2026-06-12 12:13:26,368 INFO idle_seconds=39, returning=active
+2026-06-12 12:13:26,369 INFO Sending heartbeat with status: active
+2026-06-12 12:14:26,437 INFO idle_seconds=99, returning=active
+2026-06-12 12:14:26,437 INFO Sending heartbeat with status: active
+2026-06-12 12:15:26,546 INFO idle_seconds=159, returning=active
+2026-06-12 12:15:26,546 INFO Sending heartbeat with status: active
+2026-06-12 12:16:26,641 INFO idle_seconds=219, returning=active
+2026-06-12 12:16:26,641 INFO Sending heartbeat with status: active
+2026-06-12 12:17:26,703 INFO idle_seconds=279, returning=active
+2026-06-12 12:17:26,703 INFO Sending heartbeat with status: active
+2026-06-12 12:18:26,765 INFO idle_seconds=5, returning=active
+2026-06-12 12:18:26,765 INFO Sending heartbeat with status: active
+2026-06-12 12:19:26,873 INFO idle_seconds=31, returning=active
+2026-06-12 12:19:26,873 INFO Sending heartbeat with status: active
+2026-06-12 12:20:26,932 INFO idle_seconds=1, returning=active
+2026-06-12 12:20:26,932 INFO Sending heartbeat with status: active
+2026-06-12 12:21:27,031 INFO idle_seconds=6, returning=active
+2026-06-12 12:21:27,031 INFO Sending heartbeat with status: active
+2026-06-12 12:22:27,129 INFO idle_seconds=0, returning=active
+2026-06-12 12:22:27,130 INFO Sending heartbeat with status: active
+2026-06-12 12:23:27,194 INFO idle_seconds=9, returning=active
+2026-06-12 12:23:27,194 INFO Sending heartbeat with status: active
+2026-06-12 12:24:27,262 INFO idle_seconds=20, returning=active
+2026-06-12 12:24:27,262 INFO Sending heartbeat with status: active
+2026-06-12 12:25:27,328 INFO idle_seconds=14, returning=active
+2026-06-12 12:25:27,329 INFO Sending heartbeat with status: active
+2026-06-12 12:26:27,380 INFO idle_seconds=5, returning=active
+2026-06-12 12:26:27,380 INFO Sending heartbeat with status: active
+2026-06-12 12:27:27,433 INFO idle_seconds=54, returning=active
+2026-06-12 12:27:27,433 INFO Sending heartbeat with status: active
+2026-06-12 12:28:27,514 INFO idle_seconds=114, returning=active
+2026-06-12 12:28:27,514 INFO Sending heartbeat with status: active
+2026-06-12 12:29:27,585 INFO idle_seconds=5, returning=active
+2026-06-12 12:29:27,586 INFO Sending heartbeat with status: active
+2026-06-12 12:30:27,661 INFO idle_seconds=0, returning=active
+2026-06-12 12:30:27,662 INFO Sending heartbeat with status: active
+2026-06-12 12:31:27,737 INFO idle_seconds=0, returning=active
+2026-06-12 12:31:27,738 INFO Sending heartbeat with status: active
+2026-06-12 12:32:27,902 INFO idle_seconds=2, returning=active
+2026-06-12 12:32:27,902 INFO Sending heartbeat with status: active
+2026-06-12 12:33:27,960 INFO idle_seconds=23, returning=active
+2026-06-12 12:33:27,960 INFO Sending heartbeat with status: active
+2026-06-12 12:34:28,029 INFO idle_seconds=83, returning=active
+2026-06-12 12:34:28,029 INFO Sending heartbeat with status: active
+2026-06-12 12:35:28,111 INFO idle_seconds=2, returning=active
+2026-06-12 12:35:28,111 INFO Sending heartbeat with status: active
+2026-06-12 12:36:28,187 INFO idle_seconds=62, returning=active
+2026-06-12 12:36:28,187 INFO Sending heartbeat with status: active
+2026-06-12 12:37:28,247 INFO idle_seconds=122, returning=active
+2026-06-12 12:37:28,247 INFO Sending heartbeat with status: active
+2026-06-12 12:38:28,300 INFO idle_seconds=182, returning=active
+2026-06-12 12:38:28,300 INFO Sending heartbeat with status: active
+2026-06-12 12:39:28,351 INFO idle_seconds=242, returning=active
+2026-06-12 12:39:28,352 INFO Sending heartbeat with status: active
+2026-06-12 12:40:28,436 INFO idle_seconds=18, returning=active
+2026-06-12 12:40:28,437 INFO Sending heartbeat with status: active
+2026-06-12 12:41:28,580 INFO idle_seconds=0, returning=active
+2026-06-12 12:41:28,580 INFO Sending heartbeat with status: active
+2026-06-12 12:42:28,659 INFO idle_seconds=32, returning=active
+2026-06-12 12:42:28,659 INFO Sending heartbeat with status: active
+2026-06-12 12:43:28,717 INFO idle_seconds=92, returning=active
+2026-06-12 12:43:28,717 INFO Sending heartbeat with status: active
+2026-06-12 12:44:28,798 INFO idle_seconds=0, returning=active
+2026-06-12 12:44:28,799 INFO Sending heartbeat with status: active
+2026-06-12 12:45:28,939 INFO idle_seconds=60, returning=active
+2026-06-12 12:45:28,939 INFO Sending heartbeat with status: active
+2026-06-12 12:46:29,122 INFO idle_seconds=120, returning=active
+2026-06-12 12:46:29,122 INFO Sending heartbeat with status: active
+2026-06-12 12:47:29,197 INFO idle_seconds=0, returning=active
+2026-06-12 12:47:29,197 INFO Sending heartbeat with status: active
+2026-06-12 12:48:29,568 INFO idle_seconds=4, returning=active
+2026-06-12 12:48:29,568 INFO Sending heartbeat with status: active
+2026-06-12 12:49:29,708 INFO idle_seconds=1, returning=active
+2026-06-12 12:49:29,709 INFO Sending heartbeat with status: active
+2026-06-12 12:50:29,818 INFO idle_seconds=0, returning=active
+2026-06-12 12:50:29,818 INFO Sending heartbeat with status: active
+2026-06-12 12:51:29,872 INFO idle_seconds=8, returning=active
+2026-06-12 12:51:29,873 INFO Sending heartbeat with status: active
+2026-06-12 12:52:29,923 INFO idle_seconds=0, returning=active
+2026-06-12 12:52:29,923 INFO Sending heartbeat with status: active
+2026-06-12 12:53:30,061 INFO idle_seconds=0, returning=active
+2026-06-12 12:53:30,061 INFO Sending heartbeat with status: active
+2026-06-12 12:54:30,137 INFO idle_seconds=19, returning=active
+2026-06-12 12:54:30,138 INFO Sending heartbeat with status: active
+2026-06-12 12:55:30,278 INFO idle_seconds=0, returning=active
+2026-06-12 12:55:30,279 INFO Sending heartbeat with status: active
+2026-06-12 12:56:30,336 INFO idle_seconds=12, returning=active
+2026-06-12 12:56:30,337 INFO Sending heartbeat with status: active
+2026-06-12 12:57:30,396 INFO idle_seconds=72, returning=active
+2026-06-12 12:57:30,397 INFO Sending heartbeat with status: active
+2026-06-12 12:58:30,474 INFO idle_seconds=132, returning=active
+2026-06-12 12:58:30,474 INFO Sending heartbeat with status: active
+2026-06-12 12:59:30,591 INFO idle_seconds=192, returning=active
+2026-06-12 12:59:30,591 INFO Sending heartbeat with status: active
+2026-06-12 13:00:30,730 INFO idle_seconds=252, returning=active
+2026-06-12 13:00:30,730 INFO Sending heartbeat with status: active
+2026-06-12 13:01:30,801 INFO idle_seconds=16, returning=active
+2026-06-12 13:01:30,802 INFO Sending heartbeat with status: active
+2026-06-12 13:02:30,874 INFO idle_seconds=76, returning=active
+2026-06-12 13:02:30,875 INFO Sending heartbeat with status: active
+2026-06-12 13:03:30,958 INFO idle_seconds=136, returning=active
+2026-06-12 13:03:30,959 INFO Sending heartbeat with status: active
+2026-06-12 13:04:31,011 INFO idle_seconds=196, returning=active
+2026-06-12 13:04:31,011 INFO Sending heartbeat with status: active
+2026-06-12 13:05:31,075 INFO idle_seconds=256, returning=active
+2026-06-12 13:05:31,075 INFO Sending heartbeat with status: active
+2026-06-12 13:06:31,157 INFO idle_seconds=316, returning=active
+2026-06-12 13:06:31,157 INFO Sending heartbeat with status: active
+2026-06-12 13:07:31,242 INFO idle_seconds=376, returning=active
+2026-06-12 13:07:31,242 INFO Sending heartbeat with status: active
+2026-06-12 13:08:31,345 INFO idle_seconds=436, returning=active
+2026-06-12 13:08:31,345 INFO Sending heartbeat with status: active
+2026-06-12 13:09:31,431 INFO idle_seconds=6, returning=active
+2026-06-12 13:09:31,431 INFO Sending heartbeat with status: active
+2026-06-12 13:10:31,514 INFO idle_seconds=48, returning=active
+2026-06-12 13:10:31,514 INFO Sending heartbeat with status: active
+2026-06-12 13:11:31,564 INFO idle_seconds=23, returning=active
+2026-06-12 13:11:31,564 INFO Sending heartbeat with status: active
+2026-06-12 13:12:31,633 INFO idle_seconds=83, returning=active
+2026-06-12 13:12:31,634 INFO Sending heartbeat with status: active
+2026-06-12 13:13:31,694 INFO idle_seconds=143, returning=active
+2026-06-12 13:13:31,694 INFO Sending heartbeat with status: active
+2026-06-12 13:14:31,747 INFO idle_seconds=203, returning=active
+2026-06-12 13:14:31,747 INFO Sending heartbeat with status: active
+2026-06-12 13:15:31,832 INFO idle_seconds=263, returning=active
+2026-06-12 13:15:31,832 INFO Sending heartbeat with status: active
+2026-06-12 13:16:31,918 INFO idle_seconds=45, returning=active
+2026-06-12 13:16:31,918 INFO Sending heartbeat with status: active
+2026-06-12 13:17:31,995 INFO idle_seconds=105, returning=active
+2026-06-12 13:17:31,995 INFO Sending heartbeat with status: active
+2026-06-12 13:18:32,115 INFO idle_seconds=165, returning=active
+2026-06-12 13:18:32,116 INFO Sending heartbeat with status: active
+2026-06-12 13:19:32,221 INFO idle_seconds=225, returning=active
+2026-06-12 13:19:32,221 INFO Sending heartbeat with status: active
+2026-06-12 13:20:32,299 INFO idle_seconds=286, returning=active
+2026-06-12 13:20:32,299 INFO Sending heartbeat with status: active
+2026-06-12 13:21:32,393 INFO idle_seconds=2, returning=active
+2026-06-12 13:21:32,393 INFO Sending heartbeat with status: active
+2026-06-12 13:22:32,474 INFO idle_seconds=0, returning=active
+2026-06-12 13:22:32,474 INFO Sending heartbeat with status: active
+2026-06-12 13:23:32,592 INFO idle_seconds=36, returning=active
+2026-06-12 13:23:32,592 INFO Sending heartbeat with status: active
+2026-06-12 13:24:32,676 INFO idle_seconds=0, returning=active
+2026-06-12 13:24:32,676 INFO Sending heartbeat with status: active
+2026-06-12 13:25:32,753 INFO idle_seconds=0, returning=active
+2026-06-12 13:25:32,754 INFO Sending heartbeat with status: active
+2026-06-12 13:26:32,853 INFO idle_seconds=0, returning=active
+2026-06-12 13:26:32,853 INFO Sending heartbeat with status: active
+2026-06-12 13:27:32,969 INFO idle_seconds=0, returning=active
+2026-06-12 13:27:32,970 INFO Sending heartbeat with status: active
+2026-06-12 13:28:33,090 INFO idle_seconds=0, returning=active
+2026-06-12 13:28:33,090 INFO Sending heartbeat with status: active
+2026-06-12 13:29:33,171 INFO idle_seconds=0, returning=active
+2026-06-12 13:29:33,171 INFO Sending heartbeat with status: active
+2026-06-12 13:30:33,244 INFO idle_seconds=0, returning=active
+2026-06-12 13:30:33,244 INFO Sending heartbeat with status: active
+2026-06-12 13:31:33,355 INFO idle_seconds=0, returning=active
+2026-06-12 13:31:33,355 INFO Sending heartbeat with status: active
+2026-06-12 13:32:33,498 INFO idle_seconds=0, returning=active
+2026-06-12 13:32:33,498 INFO Sending heartbeat with status: active
+2026-06-12 13:33:33,570 INFO idle_seconds=0, returning=active
+2026-06-12 13:33:33,571 INFO Sending heartbeat with status: active
+2026-06-12 13:34:33,677 INFO idle_seconds=16, returning=active
+2026-06-12 13:34:33,677 INFO Sending heartbeat with status: active
+2026-06-12 13:35:33,772 INFO idle_seconds=0, returning=active
+2026-06-12 13:35:33,772 INFO Sending heartbeat with status: active
+2026-06-12 13:36:33,846 INFO idle_seconds=0, returning=active
+2026-06-12 13:36:33,846 INFO Sending heartbeat with status: active
+2026-06-12 13:37:33,927 INFO idle_seconds=0, returning=active
+2026-06-12 13:37:33,927 INFO Sending heartbeat with status: active
+2026-06-12 13:38:34,010 INFO idle_seconds=0, returning=active
+2026-06-12 13:38:34,010 INFO Sending heartbeat with status: active
+2026-06-12 13:39:34,173 INFO idle_seconds=0, returning=active
+2026-06-12 13:39:34,173 INFO Sending heartbeat with status: active
+2026-06-12 13:40:34,262 INFO idle_seconds=28, returning=active
+2026-06-12 13:40:34,262 INFO Sending heartbeat with status: active
+2026-06-12 13:41:34,372 INFO idle_seconds=0, returning=active
+2026-06-12 13:41:34,372 INFO Sending heartbeat with status: active
+2026-06-12 13:42:34,483 INFO idle_seconds=0, returning=active
+2026-06-12 13:42:34,484 INFO Sending heartbeat with status: active
+2026-06-12 13:43:34,584 INFO idle_seconds=36, returning=active
+2026-06-12 13:43:34,585 INFO Sending heartbeat with status: active
+2026-06-12 13:44:34,689 INFO idle_seconds=0, returning=active
+2026-06-12 13:44:34,690 INFO Sending heartbeat with status: active
+2026-06-12 13:45:34,768 INFO idle_seconds=0, returning=active
+2026-06-12 13:45:34,769 INFO Sending heartbeat with status: active
+2026-06-12 13:46:34,847 INFO idle_seconds=19, returning=active
+2026-06-12 13:46:34,847 INFO Sending heartbeat with status: active
+2026-06-12 13:47:34,955 INFO idle_seconds=32, returning=active
+2026-06-12 13:47:34,955 INFO Sending heartbeat with status: active
+2026-06-12 13:48:35,037 INFO idle_seconds=0, returning=active
+2026-06-12 13:48:35,037 INFO Sending heartbeat with status: active
+2026-06-12 13:49:35,951 INFO idle_seconds=2, returning=active
+2026-06-12 13:49:35,952 INFO Sending heartbeat with status: active
+2026-06-12 13:50:36,049 INFO idle_seconds=1, returning=active
+2026-06-12 13:50:36,049 INFO Sending heartbeat with status: active
+2026-06-12 13:51:36,128 INFO idle_seconds=1, returning=active
+2026-06-12 13:51:36,129 INFO Sending heartbeat with status: active
+2026-06-12 13:52:36,207 INFO idle_seconds=0, returning=active
+2026-06-12 13:52:36,207 INFO Sending heartbeat with status: active
+2026-06-12 13:53:36,308 INFO idle_seconds=0, returning=active
+2026-06-12 13:53:36,308 INFO Sending heartbeat with status: active
+2026-06-12 13:54:36,388 INFO idle_seconds=0, returning=active
+2026-06-12 13:54:36,388 INFO Sending heartbeat with status: active
+2026-06-12 13:55:36,438 INFO idle_seconds=0, returning=active
+2026-06-12 13:55:36,439 INFO Sending heartbeat with status: active
+2026-06-12 13:56:36,507 INFO idle_seconds=0, returning=active
+2026-06-12 13:56:36,507 INFO Sending heartbeat with status: active
+2026-06-12 13:57:36,598 INFO idle_seconds=40, returning=active
+2026-06-12 13:57:36,598 INFO Sending heartbeat with status: active
+2026-06-12 13:58:36,716 INFO idle_seconds=100, returning=active
+2026-06-12 13:58:36,716 INFO Sending heartbeat with status: active
+2026-06-12 13:59:36,841 INFO idle_seconds=160, returning=active
+2026-06-12 13:59:36,842 INFO Sending heartbeat with status: active
+2026-06-12 14:00:36,979 INFO idle_seconds=220, returning=active
+2026-06-12 14:00:36,979 INFO Sending heartbeat with status: active
+2026-06-12 14:01:37,092 INFO idle_seconds=281, returning=active
+2026-06-12 14:01:37,092 INFO Sending heartbeat with status: active
+2026-06-12 14:02:37,276 INFO idle_seconds=341, returning=active
+2026-06-12 14:02:37,276 INFO Sending heartbeat with status: active
+2026-06-12 14:03:37,335 INFO idle_seconds=401, returning=active
+2026-06-12 14:03:37,336 INFO Sending heartbeat with status: active
+2026-06-12 14:04:37,426 INFO idle_seconds=461, returning=active
+2026-06-12 14:04:37,427 INFO Sending heartbeat with status: active
+2026-06-12 14:05:37,518 INFO idle_seconds=521, returning=active
+2026-06-12 14:05:37,518 INFO Sending heartbeat with status: active
+2026-06-12 14:06:37,625 INFO idle_seconds=581, returning=active
+2026-06-12 14:06:37,625 INFO Sending heartbeat with status: active
+2026-06-12 14:07:37,727 INFO idle_seconds=641, returning=idle
+2026-06-12 14:07:37,727 INFO Sending heartbeat with status: idle
+2026-06-12 14:08:37,861 INFO idle_seconds=701, returning=idle
+2026-06-12 14:08:37,861 INFO Sending heartbeat with status: idle
+2026-06-12 14:09:37,938 INFO idle_seconds=761, returning=idle
+2026-06-12 14:09:37,938 INFO Sending heartbeat with status: idle
+2026-06-12 14:10:38,033 INFO idle_seconds=822, returning=idle
+2026-06-12 14:10:38,033 INFO Sending heartbeat with status: idle
+2026-06-12 14:11:38,101 INFO idle_seconds=882, returning=idle
+2026-06-12 14:11:38,101 INFO Sending heartbeat with status: idle
+2026-06-12 14:12:38,206 INFO idle_seconds=942, returning=idle
+2026-06-12 14:12:38,207 INFO Sending heartbeat with status: idle
+2026-06-12 14:13:38,316 INFO idle_seconds=1002, returning=idle
+2026-06-12 14:13:38,316 INFO Sending heartbeat with status: idle
+2026-06-12 14:14:38,404 INFO idle_seconds=1062, returning=idle
+2026-06-12 14:14:38,404 INFO Sending heartbeat with status: idle
+2026-06-12 14:15:38,504 INFO idle_seconds=1122, returning=idle
+2026-06-12 14:15:38,504 INFO Sending heartbeat with status: idle
+2026-06-12 14:16:38,628 INFO idle_seconds=1182, returning=idle
+2026-06-12 14:16:38,628 INFO Sending heartbeat with status: idle
+2026-06-12 14:17:38,742 INFO idle_seconds=1242, returning=idle
+2026-06-12 14:17:38,743 INFO Sending heartbeat with status: idle
+2026-06-12 14:18:38,831 INFO idle_seconds=1302, returning=idle
+2026-06-12 14:18:38,831 INFO Sending heartbeat with status: idle
+2026-06-12 14:19:39,171 INFO idle_seconds=1363, returning=idle
+2026-06-12 14:19:39,171 INFO Sending heartbeat with status: idle
+2026-06-12 14:20:39,256 INFO idle_seconds=1423, returning=idle
+2026-06-12 14:20:39,256 INFO Sending heartbeat with status: idle
+2026-06-12 14:21:39,375 INFO idle_seconds=1483, returning=idle
+2026-06-12 14:21:39,375 INFO Sending heartbeat with status: idle
+2026-06-12 14:22:39,479 INFO idle_seconds=1543, returning=idle
+2026-06-12 14:22:39,479 INFO Sending heartbeat with status: idle
+2026-06-12 14:23:39,603 INFO idle_seconds=1603, returning=idle
+2026-06-12 14:23:39,603 INFO Sending heartbeat with status: idle
+2026-06-12 14:24:39,703 INFO idle_seconds=1663, returning=idle
+2026-06-12 14:24:39,703 INFO Sending heartbeat with status: idle
+2026-06-12 14:25:39,807 INFO idle_seconds=1723, returning=idle
+2026-06-12 14:25:39,807 INFO Sending heartbeat with status: idle
+2026-06-12 14:26:39,920 INFO idle_seconds=1783, returning=idle
+2026-06-12 14:26:39,920 INFO Sending heartbeat with status: idle
+2026-06-12 14:27:40,008 INFO idle_seconds=1844, returning=idle
+2026-06-12 14:27:40,008 INFO Sending heartbeat with status: idle
+2026-06-12 14:28:40,123 INFO idle_seconds=1904, returning=idle
+2026-06-12 14:28:40,123 INFO Sending heartbeat with status: idle
+2026-06-12 14:29:40,233 INFO idle_seconds=1964, returning=idle
+2026-06-12 14:29:40,233 INFO Sending heartbeat with status: idle
+2026-06-12 14:30:40,374 INFO idle_seconds=2024, returning=idle
+2026-06-12 14:30:40,374 INFO Sending heartbeat with status: idle
+2026-06-12 14:31:40,484 INFO idle_seconds=2084, returning=idle
+2026-06-12 14:31:40,485 INFO Sending heartbeat with status: idle
+2026-06-12 14:32:40,593 INFO idle_seconds=2144, returning=idle
+2026-06-12 14:32:40,593 INFO Sending heartbeat with status: idle
+2026-06-12 14:33:40,692 INFO idle_seconds=2204, returning=idle
+2026-06-12 14:33:40,692 INFO Sending heartbeat with status: idle
+2026-06-12 14:34:40,783 INFO idle_seconds=2264, returning=idle
+2026-06-12 14:34:40,783 INFO Sending heartbeat with status: idle
+2026-06-12 14:35:40,909 INFO idle_seconds=2324, returning=idle
+2026-06-12 14:35:40,909 INFO Sending heartbeat with status: idle
+2026-06-12 14:36:41,050 INFO idle_seconds=2385, returning=idle
+2026-06-12 14:36:41,050 INFO Sending heartbeat with status: idle
+2026-06-12 14:37:41,160 INFO idle_seconds=2445, returning=idle
+2026-06-12 14:37:41,161 INFO Sending heartbeat with status: idle
+2026-06-12 14:38:41,285 INFO idle_seconds=2505, returning=idle
+2026-06-12 14:38:41,285 INFO Sending heartbeat with status: idle
+2026-06-12 14:39:41,378 INFO idle_seconds=2565, returning=idle
+2026-06-12 14:39:41,378 INFO Sending heartbeat with status: idle
+2026-06-12 14:40:41,467 INFO idle_seconds=2625, returning=idle
+2026-06-12 14:40:41,468 INFO Sending heartbeat with status: idle
+2026-06-12 14:41:41,584 INFO idle_seconds=2685, returning=idle
+2026-06-12 14:41:41,584 INFO Sending heartbeat with status: idle
+2026-06-12 14:42:41,696 INFO idle_seconds=2745, returning=idle
+2026-06-12 14:42:41,696 INFO Sending heartbeat with status: idle
+2026-06-12 14:43:41,770 INFO idle_seconds=2805, returning=idle
+2026-06-12 14:43:41,770 INFO Sending heartbeat with status: idle
+2026-06-12 14:44:41,894 INFO idle_seconds=2865, returning=idle
+2026-06-12 14:44:41,894 INFO Sending heartbeat with status: idle
+2026-06-12 14:45:42,040 INFO idle_seconds=2926, returning=idle
+2026-06-12 14:45:42,040 INFO Sending heartbeat with status: idle
+2026-06-12 14:46:42,148 INFO idle_seconds=2986, returning=idle
+2026-06-12 14:46:42,148 INFO Sending heartbeat with status: idle
+2026-06-12 14:47:42,257 INFO idle_seconds=3046, returning=idle
+2026-06-12 14:47:42,258 INFO Sending heartbeat with status: idle
+2026-06-12 14:48:42,382 INFO idle_seconds=3106, returning=idle
+2026-06-12 14:48:42,382 INFO Sending heartbeat with status: idle
+2026-06-12 14:49:42,490 INFO idle_seconds=3166, returning=idle
+2026-06-12 14:49:42,490 INFO Sending heartbeat with status: idle
+2026-06-12 14:50:42,571 INFO idle_seconds=3226, returning=idle
+2026-06-12 14:50:42,571 INFO Sending heartbeat with status: idle
+2026-06-12 14:51:42,698 INFO idle_seconds=3286, returning=idle
+2026-06-12 14:51:42,698 INFO Sending heartbeat with status: idle
+2026-06-12 14:52:42,769 INFO idle_seconds=3346, returning=idle
+2026-06-12 14:52:42,769 INFO Sending heartbeat with status: idle
+2026-06-12 14:53:42,852 INFO idle_seconds=3406, returning=idle
+2026-06-12 14:53:42,852 INFO Sending heartbeat with status: idle
+2026-06-12 14:54:42,977 INFO idle_seconds=3466, returning=idle
+2026-06-12 14:54:42,977 INFO Sending heartbeat with status: idle
+2026-06-12 14:55:43,089 INFO idle_seconds=3527, returning=idle
+2026-06-12 14:55:43,089 INFO Sending heartbeat with status: idle
+2026-06-12 14:56:43,211 INFO idle_seconds=3587, returning=idle
+2026-06-12 14:56:43,211 INFO Sending heartbeat with status: idle
+2026-06-12 14:57:43,325 INFO idle_seconds=3647, returning=idle
+2026-06-12 14:57:43,325 INFO Sending heartbeat with status: idle
+2026-06-12 14:58:43,464 INFO idle_seconds=3707, returning=idle
+2026-06-12 14:58:43,464 INFO Sending heartbeat with status: idle
+2026-06-12 14:59:43,576 INFO idle_seconds=3767, returning=idle
+2026-06-12 14:59:43,576 INFO Sending heartbeat with status: idle
+2026-06-12 15:00:43,690 INFO idle_seconds=3827, returning=idle
+2026-06-12 15:00:43,690 INFO Sending heartbeat with status: idle
+2026-06-12 15:01:43,744 INFO idle_seconds=3887, returning=idle
+2026-06-12 15:01:43,744 INFO Sending heartbeat with status: idle
+2026-06-12 15:02:43,825 INFO idle_seconds=3947, returning=idle
+2026-06-12 15:02:43,826 INFO Sending heartbeat with status: idle
+2026-06-12 15:03:43,948 INFO idle_seconds=4007, returning=idle
+2026-06-12 15:03:43,948 INFO Sending heartbeat with status: idle
+2026-06-12 15:04:44,057 INFO idle_seconds=4068, returning=idle
+2026-06-12 15:04:44,057 INFO Sending heartbeat with status: idle
+2026-06-12 15:05:44,201 INFO idle_seconds=4128, returning=idle
+2026-06-12 15:05:44,201 INFO Sending heartbeat with status: idle
+2026-06-12 15:06:44,307 INFO idle_seconds=4188, returning=idle
+2026-06-12 15:06:44,308 INFO Sending heartbeat with status: idle
+2026-06-12 15:07:44,452 INFO idle_seconds=4248, returning=idle
+2026-06-12 15:07:44,453 INFO Sending heartbeat with status: idle
+2026-06-12 15:08:44,579 INFO idle_seconds=4308, returning=idle
+2026-06-12 15:08:44,579 INFO Sending heartbeat with status: idle
+2026-06-12 15:09:44,690 INFO idle_seconds=4368, returning=idle
+2026-06-12 15:09:44,690 INFO Sending heartbeat with status: idle
+2026-06-12 15:10:44,768 INFO idle_seconds=4428, returning=idle
+2026-06-12 15:10:44,768 INFO Sending heartbeat with status: idle
+2026-06-12 15:11:44,858 INFO idle_seconds=4488, returning=idle
+2026-06-12 15:11:44,858 INFO Sending heartbeat with status: idle
+2026-06-12 15:12:45,003 INFO idle_seconds=4549, returning=idle
+2026-06-12 15:12:45,003 INFO Sending heartbeat with status: idle
+2026-06-12 15:13:45,126 INFO idle_seconds=4609, returning=idle
+2026-06-12 15:13:45,126 INFO Sending heartbeat with status: idle
+2026-06-12 15:14:45,271 INFO idle_seconds=4669, returning=idle
+2026-06-12 15:14:45,272 INFO Sending heartbeat with status: idle
+2026-06-12 15:15:45,395 INFO idle_seconds=4729, returning=idle
+2026-06-12 15:15:45,395 INFO Sending heartbeat with status: idle
+2026-06-12 15:16:45,494 INFO idle_seconds=4789, returning=idle
+2026-06-12 15:16:45,494 INFO Sending heartbeat with status: idle
+2026-06-12 15:17:45,618 INFO idle_seconds=4849, returning=idle
+2026-06-12 15:17:45,618 INFO Sending heartbeat with status: idle
+2026-06-12 15:18:45,692 INFO idle_seconds=4909, returning=idle
+2026-06-12 15:18:45,693 INFO Sending heartbeat with status: idle
+2026-06-12 15:19:45,819 INFO idle_seconds=4969, returning=idle
+2026-06-12 15:19:45,819 INFO Sending heartbeat with status: idle
+2026-06-12 15:20:45,957 INFO idle_seconds=5029, returning=idle
+2026-06-12 15:20:45,957 INFO Sending heartbeat with status: idle
+2026-06-12 15:21:46,102 INFO idle_seconds=5090, returning=idle
+2026-06-12 15:21:46,102 INFO Sending heartbeat with status: idle
+2026-06-12 15:22:46,244 INFO idle_seconds=5150, returning=idle
+2026-06-12 15:22:46,244 INFO Sending heartbeat with status: idle
+2026-06-12 15:23:46,388 INFO idle_seconds=5210, returning=idle
+2026-06-12 15:23:46,388 INFO Sending heartbeat with status: idle
+2026-06-12 15:24:46,480 INFO idle_seconds=5270, returning=idle
+2026-06-12 15:24:46,480 INFO Sending heartbeat with status: idle
+2026-06-12 15:25:46,608 INFO idle_seconds=5330, returning=idle
+2026-06-12 15:25:46,609 INFO Sending heartbeat with status: idle
+2026-06-12 15:26:46,697 INFO idle_seconds=5390, returning=idle
+2026-06-12 15:26:46,697 INFO Sending heartbeat with status: idle
+2026-06-12 15:27:46,746 INFO idle_seconds=5450, returning=idle
+2026-06-12 15:27:46,746 INFO Sending heartbeat with status: idle
+2026-06-12 15:28:46,840 INFO idle_seconds=5510, returning=idle
+2026-06-12 15:28:46,840 INFO Sending heartbeat with status: idle
+2026-06-12 15:29:46,963 INFO idle_seconds=5570, returning=idle
+2026-06-12 15:29:46,963 INFO Sending heartbeat with status: idle
+2026-06-12 15:30:47,056 INFO idle_seconds=5631, returning=idle
+2026-06-12 15:30:47,056 INFO Sending heartbeat with status: idle
+2026-06-12 15:31:47,136 INFO idle_seconds=5691, returning=idle
+2026-06-12 15:31:47,136 INFO Sending heartbeat with status: idle
+2026-06-12 15:32:47,259 INFO idle_seconds=5751, returning=idle
+2026-06-12 15:32:47,259 INFO Sending heartbeat with status: idle
+2026-06-12 15:33:47,389 INFO idle_seconds=5811, returning=idle
+2026-06-12 15:33:47,389 INFO Sending heartbeat with status: idle
+2026-06-12 15:34:47,529 INFO idle_seconds=5871, returning=idle
+2026-06-12 15:34:47,530 INFO Sending heartbeat with status: idle
+2026-06-12 15:35:47,658 INFO idle_seconds=5931, returning=idle
+2026-06-12 15:35:47,658 INFO Sending heartbeat with status: idle
+2026-06-12 15:36:47,720 INFO idle_seconds=5991, returning=idle
+2026-06-12 15:36:47,720 INFO Sending heartbeat with status: idle
+2026-06-12 15:37:47,807 INFO idle_seconds=6051, returning=idle
+2026-06-12 15:37:47,807 INFO Sending heartbeat with status: idle
+2026-06-12 15:38:47,938 INFO idle_seconds=6111, returning=idle
+2026-06-12 15:38:47,939 INFO Sending heartbeat with status: idle
+2026-06-12 15:39:48,060 INFO idle_seconds=6172, returning=idle
+2026-06-12 15:39:48,060 INFO Sending heartbeat with status: idle
+2026-06-12 15:40:48,189 INFO idle_seconds=6232, returning=idle
+2026-06-12 15:40:48,189 INFO Sending heartbeat with status: idle
+2026-06-12 15:41:48,316 INFO idle_seconds=6292, returning=idle
+2026-06-12 15:41:48,316 INFO Sending heartbeat with status: idle
+2026-06-12 15:42:48,424 INFO idle_seconds=6352, returning=idle
+2026-06-12 15:42:48,424 INFO Sending heartbeat with status: idle
+2026-06-12 15:43:48,549 INFO idle_seconds=6412, returning=idle
+2026-06-12 15:43:48,549 INFO Sending heartbeat with status: idle
+2026-06-12 15:44:48,676 INFO idle_seconds=6472, returning=idle
+2026-06-12 15:44:48,676 INFO Sending heartbeat with status: idle
+2026-06-12 15:45:48,788 INFO idle_seconds=6532, returning=idle
+2026-06-12 15:45:48,788 INFO Sending heartbeat with status: idle
+2026-06-12 15:46:48,926 INFO idle_seconds=6592, returning=idle
+2026-06-12 15:46:48,926 INFO Sending heartbeat with status: idle
+2026-06-12 15:47:49,034 INFO idle_seconds=6653, returning=idle
+2026-06-12 15:47:49,034 INFO Sending heartbeat with status: idle
+2026-06-12 15:48:49,143 INFO idle_seconds=6713, returning=idle
+2026-06-12 15:48:49,143 INFO Sending heartbeat with status: idle
+2026-06-12 15:49:49,275 INFO idle_seconds=6773, returning=idle
+2026-06-12 15:49:49,275 INFO Sending heartbeat with status: idle
+2026-06-12 15:50:49,399 INFO idle_seconds=6833, returning=idle
+2026-06-12 15:50:49,399 INFO Sending heartbeat with status: idle
+2026-06-12 15:51:49,523 INFO idle_seconds=6893, returning=idle
+2026-06-12 15:51:49,523 INFO Sending heartbeat with status: idle
+2026-06-12 15:52:49,653 INFO idle_seconds=6953, returning=idle
+2026-06-12 15:52:49,653 INFO Sending heartbeat with status: idle
+2026-06-12 15:53:49,727 INFO idle_seconds=7013, returning=idle
+2026-06-12 15:53:49,727 INFO Sending heartbeat with status: idle
+2026-06-12 15:54:49,871 INFO idle_seconds=7073, returning=idle
+2026-06-12 15:54:49,871 INFO Sending heartbeat with status: idle
+2026-06-12 15:55:49,966 INFO idle_seconds=7133, returning=idle
+2026-06-12 15:55:49,966 INFO Sending heartbeat with status: idle
+2026-06-12 15:56:50,107 INFO idle_seconds=7194, returning=idle
+2026-06-12 15:56:50,108 INFO Sending heartbeat with status: idle
+2026-06-12 15:57:50,233 INFO idle_seconds=7254, returning=idle
+2026-06-12 15:57:50,233 INFO Sending heartbeat with status: idle
+2026-06-12 15:58:50,359 INFO idle_seconds=7314, returning=idle
+2026-06-12 15:58:50,360 INFO Sending heartbeat with status: idle
+2026-06-12 15:59:50,486 INFO idle_seconds=7374, returning=idle
+2026-06-12 15:59:50,486 INFO Sending heartbeat with status: idle
+2026-06-12 16:00:50,609 INFO idle_seconds=7434, returning=idle
+2026-06-12 16:00:50,609 INFO Sending heartbeat with status: idle
+2026-06-12 16:01:50,717 INFO idle_seconds=7494, returning=idle
+2026-06-12 16:01:50,717 INFO Sending heartbeat with status: idle
+2026-06-12 16:02:50,812 INFO idle_seconds=7554, returning=idle
+2026-06-12 16:02:50,812 INFO Sending heartbeat with status: idle
+2026-06-12 16:03:50,909 INFO idle_seconds=7614, returning=idle
+2026-06-12 16:03:50,909 INFO Sending heartbeat with status: idle
+2026-06-12 16:04:51,016 INFO idle_seconds=7675, returning=idle
+2026-06-12 16:04:51,016 INFO Sending heartbeat with status: idle
+2026-06-12 16:05:51,121 INFO idle_seconds=7735, returning=idle
+2026-06-12 16:05:51,122 INFO Sending heartbeat with status: idle
+2026-06-12 16:06:51,254 INFO idle_seconds=7795, returning=idle
+2026-06-12 16:06:51,254 INFO Sending heartbeat with status: idle
+2026-06-12 16:07:51,376 INFO idle_seconds=7855, returning=idle
+2026-06-12 16:07:51,376 INFO Sending heartbeat with status: idle
+2026-06-12 16:08:51,507 INFO idle_seconds=7915, returning=idle
+2026-06-12 16:08:51,507 INFO Sending heartbeat with status: idle
+2026-06-12 16:09:51,644 INFO idle_seconds=7975, returning=idle
+2026-06-12 16:09:51,644 INFO Sending heartbeat with status: idle
+2026-06-12 16:10:51,710 INFO idle_seconds=8035, returning=idle
+2026-06-12 16:10:51,710 INFO Sending heartbeat with status: idle
+2026-06-12 16:11:51,819 INFO idle_seconds=8095, returning=idle
+2026-06-12 16:11:51,819 INFO Sending heartbeat with status: idle
+2026-06-12 16:12:51,946 INFO idle_seconds=8155, returning=idle
+2026-06-12 16:12:51,946 INFO Sending heartbeat with status: idle
+2026-06-12 16:13:52,054 INFO idle_seconds=8216, returning=idle
+2026-06-12 16:13:52,054 INFO Sending heartbeat with status: idle
+2026-06-12 16:14:52,192 INFO idle_seconds=8276, returning=idle
+2026-06-12 16:14:52,192 INFO Sending heartbeat with status: idle
+2026-06-12 16:15:52,305 INFO idle_seconds=8336, returning=idle
+2026-06-12 16:15:52,305 INFO Sending heartbeat with status: idle
+2026-06-12 16:16:52,415 INFO idle_seconds=8396, returning=idle
+2026-06-12 16:16:52,415 INFO Sending heartbeat with status: idle
+2026-06-12 16:17:52,521 INFO idle_seconds=8456, returning=idle
+2026-06-12 16:17:52,521 INFO Sending heartbeat with status: idle
+2026-06-12 16:18:52,603 INFO idle_seconds=8516, returning=idle
+2026-06-12 16:18:52,603 INFO Sending heartbeat with status: idle
+2026-06-12 16:19:52,678 INFO idle_seconds=8576, returning=idle
+2026-06-12 16:19:52,679 INFO Sending heartbeat with status: idle
+2026-06-12 16:20:52,743 INFO idle_seconds=8636, returning=idle
+2026-06-12 16:20:52,743 INFO Sending heartbeat with status: idle
+2026-06-12 16:21:52,816 INFO idle_seconds=8696, returning=idle
+2026-06-12 16:21:52,817 INFO Sending heartbeat with status: idle
+2026-06-12 16:22:52,880 INFO idle_seconds=8756, returning=idle
+2026-06-12 16:22:52,880 INFO Sending heartbeat with status: idle
+2026-06-12 16:23:52,968 INFO idle_seconds=8816, returning=idle
+2026-06-12 16:23:52,968 INFO Sending heartbeat with status: idle
+2026-06-12 16:24:53,050 INFO idle_seconds=8877, returning=idle
+2026-06-12 16:24:53,050 INFO Sending heartbeat with status: idle
+2026-06-12 16:25:53,117 INFO idle_seconds=8937, returning=idle
+2026-06-12 16:25:53,118 INFO Sending heartbeat with status: idle
+2026-06-12 16:26:53,200 INFO idle_seconds=8997, returning=idle
+2026-06-12 16:26:53,200 INFO Sending heartbeat with status: idle
+2026-06-12 16:27:53,282 INFO idle_seconds=9057, returning=idle
+2026-06-12 16:27:53,282 INFO Sending heartbeat with status: idle
+2026-06-12 16:28:53,374 INFO idle_seconds=9117, returning=idle
+2026-06-12 16:28:53,375 INFO Sending heartbeat with status: idle
+2026-06-12 16:29:53,455 INFO idle_seconds=9177, returning=idle
+2026-06-12 16:29:53,455 INFO Sending heartbeat with status: idle
+2026-06-12 16:30:53,546 INFO idle_seconds=9237, returning=idle
+2026-06-12 16:30:53,546 INFO Sending heartbeat with status: idle
+2026-06-12 16:31:53,640 INFO idle_seconds=9297, returning=idle
+2026-06-12 16:31:53,641 INFO Sending heartbeat with status: idle
+2026-06-12 16:32:53,720 INFO idle_seconds=9357, returning=idle
+2026-06-12 16:32:53,720 INFO Sending heartbeat with status: idle
+2026-06-12 16:33:53,794 INFO idle_seconds=9417, returning=idle
+2026-06-12 16:33:53,795 INFO Sending heartbeat with status: idle
+2026-06-12 16:34:53,860 INFO idle_seconds=9477, returning=idle
+2026-06-12 16:34:53,860 INFO Sending heartbeat with status: idle
+2026-06-12 16:35:54,059 INFO idle_seconds=0, returning=active
+2026-06-12 16:35:54,059 INFO Sending heartbeat with status: active
+2026-06-12 16:36:54,191 INFO idle_seconds=0, returning=active
+2026-06-12 16:36:54,191 INFO Sending heartbeat with status: active
+2026-06-12 16:37:54,297 INFO idle_seconds=0, returning=active
+2026-06-12 16:37:54,297 INFO Sending heartbeat with status: active
+2026-06-12 16:38:54,389 INFO idle_seconds=7, returning=active
+2026-06-12 16:38:54,389 INFO Sending heartbeat with status: active
+2026-06-12 16:39:54,449 INFO idle_seconds=0, returning=active
+2026-06-12 16:39:54,449 INFO Sending heartbeat with status: active
+2026-06-12 16:40:54,560 INFO idle_seconds=1, returning=active
+2026-06-12 16:40:54,560 INFO Sending heartbeat with status: active
+2026-06-12 16:41:54,642 INFO idle_seconds=0, returning=active
+2026-06-12 16:41:54,642 INFO Sending heartbeat with status: active
+2026-06-12 16:42:54,749 INFO idle_seconds=0, returning=active
+2026-06-12 16:42:54,749 INFO Sending heartbeat with status: active
+2026-06-12 16:43:54,860 INFO idle_seconds=3, returning=active
+2026-06-12 16:43:54,861 INFO Sending heartbeat with status: active
+2026-06-12 16:44:54,938 INFO idle_seconds=0, returning=active
+2026-06-12 16:44:54,939 INFO Sending heartbeat with status: active
+2026-06-12 16:45:55,011 INFO idle_seconds=0, returning=active
+2026-06-12 16:45:55,011 INFO Sending heartbeat with status: active
+2026-06-12 16:46:55,078 INFO idle_seconds=0, returning=active
+2026-06-12 16:46:55,079 INFO Sending heartbeat with status: active
+2026-06-12 16:47:55,178 INFO idle_seconds=0, returning=active
+2026-06-12 16:47:55,178 INFO Sending heartbeat with status: active
+2026-06-12 16:48:55,261 INFO idle_seconds=0, returning=active
+2026-06-12 16:48:55,261 INFO Sending heartbeat with status: active
+2026-06-12 16:49:55,360 INFO idle_seconds=0, returning=active
+2026-06-12 16:49:55,360 INFO Sending heartbeat with status: active
+2026-06-12 16:50:55,468 INFO idle_seconds=2, returning=active
+2026-06-12 16:50:55,468 INFO Sending heartbeat with status: active
+2026-06-12 16:51:55,600 INFO idle_seconds=0, returning=active
+2026-06-12 16:51:55,600 INFO Sending heartbeat with status: active
+2026-06-12 16:54:38,888 INFO idle_seconds=0, returning=active
+2026-06-12 16:54:38,888 INFO Sending heartbeat with status: active
+2026-06-12 16:55:39,011 INFO idle_seconds=0, returning=active
+2026-06-12 16:55:39,011 INFO Sending heartbeat with status: active
+2026-06-12 16:56:39,101 INFO idle_seconds=0, returning=active
+2026-06-12 16:56:39,101 INFO Sending heartbeat with status: active
+2026-06-12 16:57:39,193 INFO idle_seconds=0, returning=active
+2026-06-12 16:57:39,193 INFO Sending heartbeat with status: active
+2026-06-12 16:58:39,287 INFO idle_seconds=0, returning=active
+2026-06-12 16:58:39,287 INFO Sending heartbeat with status: active
+2026-06-12 16:59:39,421 INFO idle_seconds=0, returning=active
+2026-06-12 16:59:39,421 INFO Sending heartbeat with status: active
+2026-06-12 17:00:39,521 INFO idle_seconds=0, returning=active
+2026-06-12 17:00:39,522 INFO Sending heartbeat with status: active
+2026-06-12 17:01:39,605 INFO idle_seconds=0, returning=active
+2026-06-12 17:01:39,605 INFO Sending heartbeat with status: active
+2026-06-12 17:02:39,708 INFO idle_seconds=53, returning=active
+2026-06-12 17:02:39,709 INFO Sending heartbeat with status: active
+2026-06-12 17:03:39,792 INFO idle_seconds=0, returning=active
+2026-06-12 17:03:39,793 INFO Sending heartbeat with status: active
+2026-06-12 17:04:39,894 INFO idle_seconds=0, returning=active
+2026-06-12 17:04:39,894 INFO Sending heartbeat with status: active
+2026-06-12 17:05:39,994 INFO idle_seconds=0, returning=active
+2026-06-12 17:05:39,994 INFO Sending heartbeat with status: active
+2026-06-12 17:06:40,079 INFO idle_seconds=0, returning=active
+2026-06-12 17:06:40,079 INFO Sending heartbeat with status: active
+2026-06-12 17:07:40,181 INFO idle_seconds=0, returning=active
+2026-06-12 17:07:40,181 INFO Sending heartbeat with status: active
+2026-06-12 17:08:40,251 INFO idle_seconds=0, returning=active
+2026-06-12 17:08:40,251 INFO Sending heartbeat with status: active
+2026-06-12 17:09:40,377 INFO idle_seconds=1, returning=active
+2026-06-12 17:09:40,378 INFO Sending heartbeat with status: active
+2026-06-12 17:10:40,494 INFO idle_seconds=0, returning=active
+2026-06-12 17:10:40,494 INFO Sending heartbeat with status: active
+2026-06-12 17:11:40,629 INFO idle_seconds=0, returning=active
+2026-06-12 17:11:40,629 INFO Sending heartbeat with status: active
+2026-06-12 17:12:40,731 INFO idle_seconds=0, returning=active
+2026-06-12 17:12:40,731 INFO Sending heartbeat with status: active
+2026-06-12 17:13:40,799 INFO idle_seconds=0, returning=active
+2026-06-12 17:13:40,799 INFO Sending heartbeat with status: active
+2026-06-12 17:14:40,897 INFO idle_seconds=0, returning=active
+2026-06-12 17:14:40,897 INFO Sending heartbeat with status: active
+2026-06-12 17:15:40,987 INFO idle_seconds=16, returning=active
+2026-06-12 17:15:40,987 INFO Sending heartbeat with status: active
+2026-06-12 17:16:41,078 INFO idle_seconds=76, returning=active
+2026-06-12 17:16:41,078 INFO Sending heartbeat with status: active
+2026-06-12 17:17:41,170 INFO idle_seconds=136, returning=active
+2026-06-12 17:17:41,170 INFO Sending heartbeat with status: active
+2026-06-12 17:18:41,311 INFO idle_seconds=196, returning=active
+2026-06-12 17:18:41,311 INFO Sending heartbeat with status: active
+2026-06-12 17:19:41,436 INFO idle_seconds=15, returning=active
+2026-06-12 17:19:41,437 INFO Sending heartbeat with status: active
+2026-06-12 17:20:41,518 INFO idle_seconds=75, returning=active
+2026-06-12 17:20:41,518 INFO Sending heartbeat with status: active
+2026-06-12 17:21:41,579 INFO idle_seconds=135, returning=active
+2026-06-12 17:21:41,579 INFO Sending heartbeat with status: active
+2026-06-12 17:22:41,636 INFO idle_seconds=195, returning=active
+2026-06-12 17:22:41,636 INFO Sending heartbeat with status: active
+2026-06-12 17:23:41,700 INFO idle_seconds=255, returning=active
+2026-06-12 17:23:41,700 INFO Sending heartbeat with status: active
+2026-06-12 17:24:41,763 INFO idle_seconds=315, returning=active
+2026-06-12 17:24:41,763 INFO Sending heartbeat with status: active
+2026-06-12 17:25:41,817 INFO idle_seconds=1, returning=active
+2026-06-12 17:25:41,817 INFO Sending heartbeat with status: active
+2026-06-12 17:26:41,903 INFO idle_seconds=28, returning=active
+2026-06-12 17:26:41,904 INFO Sending heartbeat with status: active
+2026-06-12 17:27:41,981 INFO idle_seconds=18, returning=active
+2026-06-12 17:27:41,981 INFO Sending heartbeat with status: active
+2026-06-12 17:28:42,077 INFO idle_seconds=78, returning=active
+2026-06-12 17:28:42,077 INFO Sending heartbeat with status: active
+2026-06-12 17:29:42,175 INFO idle_seconds=0, returning=active
+2026-06-12 17:29:42,175 INFO Sending heartbeat with status: active
+2026-06-12 17:30:42,247 INFO idle_seconds=6, returning=active
+2026-06-12 17:30:42,247 INFO Sending heartbeat with status: active
+2026-06-12 17:31:42,313 INFO idle_seconds=2, returning=active
+2026-06-12 17:31:42,313 INFO Sending heartbeat with status: active
+2026-06-12 17:32:42,361 INFO idle_seconds=63, returning=active
+2026-06-12 17:32:42,361 INFO Sending heartbeat with status: active
+2026-06-12 17:33:42,446 INFO idle_seconds=2, returning=active
+2026-06-12 17:33:42,446 INFO Sending heartbeat with status: active
+2026-06-12 17:34:42,521 INFO idle_seconds=10, returning=active
+2026-06-12 17:34:42,521 INFO Sending heartbeat with status: active
+2026-06-12 17:35:42,661 INFO idle_seconds=11, returning=active
+2026-06-12 17:35:42,661 INFO Sending heartbeat with status: active
+2026-06-12 17:36:42,747 INFO idle_seconds=1, returning=active
+2026-06-12 17:36:42,748 INFO Sending heartbeat with status: active
+2026-06-12 17:37:42,816 INFO idle_seconds=1, returning=active
+2026-06-12 17:37:42,816 INFO Sending heartbeat with status: active
+2026-06-12 17:38:42,867 INFO idle_seconds=6, returning=active
+2026-06-12 17:38:42,867 INFO Sending heartbeat with status: active
+2026-06-12 17:39:42,938 INFO idle_seconds=0, returning=active
+2026-06-12 17:39:42,939 INFO Sending heartbeat with status: active
+2026-06-12 17:40:43,003 INFO idle_seconds=15, returning=active
+2026-06-12 17:40:43,003 INFO Sending heartbeat with status: active
+2026-06-12 17:41:43,065 INFO idle_seconds=0, returning=active
+2026-06-12 17:41:43,066 INFO Sending heartbeat with status: active
+2026-06-12 17:42:43,115 INFO idle_seconds=0, returning=active
+2026-06-12 17:42:43,115 INFO Sending heartbeat with status: active
+2026-06-12 17:43:43,177 INFO idle_seconds=10, returning=active
+2026-06-12 17:43:43,177 INFO Sending heartbeat with status: active
+2026-06-12 17:44:43,279 INFO idle_seconds=12, returning=active
+2026-06-12 17:44:43,279 INFO Sending heartbeat with status: active
+2026-06-12 17:45:43,363 INFO idle_seconds=12, returning=active
+2026-06-12 17:45:43,364 INFO Sending heartbeat with status: active
+2026-06-12 17:46:43,444 INFO idle_seconds=3, returning=active
+2026-06-12 17:46:43,444 INFO Sending heartbeat with status: active
+2026-06-12 17:47:43,516 INFO idle_seconds=13, returning=active
+2026-06-12 17:47:43,516 INFO Sending heartbeat with status: active
+2026-06-12 17:48:43,613 INFO idle_seconds=6, returning=active
+2026-06-12 17:48:43,613 INFO Sending heartbeat with status: active
+2026-06-12 17:49:43,696 INFO idle_seconds=24, returning=active
+2026-06-12 17:49:43,696 INFO Sending heartbeat with status: active
+2026-06-12 17:50:43,760 INFO idle_seconds=84, returning=active
+2026-06-12 17:50:43,760 INFO Sending heartbeat with status: active
+2026-06-12 17:51:43,827 INFO idle_seconds=47, returning=active
+2026-06-12 17:51:43,827 INFO Sending heartbeat with status: active
+2026-06-12 17:52:43,878 INFO idle_seconds=36, returning=active
+2026-06-12 17:52:43,878 INFO Sending heartbeat with status: active
+2026-06-12 17:53:43,982 INFO idle_seconds=96, returning=active
+2026-06-12 17:53:43,982 INFO Sending heartbeat with status: active
+2026-06-12 17:54:44,062 INFO idle_seconds=156, returning=active
+2026-06-12 17:54:44,062 INFO Sending heartbeat with status: active
+2026-06-12 17:55:44,162 INFO idle_seconds=53, returning=active
+2026-06-12 17:55:44,162 INFO Sending heartbeat with status: active
+2026-06-12 17:56:44,233 INFO idle_seconds=113, returning=active
+2026-06-12 17:56:44,233 INFO Sending heartbeat with status: active
+2026-06-12 17:57:44,304 INFO idle_seconds=173, returning=active
+2026-06-12 17:57:44,304 INFO Sending heartbeat with status: active
+2026-06-12 17:58:44,354 INFO idle_seconds=233, returning=active
+2026-06-12 17:58:44,354 INFO Sending heartbeat with status: active
+2026-06-12 17:59:44,445 INFO idle_seconds=293, returning=active
+2026-06-12 17:59:44,445 INFO Sending heartbeat with status: active
+2026-06-12 18:00:44,563 INFO idle_seconds=354, returning=active
+2026-06-12 18:00:44,563 INFO Sending heartbeat with status: active
+2026-06-12 18:01:44,697 INFO idle_seconds=414, returning=active
+2026-06-12 18:01:44,697 INFO Sending heartbeat with status: active
+2026-06-12 18:02:44,771 INFO idle_seconds=474, returning=active
+2026-06-12 18:02:44,771 INFO Sending heartbeat with status: active
+2026-06-12 18:03:44,837 INFO idle_seconds=534, returning=active
+2026-06-12 18:03:44,837 INFO Sending heartbeat with status: active
+2026-06-12 18:04:44,905 INFO idle_seconds=50, returning=active
+2026-06-12 18:04:44,905 INFO Sending heartbeat with status: active
+2026-06-12 18:05:46,269 INFO idle_seconds=112, returning=active
+2026-06-12 18:05:46,269 INFO Sending heartbeat with status: active
+2026-06-12 18:06:46,320 INFO idle_seconds=172, returning=active
+2026-06-12 18:06:46,320 INFO Sending heartbeat with status: active
+2026-06-12 18:07:46,406 INFO idle_seconds=232, returning=active
+2026-06-12 18:07:46,407 INFO Sending heartbeat with status: active
+2026-06-12 18:08:46,458 INFO idle_seconds=292, returning=active
+2026-06-12 18:08:46,458 INFO Sending heartbeat with status: active
+2026-06-12 18:09:46,553 INFO idle_seconds=352, returning=active
+2026-06-12 18:09:46,553 INFO Sending heartbeat with status: active
+2026-06-12 18:10:46,599 INFO idle_seconds=0, returning=active
+2026-06-12 18:10:46,599 INFO Sending heartbeat with status: active
+2026-06-12 18:11:46,703 INFO idle_seconds=35, returning=active
+2026-06-12 18:11:46,703 INFO Sending heartbeat with status: active
+2026-06-12 18:12:46,782 INFO idle_seconds=95, returning=active
+2026-06-12 18:12:46,782 INFO Sending heartbeat with status: active
+2026-06-12 18:13:46,899 INFO idle_seconds=155, returning=active
+2026-06-12 18:13:46,899 INFO Sending heartbeat with status: active
+2026-06-12 18:14:46,992 INFO idle_seconds=215, returning=active
+2026-06-12 18:14:46,992 INFO Sending heartbeat with status: active
+2026-06-12 18:15:47,104 INFO idle_seconds=276, returning=active
+2026-06-12 18:15:47,105 INFO Sending heartbeat with status: active
+2026-06-12 18:16:47,239 INFO idle_seconds=336, returning=active
+2026-06-12 18:16:47,239 INFO Sending heartbeat with status: active
+2026-06-12 18:17:47,339 INFO idle_seconds=396, returning=active
+2026-06-12 18:17:47,339 INFO Sending heartbeat with status: active
+2026-06-12 18:18:47,438 INFO idle_seconds=456, returning=active
+2026-06-12 18:18:47,438 INFO Sending heartbeat with status: active
+2026-06-12 18:19:47,557 INFO idle_seconds=516, returning=active
+2026-06-12 18:19:47,557 INFO Sending heartbeat with status: active
+2026-06-12 18:20:47,671 INFO idle_seconds=576, returning=active
+2026-06-12 18:20:47,671 INFO Sending heartbeat with status: active
+2026-06-12 18:21:47,787 INFO idle_seconds=636, returning=idle
+2026-06-12 18:21:47,787 INFO Sending heartbeat with status: idle
+2026-06-12 18:22:47,960 INFO idle_seconds=696, returning=idle
+2026-06-12 18:22:47,960 INFO Sending heartbeat with status: idle
+2026-06-12 18:23:48,015 INFO idle_seconds=756, returning=idle
+2026-06-12 18:23:48,015 INFO Sending heartbeat with status: idle
+2026-06-12 18:24:48,110 INFO idle_seconds=817, returning=idle
+2026-06-12 18:24:48,110 INFO Sending heartbeat with status: idle
+2026-06-12 18:25:48,237 INFO idle_seconds=877, returning=idle
+2026-06-12 18:25:48,237 INFO Sending heartbeat with status: idle
+2026-06-12 18:26:48,355 INFO idle_seconds=937, returning=idle
+2026-06-12 18:26:48,355 INFO Sending heartbeat with status: idle
+2026-06-12 18:27:48,450 INFO idle_seconds=997, returning=idle
+2026-06-12 18:27:48,450 INFO Sending heartbeat with status: idle
+2026-06-12 18:28:48,555 INFO idle_seconds=1057, returning=idle
+2026-06-12 18:28:48,555 INFO Sending heartbeat with status: idle
+2026-06-12 18:29:48,688 INFO idle_seconds=1117, returning=idle
+2026-06-12 18:29:48,688 INFO Sending heartbeat with status: idle
+2026-06-12 18:30:48,834 INFO idle_seconds=1177, returning=idle
+2026-06-12 18:30:48,834 INFO Sending heartbeat with status: idle
+2026-06-12 18:31:48,956 INFO idle_seconds=1237, returning=idle
+2026-06-12 18:31:48,957 INFO Sending heartbeat with status: idle
+2026-06-12 18:32:49,012 INFO idle_seconds=1297, returning=idle
+2026-06-12 18:32:49,012 INFO Sending heartbeat with status: idle
+2026-06-12 18:33:49,076 INFO idle_seconds=1357, returning=idle
+2026-06-12 18:33:49,076 INFO Sending heartbeat with status: idle
+2026-06-12 18:34:49,221 INFO idle_seconds=1418, returning=idle
+2026-06-12 18:34:49,221 INFO Sending heartbeat with status: idle
+2026-06-12 18:35:49,323 INFO idle_seconds=1478, returning=idle
+2026-06-12 18:35:49,323 INFO Sending heartbeat with status: idle
+2026-06-12 18:36:49,422 INFO idle_seconds=1538, returning=idle
+2026-06-12 18:36:49,422 INFO Sending heartbeat with status: idle
+2026-06-12 18:37:49,538 INFO idle_seconds=1598, returning=idle
+2026-06-12 18:37:49,538 INFO Sending heartbeat with status: idle
+2026-06-12 18:38:49,655 INFO idle_seconds=1658, returning=idle
+2026-06-12 18:38:49,656 INFO Sending heartbeat with status: idle
+2026-06-12 18:39:49,762 INFO idle_seconds=1718, returning=idle
+2026-06-12 18:39:49,762 INFO Sending heartbeat with status: idle
+2026-06-12 18:40:49,907 INFO idle_seconds=1778, returning=idle
+2026-06-12 18:40:49,907 INFO Sending heartbeat with status: idle
+2026-06-12 18:41:50,006 INFO idle_seconds=1838, returning=idle
+2026-06-12 18:41:50,006 INFO Sending heartbeat with status: idle
+2026-06-12 18:42:50,121 INFO idle_seconds=1899, returning=idle
+2026-06-12 18:42:50,122 INFO Sending heartbeat with status: idle
+2026-06-12 18:43:50,239 INFO idle_seconds=1959, returning=idle
+2026-06-12 18:43:50,239 INFO Sending heartbeat with status: idle
+2026-06-12 18:44:50,371 INFO idle_seconds=2019, returning=idle
+2026-06-12 18:44:50,371 INFO Sending heartbeat with status: idle
+2026-06-12 18:45:50,488 INFO idle_seconds=2079, returning=idle
+2026-06-12 18:45:50,489 INFO Sending heartbeat with status: idle
+2026-06-12 18:46:50,640 INFO idle_seconds=2139, returning=idle
+2026-06-12 18:46:50,640 INFO Sending heartbeat with status: idle
+2026-06-12 18:47:50,738 INFO idle_seconds=2199, returning=idle
+2026-06-12 18:47:50,738 INFO Sending heartbeat with status: idle
+2026-06-12 18:48:50,898 INFO idle_seconds=2259, returning=idle
+2026-06-12 18:48:50,898 INFO Sending heartbeat with status: idle
+2026-06-12 18:49:50,971 INFO idle_seconds=2319, returning=idle
+2026-06-12 18:49:50,971 INFO Sending heartbeat with status: idle
+2026-06-12 18:50:51,055 INFO idle_seconds=2379, returning=idle
+2026-06-12 18:50:51,055 INFO Sending heartbeat with status: idle
+2026-06-12 18:51:51,141 INFO idle_seconds=23, returning=active
+2026-06-12 18:51:51,141 INFO Sending heartbeat with status: active
+2026-06-12 18:52:51,255 INFO idle_seconds=1, returning=active
+2026-06-12 18:52:51,255 INFO Sending heartbeat with status: active
+2026-06-12 18:53:51,389 INFO idle_seconds=0, returning=active
+2026-06-12 18:53:51,389 INFO Sending heartbeat with status: active
+2026-06-12 18:54:51,484 INFO idle_seconds=0, returning=active
+2026-06-12 18:54:51,484 INFO Sending heartbeat with status: active
+2026-06-12 18:55:51,621 INFO idle_seconds=0, returning=active
+2026-06-12 18:55:51,621 INFO Sending heartbeat with status: active
+2026-06-12 18:56:51,728 INFO idle_seconds=54, returning=active
+2026-06-12 18:56:51,728 INFO Sending heartbeat with status: active
+2026-06-12 18:57:51,816 INFO idle_seconds=0, returning=active
+2026-06-12 18:57:51,817 INFO Sending heartbeat with status: active
+2026-06-12 18:58:51,918 INFO idle_seconds=0, returning=active
+2026-06-12 18:58:51,919 INFO Sending heartbeat with status: active
+2026-06-12 18:59:52,037 INFO idle_seconds=16, returning=active
+2026-06-12 18:59:52,038 INFO Sending heartbeat with status: active
+2026-06-12 19:00:52,139 INFO idle_seconds=3, returning=active
+2026-06-12 19:00:52,139 INFO Sending heartbeat with status: active
+2026-06-12 19:01:52,222 INFO idle_seconds=0, returning=active
+2026-06-12 19:01:52,222 INFO Sending heartbeat with status: active
+2026-06-12 19:02:52,355 INFO idle_seconds=1, returning=active
+2026-06-12 19:02:52,355 INFO Sending heartbeat with status: active
+2026-06-12 19:03:52,482 INFO idle_seconds=0, returning=active
+2026-06-12 19:03:52,482 INFO Sending heartbeat with status: active
+2026-06-12 19:04:52,689 INFO idle_seconds=0, returning=active
+2026-06-12 19:04:52,690 INFO Sending heartbeat with status: active
+2026-06-12 19:05:32,808 ERROR Alert polling failed: HTTPConnectionPool(host='127.0.0.1', port=8000): Read timed out. (read timeout=10)
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+  File "C:\Python314\Lib\http\client.py", line 1450, in getresponse
+    response.begin()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 336, in begin
+    version, status, reason = self._read_status()
+                              ~~~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 297, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\socket.py", line 725, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+TimeoutError: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 498, in increment
+    raise reraise(type(error), error, _stacktrace)
+          ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\util\util.py", line 39, in reraise
+    raise value
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 536, in _make_request
+    self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 367, in _raise_timeout
+    raise ReadTimeoutError(
+        self, url, f"Read timed out. (read timeout={timeout_value})"
+    ) from err
+urllib3.exceptions.ReadTimeoutError: HTTPConnectionPool(host='127.0.0.1', port=8000): Read timed out. (read timeout=10)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\agent\agent.py", line 92, in check_alerts
+    response = requests.get(
+        f"{server_url}/api/alerts/pending",
+    ...<4 lines>...
+        timeout=10,
+    )
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 87, in get
+    return request("get", url, params=params, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\api.py", line 71, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "D:\Joel\Job\AidBro\Employee Monitoring Software\Workflow Management Software\backend\.venv\Lib\site-packages\requests\adapters.py", line 742, in send
+    raise ReadTimeout(e, request=request)
+requests.exceptions.ReadTimeout: HTTPConnectionPool(host='127.0.0.1', port=8000): Read timed out. (read timeout=10)
+2026-06-12 19:06:03,260 INFO idle_seconds=54, returning=active
+2026-06-12 19:06:03,260 INFO Sending heartbeat with status: active
+2026-06-12 19:07:03,909 INFO idle_seconds=0, returning=active
+2026-06-12 19:07:03,909 INFO Sending heartbeat with status: active
+2026-06-12 19:08:04,152 INFO idle_seconds=1, returning=active
+2026-06-12 19:08:04,152 INFO Sending heartbeat with status: active
+2026-06-12 19:09:04,244 INFO idle_seconds=23, returning=active
+2026-06-12 19:09:04,244 INFO Sending heartbeat with status: active
+2026-06-12 19:10:04,311 INFO idle_seconds=28, returning=active
+2026-06-12 19:10:04,312 INFO Sending heartbeat with status: active
+2026-06-12 19:11:04,375 INFO idle_seconds=14, returning=active
+2026-06-12 19:11:04,375 INFO Sending heartbeat with status: active
+2026-06-12 19:12:04,426 INFO idle_seconds=4, returning=active
+2026-06-12 19:12:04,427 INFO Sending heartbeat with status: active
+2026-06-12 19:13:04,481 INFO idle_seconds=0, returning=active
+2026-06-12 19:13:04,481 INFO Sending heartbeat with status: active
+2026-06-12 19:14:04,538 INFO idle_seconds=3, returning=active
+2026-06-12 19:14:04,539 INFO Sending heartbeat with status: active
+2026-06-12 19:15:04,603 INFO idle_seconds=0, returning=active
+2026-06-12 19:15:04,603 INFO Sending heartbeat with status: active
+2026-06-12 19:16:04,740 INFO idle_seconds=1, returning=active
+2026-06-12 19:16:04,741 INFO Sending heartbeat with status: active
+2026-06-12 19:17:04,806 INFO idle_seconds=1, returning=active
+2026-06-12 19:17:04,806 INFO Sending heartbeat with status: active
+2026-06-12 19:18:04,877 INFO idle_seconds=10, returning=active
+2026-06-12 19:18:04,877 INFO Sending heartbeat with status: active
+2026-06-12 19:19:04,956 INFO idle_seconds=7, returning=active
+2026-06-12 19:19:04,956 INFO Sending heartbeat with status: active
+2026-06-12 19:20:05,017 INFO idle_seconds=8, returning=active
+2026-06-12 19:20:05,017 INFO Sending heartbeat with status: active
+2026-06-12 19:21:05,090 INFO idle_seconds=68, returning=active
+2026-06-12 19:21:05,090 INFO Sending heartbeat with status: active
+2026-06-12 19:22:05,173 INFO idle_seconds=3, returning=active
+2026-06-12 19:22:05,173 INFO Sending heartbeat with status: active
+2026-06-12 19:23:05,294 INFO idle_seconds=2, returning=active
+2026-06-12 19:23:05,294 INFO Sending heartbeat with status: active
+2026-06-12 19:24:05,407 INFO idle_seconds=0, returning=active
+2026-06-12 19:24:05,408 INFO Sending heartbeat with status: active
+2026-06-12 19:25:05,488 INFO idle_seconds=14, returning=active
+2026-06-12 19:25:05,488 INFO Sending heartbeat with status: active
+2026-06-12 19:26:05,548 INFO idle_seconds=12, returning=active
+2026-06-12 19:26:05,548 INFO Sending heartbeat with status: active
+2026-06-12 19:27:05,615 INFO idle_seconds=0, returning=active
+2026-06-12 19:27:05,615 INFO Sending heartbeat with status: active
+2026-06-12 19:28:05,673 INFO idle_seconds=10, returning=active
+2026-06-12 19:28:05,673 INFO Sending heartbeat with status: active
+2026-06-12 19:29:05,754 INFO idle_seconds=70, returning=active
+2026-06-12 19:29:05,755 INFO Sending heartbeat with status: active
+2026-06-12 19:30:05,829 INFO idle_seconds=24, returning=active
+2026-06-12 19:30:05,830 INFO Sending heartbeat with status: active
+2026-06-12 19:31:05,890 INFO idle_seconds=48, returning=active
+2026-06-12 19:31:05,890 INFO Sending heartbeat with status: active
+2026-06-12 19:32:06,074 INFO idle_seconds=0, returning=active
+2026-06-12 19:32:06,074 INFO Sending heartbeat with status: active
+2026-06-12 19:33:06,196 INFO idle_seconds=5, returning=active
+2026-06-12 19:33:06,196 INFO Sending heartbeat with status: active
+2026-06-12 19:34:06,259 INFO idle_seconds=28, returning=active
+2026-06-12 19:34:06,259 INFO Sending heartbeat with status: active
+2026-06-12 19:35:06,434 INFO idle_seconds=15, returning=active
+2026-06-12 19:35:06,434 INFO Sending heartbeat with status: active
+2026-06-12 19:36:06,529 INFO idle_seconds=0, returning=active
+2026-06-12 19:36:06,529 INFO Sending heartbeat with status: active
+2026-06-12 19:37:06,645 INFO idle_seconds=24, returning=active
+2026-06-12 19:37:06,646 INFO Sending heartbeat with status: active
+2026-06-12 19:38:06,725 INFO idle_seconds=54, returning=active
+2026-06-12 19:38:06,725 INFO Sending heartbeat with status: active
+2026-06-12 19:39:06,793 INFO idle_seconds=0, returning=active
+2026-06-12 19:39:06,794 INFO Sending heartbeat with status: active
+2026-06-12 19:40:06,864 INFO idle_seconds=5, returning=active
+2026-06-12 19:40:06,864 INFO Sending heartbeat with status: active

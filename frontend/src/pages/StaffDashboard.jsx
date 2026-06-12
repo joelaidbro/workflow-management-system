@@ -51,7 +51,7 @@ function StaffDashboard() {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
-  const currentUserId = user?.user_id;
+  const currentUserId = user?.user_id || user?.id;
 
   const [attendance, setAttendance] = useState(null);
   const [workMode, setWorkMode] = useState("office");
@@ -70,8 +70,12 @@ function StaffDashboard() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [showNewChatSelector, setShowNewChatSelector] = useState(false);
+  const [availableChatUsers, setAvailableChatUsers] = useState([]);
+  const [loadingChatUsers, setLoadingChatUsers] = useState(false);
   const wsRef = useRef(null);
   const selectedConversationRef = useRef(null);
+  const lastSentMessageRef = useRef("");
 
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
@@ -178,6 +182,33 @@ function StaffDashboard() {
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       console.log("WebSocket message received:", data);
+      if (data.type === "message_sent") {
+        const activeConversation = selectedConversationRef.current;
+        if (activeConversation) {
+          setConversations((current) => {
+            const exists = current.some(
+              (conversation) =>
+                conversation.user_id === activeConversation.user_id
+            );
+            if (exists) {
+              return current;
+            }
+
+            return [
+              {
+                user_id: activeConversation.user_id,
+                full_name: activeConversation.full_name,
+                department: activeConversation.department,
+                last_message: lastSentMessageRef.current,
+                last_message_at: data.created_at,
+                unread_count: 0,
+              },
+              ...current,
+            ];
+          });
+        }
+      }
+
       if (data.type !== "new_message") {
         return;
       }
@@ -351,18 +382,33 @@ function StaffDashboard() {
   };
 
   const handleOpenConversation = async (conversation) => {
-    setSelectedConversation(conversation);
+    const existingConversation = conversations.find(
+      (item) => item.user_id === conversation.user_id
+    );
+    const conversationToOpen = existingConversation || {
+      user_id: conversation.user_id,
+      full_name: conversation.full_name,
+      department: conversation.department,
+      last_message: "",
+      last_message_at: null,
+      unread_count: 0,
+      is_new: true,
+    };
+
+    setSelectedConversation(conversationToOpen);
     setLoadingMessages(true);
     setConversations((current) =>
       current.map((item) =>
-        item.user_id === conversation.user_id
+        item.user_id === conversationToOpen.user_id
           ? { ...item, unread_count: 0 }
           : item
       )
     );
 
     try {
-      const response = await api.get(`/api/chat/history/${conversation.user_id}`);
+      const response = await api.get(
+        `/api/chat/history/${conversationToOpen.user_id}`
+      );
       setChatMessages(response.data);
     } catch (error) {
       toast.error("Could not load chat");
@@ -397,6 +443,7 @@ function StaffDashboard() {
 
     setChatMessages((current) => [...current, optimisticMessage]);
     console.log("Optimistic message added:", optimisticMessage);
+    lastSentMessageRef.current = content;
     wsRef.current.send(
       JSON.stringify({
         recipient_id: selectedConversation.user_id,
@@ -405,6 +452,35 @@ function StaffDashboard() {
     );
     console.log("WebSocket send completed");
     setChatInput("");
+  };
+
+  const fetchAvailableChatUsers = async () => {
+    setShowNewChatSelector((current) => !current);
+    if (availableChatUsers.length > 0) {
+      return;
+    }
+
+    setLoadingChatUsers(true);
+    try {
+      const response = await api.get("/api/users/chat-members");
+      setAvailableChatUsers(
+        response.data
+          .filter(
+            (item) =>
+              ["staff", "admin"].includes(item.role) &&
+              item.id !== currentUserId
+          )
+          .map((item) => ({
+            user_id: item.id,
+            full_name: item.full_name,
+            department: item.department,
+          }))
+      );
+    } catch (error) {
+      toast.error("Could not load users");
+    } finally {
+      setLoadingChatUsers(false);
+    }
   };
 
   const statusLabels = {
@@ -614,7 +690,45 @@ function StaffDashboard() {
         </section>
 
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900">Messages</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-bold text-gray-900">Messages</h2>
+            <button
+              type="button"
+              onClick={fetchAvailableChatUsers}
+              className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+            >
+              New Chat
+            </button>
+          </div>
+          {showNewChatSelector && (
+            <div className="mt-4">
+              <select
+                defaultValue=""
+                onChange={(event) => {
+                  const selectedUser = availableChatUsers.find(
+                    (item) => item.user_id === event.target.value
+                  );
+                  if (selectedUser) {
+                    handleOpenConversation(selectedUser);
+                    setShowNewChatSelector(false);
+                    event.target.value = "";
+                  }
+                }}
+                disabled={loadingChatUsers}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+              >
+                <option value="">
+                  {loadingChatUsers ? "Loading users..." : "Select person"}
+                </option>
+                {availableChatUsers.map((item) => (
+                  <option key={item.user_id} value={item.user_id}>
+                    {item.full_name}
+                    {item.department ? ` - ${item.department}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="mt-4 divide-y divide-gray-100">
             {conversations.length === 0 ? (
               <div className="py-8 text-center text-gray-500">
@@ -714,6 +828,10 @@ function StaffDashboard() {
             <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-5">
               {loadingMessages ? (
                 <div className="text-center text-gray-500">Loading messages...</div>
+              ) : chatMessages.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center text-gray-500">
+                  Start a conversation with {selectedConversation.full_name}
+                </div>
               ) : (
                 chatMessages.map((message) => {
                   const sentByMe = message.sender_id === currentUserId;
