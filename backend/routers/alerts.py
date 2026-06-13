@@ -227,6 +227,60 @@ def acknowledge_alert(
     return {"acknowledged": True}
 
 
+@router.get("/alerts/sent")
+def get_sent_alerts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role not in ALLOWED_SENDER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+    query = db.query(Alert).filter(Alert.company_id == current_user.company_id)
+    if current_user.role == "admin":
+        query = query.filter(Alert.sender_id == current_user.id)
+
+    alerts = query.order_by(Alert.created_at.desc()).limit(20).all()
+    response_data = []
+
+    for alert in alerts:
+        recipient_rows = (
+            db.query(AlertRecipient)
+            .filter(AlertRecipient.alert_id == alert.id)
+            .all()
+        )
+        acknowledged_count = sum(
+            1
+            for alert_recipient in recipient_rows
+            if alert_recipient.status == "acknowledged"
+        )
+        pending_count = sum(
+            1
+            for alert_recipient in recipient_rows
+            if alert_recipient.status == "pending"
+        )
+
+        response_data.append(
+            {
+                "id": str(alert.id),
+                "message": (
+                    alert.message[:60]
+                    if len(alert.message) <= 60
+                    else f"{alert.message[:60]}..."
+                ),
+                "alert_type": alert.alert_type,
+                "created_at": alert.created_at,
+                "total_recipients": len(recipient_rows),
+                "acknowledged_count": acknowledged_count,
+                "pending_count": pending_count,
+            }
+        )
+
+    return response_data
+
+
 @router.get("/alerts/delivery-report/{alert_id}")
 def get_delivery_report(
     alert_id: str,

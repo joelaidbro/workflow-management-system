@@ -753,9 +753,13 @@ function AlertsPanel() {
   const [recipientId, setRecipientId] = useState("");
   const [message, setMessage] = useState("");
   const [staffList, setStaffList] = useState([]);
+  const [sentAlerts, setSentAlerts] = useState([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
+  const [loadingSentAlerts, setLoadingSentAlerts] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [deliveryReport, setDeliveryReport] = useState(null);
+  const [loadingReportId, setLoadingReportId] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -784,6 +788,52 @@ function AlertsPanel() {
     };
   }, []);
 
+  const fetchSentAlerts = async () => {
+    try {
+      const response = await api.get("/api/alerts/sent");
+      setSentAlerts(response.data);
+    } catch (err) {
+      toast.error("Could not load sent alerts");
+    } finally {
+      setLoadingSentAlerts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSentAlerts();
+    const intervalId = setInterval(fetchSentAlerts, 30000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  const formatAlertTime = (isoString) => {
+    if (!isoString) {
+      return "";
+    }
+
+    return new Date(isoString).toLocaleString([], {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const handleViewDeliveryReport = async (alertId) => {
+    setLoadingReportId(alertId);
+    try {
+      const response = await api.get(`/api/alerts/delivery-report/${alertId}`);
+      setDeliveryReport(response.data);
+    } catch (err) {
+      toast.error("Could not load delivery report");
+    } finally {
+      setLoadingReportId(null);
+    }
+  };
+
   const handleSendAlert = async (event) => {
     event.preventDefault();
     const cleanMessage = message.trim();
@@ -807,6 +857,7 @@ function AlertsPanel() {
       setAlertType("info");
       setRecipientId("");
       setMessage("");
+      fetchSentAlerts();
     } catch (err) {
       setError("Could not send alert.");
     } finally {
@@ -910,10 +961,161 @@ function AlertsPanel() {
 
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-3">
         <h3 className="text-xl font-bold text-gray-900">Sent Alerts</h3>
-        <div className="mt-6 flex min-h-80 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
-          Delivery reports will appear here
+        <div className="mt-6 space-y-4">
+          {loadingSentAlerts ? (
+            <div className="flex min-h-80 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+              Loading sent alerts...
+            </div>
+          ) : sentAlerts.length === 0 ? (
+            <div className="flex min-h-80 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+              No alerts sent yet
+            </div>
+          ) : (
+            sentAlerts.map((alert) => {
+              const progress =
+                alert.total_recipients > 0
+                  ? Math.round(
+                      (alert.acknowledged_count / alert.total_recipients) * 100
+                    )
+                  : 0;
+
+              return (
+                <div key={alert.id} className="rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            alert.alert_type === "urgent"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {formatAlertTime(alert.created_at)}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm font-medium text-gray-900">
+                        {alert.message}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleViewDeliveryReport(alert.id)}
+                      disabled={loadingReportId === alert.id}
+                      className="shrink-0 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loadingReportId === alert.id
+                        ? "Loading..."
+                        : "View Full Report"}
+                    </button>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-700">
+                        {alert.acknowledged_count}/{alert.total_recipients} acknowledged
+                      </span>
+                      {alert.pending_count > 0 && (
+                        <span className="font-medium text-orange-600">
+                          {alert.pending_count} pending
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-green-500"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </section>
+
+      {deliveryReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  Delivery Report
+                </h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  {deliveryReport.message}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeliveryReport(null)}
+                className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-3 text-center text-sm">
+              <div className="rounded-lg bg-gray-50 p-3">
+                <div className="font-bold text-gray-900">
+                  {deliveryReport.total_recipients}
+                </div>
+                <div className="text-gray-500">Recipients</div>
+              </div>
+              <div className="rounded-lg bg-green-50 p-3">
+                <div className="font-bold text-green-700">
+                  {deliveryReport.acknowledged_count}
+                </div>
+                <div className="text-green-700">Acknowledged</div>
+              </div>
+              <div className="rounded-lg bg-orange-50 p-3">
+                <div className="font-bold text-orange-700">
+                  {deliveryReport.pending_count}
+                </div>
+                <div className="text-orange-700">Pending</div>
+              </div>
+            </div>
+
+            <div className="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-200">
+              {deliveryReport.recipients.map((recipient) => (
+                <div
+                  key={recipient.recipient_id}
+                  className="flex items-start justify-between gap-4 p-4 text-sm"
+                >
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      {recipient.full_name}
+                    </div>
+                    {recipient.acknowledged_at && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        {formatAlertTime(recipient.acknowledged_at)}
+                      </div>
+                    )}
+                    {recipient.reply && (
+                      <div className="mt-2 rounded-lg bg-gray-50 p-2 text-gray-700">
+                        {recipient.reply}
+                      </div>
+                    )}
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      recipient.status === "acknowledged"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-orange-100 text-orange-700"
+                    }`}
+                  >
+                    {recipient.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
