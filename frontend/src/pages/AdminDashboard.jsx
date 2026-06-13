@@ -53,11 +53,16 @@ function getBreakMinutes(startValue) {
   return Math.max(0, Math.floor((new Date() - new Date(startValue)) / 60000));
 }
 
-function TeamStatusPanel({ setActiveSection, setChatWithUser }) {
+function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedUserId, setExpandedUserId] = useState(null);
+  const [alertTarget, setAlertTarget] = useState(null);
+  const [directAlertType, setDirectAlertType] = useState("info");
+  const [directAlertMessage, setDirectAlertMessage] = useState("");
+  const [directAlertError, setDirectAlertError] = useState("");
+  const [sendingDirectAlert, setSendingDirectAlert] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -94,6 +99,32 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser }) {
     idle: staffList.filter((staff) => staff.status === "idle").length,
     break: staffList.filter((staff) => staff.status === "break").length,
     offline: staffList.filter((staff) => staff.status === "offline").length,
+  };
+
+  const handleSendDirectAlert = async () => {
+    const cleanMessage = directAlertMessage.trim();
+    if (!cleanMessage) {
+      setDirectAlertError("Message cannot be empty");
+      return;
+    }
+
+    setSendingDirectAlert(true);
+    setDirectAlertError("");
+    try {
+      await api.post("/api/alerts/send", {
+        alert_type: directAlertType,
+        message: cleanMessage,
+        recipient_id: alertTarget.user_id,
+      });
+      toast.success(`Alert sent to ${alertTarget.full_name}`);
+      setAlertTarget(null);
+      setDirectAlertType("info");
+      setDirectAlertMessage("");
+    } catch (err) {
+      setDirectAlertError(err.response?.data?.detail || "Could not send alert");
+    } finally {
+      setSendingDirectAlert(false);
+    }
   };
 
   if (loading) {
@@ -222,14 +253,19 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser }) {
                     <div className="mt-5 flex gap-3">
                       <button
                         type="button"
-                        onClick={() => alert("Coming soon")}
+                        onClick={() => openProfile(staff)}
                         className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
                       >
                         View Profile
                       </button>
                       <button
                         type="button"
-                        onClick={() => alert("Coming soon")}
+                        onClick={() => {
+                          setAlertTarget(staff);
+                          setDirectAlertType("info");
+                          setDirectAlertMessage("");
+                          setDirectAlertError("");
+                        }}
                         className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-yellow-950 hover:bg-yellow-500"
                       >
                         Send Alert
@@ -249,11 +285,263 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser }) {
                         Open Chat
                       </button>
                     </div>
+
+                    {alertTarget?.user_id === staff.user_id && (
+                      <div className="mt-5 rounded-xl border border-yellow-200 bg-white p-4">
+                        <div className="text-sm font-semibold text-gray-900">
+                          Send alert to {staff.full_name}
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setDirectAlertType("info")}
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                              directAlertType === "info"
+                                ? "bg-blue-700 text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                          >
+                            Info
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDirectAlertType("urgent")}
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                              directAlertType === "urgent"
+                                ? "bg-red-600 text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                          >
+                            Urgent
+                          </button>
+                        </div>
+                        <textarea
+                          value={directAlertMessage}
+                          onChange={(event) =>
+                            setDirectAlertMessage(event.target.value)
+                          }
+                          className="mt-4 min-h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                          placeholder="Type alert message..."
+                        />
+                        {directAlertError && (
+                          <div className="mt-2 text-sm font-medium text-red-600">
+                            {directAlertError}
+                          </div>
+                        )}
+                        <div className="mt-4 flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setAlertTarget(null)}
+                            className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSendDirectAlert}
+                            disabled={sendingDirectAlert}
+                            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            {sendingDirectAlert ? "Sending..." : "Send"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             );
           })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StaffProfileModal({ staff, onClose }) {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const userId = staff?.user_id || staff?.id;
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get(`/api/attendance/summary/${userId}`, {
+          params: { month: currentMonth, year: currentYear },
+        });
+        setSummary(response.data);
+      } catch (err) {
+        toast.error("Could not load profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (userId) {
+      fetchSummary();
+    }
+  }, [userId, currentMonth, currentYear]);
+
+  const handleDownloadReport = async () => {
+    setDownloading(true);
+    try {
+      const response = await api.get(
+        `/api/attendance/export/salary-slip/${userId}`,
+        {
+          params: { month: currentMonth, year: currentYear },
+          responseType: "blob",
+        }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `salary_slip_${staff.employee_id || userId}_${currentMonth}_${currentYear}.pdf`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      if (err.response?.status === 400) {
+        toast.error("Salary not yet approved for this period");
+      } else {
+        toast.error("Could not download report");
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const recordsByDate = new Map(
+    (summary?.attendance_records || []).map((record) => [record.date, record])
+  );
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const calendarDays = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const date = new Date(currentYear, currentMonth - 1, day);
+    const dateKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(
+      day
+    ).padStart(2, "0")}`;
+    const record = recordsByDate.get(dateKey);
+    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    let dotClass = "bg-red-500";
+
+    if (isWeekend && !record) {
+      dotClass = "bg-gray-400";
+    } else if (record?.work_mode === "leave") {
+      dotClass = "bg-blue-500";
+    } else if (record?.is_present) {
+      dotClass = "bg-green-500";
+    }
+
+    return { day, dotClass };
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900">
+              {staff.full_name}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {staff.employee_id || "N/A"} · {staff.department || "No department"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+          >
+            Close
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center text-gray-500">Loading profile...</div>
+        ) : (
+          <>
+            <div className="mt-6 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="text-gray-500">Job Title</div>
+                <div className="mt-1 font-bold text-gray-900">
+                  {staff.job_title || "N/A"}
+                </div>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="text-gray-500">Work Type</div>
+                <div className="mt-1 font-bold text-gray-900">
+                  {(staff.work_type || staff.today_work_mode || "N/A").toUpperCase()}
+                </div>
+              </div>
+              <div className="rounded-xl bg-green-50 p-4">
+                <div className="text-green-700">Days Present</div>
+                <div className="mt-1 text-2xl font-bold text-green-900">
+                  {summary?.days_present || 0}
+                </div>
+              </div>
+              <div className="rounded-xl bg-red-50 p-4">
+                <div className="text-red-700">Days Absent</div>
+                <div className="mt-1 text-2xl font-bold text-red-900">
+                  {summary?.days_absent || 0}
+                </div>
+              </div>
+              <div className="rounded-xl bg-blue-50 p-4">
+                <div className="text-blue-700">Working Hours</div>
+                <div className="mt-1 text-2xl font-bold text-blue-900">
+                  {(((summary?.total_working_minutes || 0) / 60).toFixed(1))}
+                </div>
+              </div>
+              <div className="rounded-xl bg-orange-50 p-4">
+                <div className="text-orange-700">Break Time</div>
+                <div className="mt-1 text-2xl font-bold text-orange-900">
+                  {(((summary?.total_break_minutes || 0) / 60).toFixed(1))}h
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="mb-3 flex items-center justify-between">
+                <h4 className="font-bold text-gray-900">Attendance Calendar</h4>
+                <div className="flex gap-3 text-xs text-gray-500">
+                  <span>Green present</span>
+                  <span>Red absent</span>
+                  <span>Blue leave</span>
+                  <span>Gray weekend</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-2 rounded-xl bg-gray-50 p-4">
+                {calendarDays.map((item) => (
+                  <div
+                    key={item.day}
+                    className="flex flex-col items-center gap-1 rounded-lg bg-white p-2 text-xs text-gray-600"
+                  >
+                    <span>{item.day}</span>
+                    <span className={`h-3 w-3 rounded-full ${item.dotClass}`} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={handleDownloadReport}
+                disabled={downloading}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {downloading ? "Downloading..." : "Download Report"}
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -1601,7 +1889,7 @@ function ChatPanel({ chatWithUser }) {
   );
 }
 
-function StaffManagementPanel() {
+function StaffManagementPanel({ openProfile }) {
   const emptyForm = {
     full_name: "",
     email: "",
@@ -1977,6 +2265,13 @@ function StaffManagementPanel() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openProfile(user)}
+                        className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+                      >
+                        View Profile
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleAgentTokenClick(user.id)}
@@ -2751,6 +3046,7 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("dashboard");
   const [chatWithUser, setChatWithUser] = useState(null);
+  const [profileUser, setProfileUser] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const user = useMemo(() => {
@@ -2786,7 +3082,7 @@ function AdminDashboard() {
     }
 
     if (activeSection === "staff-management") {
-      return <StaffManagementPanel />;
+      return <StaffManagementPanel openProfile={setProfileUser} />;
     }
 
     if (activeSection === "reports") {
@@ -2809,6 +3105,7 @@ function AdminDashboard() {
       <TeamStatusPanel
         setActiveSection={setActiveSection}
         setChatWithUser={setChatWithUser}
+        openProfile={setProfileUser}
       />
     );
   };
@@ -2886,6 +3183,13 @@ function AdminDashboard() {
 
         <section className="p-8">{renderContent()}</section>
       </main>
+
+      {profileUser && (
+        <StaffProfileModal
+          staff={profileUser}
+          onClose={() => setProfileUser(null)}
+        />
+      )}
     </div>
   );
 }
