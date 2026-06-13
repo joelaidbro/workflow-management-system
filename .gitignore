@@ -42,3 +42,5 @@ backend/.env.production
 
 # Production config - managed directly on server
 backend/gunicorn.conf.py
+
+agent/config.json

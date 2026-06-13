@@ -52,6 +52,25 @@ function StaffDashboard() {
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
   const currentUserId = user?.user_id || user?.id;
+  const formatMessageTime = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const formatMessageDate = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    return date.toLocaleDateString([], {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   const [attendance, setAttendance] = useState(null);
   const [workMode, setWorkMode] = useState("office");
@@ -76,6 +95,61 @@ function StaffDashboard() {
   const wsRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const lastSentMessageRef = useRef("");
+
+  const getDateInputValue = (date) => {
+    const timezoneOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 10);
+  };
+
+  const todayDate = getDateInputValue(new Date());
+
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [loadingLeaveRequests, setLoadingLeaveRequests] = useState(true);
+  const [showLeaveForm, setShowLeaveForm] = useState(false);
+  const [leaveError, setLeaveError] = useState("");
+  const [submittingLeave, setSubmittingLeave] = useState(false);
+  const [leaveForm, setLeaveForm] = useState({
+    leave_type: "",
+    start_date: todayDate,
+    end_date: todayDate,
+    reason: "",
+  });
+
+  const fetchLeaveRequests = async () => {
+    setLoadingLeaveRequests(true);
+    try {
+      const response = await api.get("/api/leave/my-requests");
+      setLeaveRequests(response.data);
+    } catch (error) {
+      toast.error("Could not load leave requests");
+    } finally {
+      setLoadingLeaveRequests(false);
+    }
+  };
+
+  const calculateLeaveDays = () => {
+    if (!leaveForm.start_date || !leaveForm.end_date) {
+      return 0;
+    }
+
+    const startDate = new Date(`${leaveForm.start_date}T00:00:00`);
+    const endDate = new Date(`${leaveForm.end_date}T00:00:00`);
+    if (endDate < startDate) {
+      return 0;
+    }
+
+    return Math.floor((endDate - startDate) / 86400000) + 1;
+  };
+
+  const updateLeaveForm = (field, value) => {
+    setLeaveForm((current) => {
+      const updated = { ...current, [field]: value };
+      if (field === "start_date" && updated.end_date < value) {
+        updated.end_date = value;
+      }
+      return updated;
+    });
+  };
 
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
@@ -134,6 +208,7 @@ function StaffDashboard() {
     const fetchConversations = async () => {
       try {
         const response = await api.get("/api/chat/conversations");
+        console.log("Conversations response:", response.data);
         setConversations(response.data);
       } catch (error) {
         toast.error("Could not load messages");
@@ -143,6 +218,7 @@ function StaffDashboard() {
     fetchAttendance();
     fetchReports();
     fetchConversations();
+    fetchLeaveRequests();
 
     const attendanceIntervalId = setInterval(fetchAttendance, 30000);
     return () => clearInterval(attendanceIntervalId);
@@ -181,6 +257,7 @@ function StaffDashboard() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log("Raw websocket data:", data);
       console.log("WebSocket message received:", data);
       if (data.type === "message_sent") {
         const activeConversation = selectedConversationRef.current;
@@ -409,6 +486,7 @@ function StaffDashboard() {
       const response = await api.get(
         `/api/chat/history/${conversationToOpen.user_id}`
       );
+      console.log("Chat history response:", response.data);
       setChatMessages(response.data);
     } catch (error) {
       toast.error("Could not load chat");
@@ -452,6 +530,40 @@ function StaffDashboard() {
     );
     console.log("WebSocket send completed");
     setChatInput("");
+  };
+
+  const handleSubmitLeaveRequest = async () => {
+    const leaveType = leaveForm.leave_type.trim();
+    if (!leaveType) {
+      setLeaveError("Leave type is required");
+      return;
+    }
+
+    setSubmittingLeave(true);
+    setLeaveError("");
+    try {
+      await api.post("/api/leave/request", {
+        leave_type: leaveType,
+        start_date: leaveForm.start_date,
+        end_date: leaveForm.end_date,
+        reason: leaveForm.reason.trim() || null,
+      });
+      toast.success("Leave request submitted");
+      setShowLeaveForm(false);
+      setLeaveForm({
+        leave_type: "",
+        start_date: todayDate,
+        end_date: todayDate,
+        reason: "",
+      });
+      fetchLeaveRequests();
+    } catch (error) {
+      setLeaveError(
+        error.response?.data?.detail || "Could not submit leave request"
+      );
+    } finally {
+      setSubmittingLeave(false);
+    }
   };
 
   const fetchAvailableChatUsers = async () => {
@@ -498,6 +610,11 @@ function StaffDashboard() {
     break: "bg-orange-500 text-orange-950",
     meeting: "bg-blue-600",
     idle: "bg-yellow-400 text-yellow-950",
+  };
+  const leaveStatusClasses = {
+    pending: "bg-yellow-100 text-yellow-700",
+    approved: "bg-green-100 text-green-700",
+    rejected: "bg-red-100 text-red-700",
   };
   const liveStatus = statusLabels[currentStatus] || "Active";
   const breakDurationMinutes = breakStartedAt
@@ -691,6 +808,151 @@ function StaffDashboard() {
 
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-bold text-gray-900">Leave Requests</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setShowLeaveForm(true);
+                setLeaveError("");
+              }}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+            >
+              Request Leave
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {loadingLeaveRequests ? (
+              <div className="text-gray-500">Loading leave requests...</div>
+            ) : leaveRequests.length === 0 ? (
+              <div className="text-gray-500">No leave requests yet</div>
+            ) : (
+              leaveRequests.map((request) => (
+                <div key={request.id} className="rounded-xl bg-gray-50 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="font-semibold text-gray-900">
+                        {request.leave_type}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-600">
+                        {formatDate(request.start_date)} -{" "}
+                        {formatDate(request.end_date)} · {request.total_days}{" "}
+                        {request.total_days === 1 ? "day" : "days"}
+                      </div>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        leaveStatusClasses[request.status] ||
+                        "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {request.status}
+                    </span>
+                  </div>
+                  {request.admin_comment && (
+                    <div className="mt-3 rounded-lg bg-white p-3 text-sm text-gray-700">
+                      {request.admin_comment}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {showLeaveForm && (
+            <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-gray-700">
+                    Leave Type
+                  </span>
+                  <input
+                    type="text"
+                    value={leaveForm.leave_type}
+                    onChange={(event) =>
+                      updateLeaveForm("leave_type", event.target.value)
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-gray-700">
+                    Start Date
+                  </span>
+                  <input
+                    type="date"
+                    min={todayDate}
+                    value={leaveForm.start_date}
+                    onChange={(event) =>
+                      updateLeaveForm("start_date", event.target.value)
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-gray-700">
+                    End Date
+                  </span>
+                  <input
+                    type="date"
+                    min={leaveForm.start_date || todayDate}
+                    value={leaveForm.end_date}
+                    onChange={(event) =>
+                      updateLeaveForm("end_date", event.target.value)
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <div className="flex items-end text-sm font-semibold text-gray-700">
+                  Total: {calculateLeaveDays()}{" "}
+                  {calculateLeaveDays() === 1 ? "day" : "days"}
+                </div>
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm font-medium text-gray-700">
+                    Reason
+                  </span>
+                  <textarea
+                    value={leaveForm.reason}
+                    onChange={(event) =>
+                      updateLeaveForm("reason", event.target.value)
+                    }
+                    className="min-h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+              </div>
+
+              {leaveError && (
+                <div className="mt-4 text-sm font-medium text-red-600">
+                  {leaveError}
+                </div>
+              )}
+
+              <div className="mt-5 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLeaveForm(false);
+                    setLeaveError("");
+                  }}
+                  className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitLeaveRequest}
+                  disabled={submittingLeave}
+                  className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submittingLeave ? "Submitting..." : "Submit Request"}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-bold text-gray-900">Messages</h2>
             <button
               type="button"
@@ -755,7 +1017,7 @@ function StaffDashboard() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500">
-                      {formatTime(conversation.last_message_at)}
+                      {formatMessageTime(conversation.last_message_at)}
                     </span>
                     {conversation.unread_count > 0 && (
                       <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-700 px-2 text-xs font-bold text-white">
@@ -834,6 +1096,8 @@ function StaffDashboard() {
                 </div>
               ) : (
                 chatMessages.map((message) => {
+                  console.log("Message timestamp:", message.created_at);
+                  console.log("Parsed:", new Date(message.created_at));
                   const sentByMe = message.sender_id === currentUserId;
                   return (
                     <div
@@ -860,7 +1124,7 @@ function StaffDashboard() {
                             sentByMe ? "text-right" : "text-left"
                           }`}
                         >
-                          {formatTime(message.created_at)}
+                          {formatMessageTime(message.created_at)}
                         </div>
                       </div>
                     </div>

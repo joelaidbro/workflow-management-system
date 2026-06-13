@@ -111,7 +111,7 @@ async def chat_websocket(websocket: WebSocket, user_id: str):
                     "sender_id": str(sender.id),
                     "sender_name": sender.full_name,
                     "content": message.content,
-                    "created_at": message.created_at.isoformat(),
+                    "created_at": message.created_at.isoformat() + "Z",
                 },
             )
 
@@ -120,7 +120,7 @@ async def chat_websocket(websocket: WebSocket, user_id: str):
                     "type": "message_sent",
                     "message_id": str(message.id),
                     "recipient_id": str(recipient.id),
-                    "created_at": message.created_at.isoformat(),
+                    "created_at": message.created_at.isoformat() + "Z",
                 }
             )
     except WebSocketDisconnect:
@@ -179,13 +179,16 @@ def get_message_history(
             message.is_read = True
     db.commit()
 
+    for message in reversed(messages):
+        print("HISTORY:", message.created_at, type(message.created_at))
+
     return [
         {
             "message_id": str(message.id),
             "sender_id": str(message.sender_id),
             "sender_name": message.sender.full_name,
             "content": message.content,
-            "created_at": message.created_at,
+            "created_at": message.created_at.isoformat() + "Z",
             "is_read": message.is_read,
         }
         for message in reversed(messages)
@@ -246,7 +249,7 @@ def get_conversations(
                 "full_name": other_user.full_name,
                 "department": other_user.department,
                 "last_message": last_message.content,
-                "last_message_at": last_message.created_at,
+                "last_message_at": last_message.created_at.isoformat() + "Z",
                 "unread_count": unread_count,
             }
         )

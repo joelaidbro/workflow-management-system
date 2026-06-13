@@ -923,6 +923,26 @@ function ChatPanel({ chatWithUser }) {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
+  const formatMessageTime = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const formatMessageDate = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    return date.toLocaleDateString([], {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   const currentUserId = user?.user_id || user?.id;
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -996,6 +1016,7 @@ function ChatPanel({ chatWithUser }) {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log("Raw websocket data:", data);
       console.log("WebSocket message received:", data);
 
       if (data.type === "message_sent") {
@@ -1272,7 +1293,7 @@ function ChatPanel({ chatWithUser }) {
                     </div>
                   </div>
                   <div className="text-xs text-gray-500">
-                    {formatTime(conversation.last_message_at)}
+                    {formatMessageTime(conversation.last_message_at)}
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-3">
@@ -1343,7 +1364,7 @@ function ChatPanel({ chatWithUser }) {
                             sentByMe ? "text-right" : "text-left"
                           }`}
                         >
-                          {formatTime(message.created_at)}
+                          {formatMessageTime(message.created_at)}
                         </div>
                       </div>
                     </div>
