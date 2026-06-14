@@ -363,6 +363,10 @@ function StaffProfileModal({ staff, onClose }) {
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
   const userId = staff?.user_id || staff?.id;
+  const currentUser = useMemo(() => {
+    const storedUser = localStorage.getItem("user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  }, []);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -422,6 +426,15 @@ function StaffProfileModal({ staff, onClose }) {
   const recordsByDate = new Map(
     (summary?.attendance_records || []).map((record) => [record.date, record])
   );
+  const profile = summary || staff;
+  const workType = profile?.work_type || staff?.work_type || staff?.today_work_mode;
+  const formattedJoiningDate = profile?.joining_date
+    ? new Date(profile.joining_date).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "N/A";
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const calendarDays = Array.from({ length: daysInMonth }, (_, index) => {
     const day = index + 1;
@@ -469,6 +482,85 @@ function StaffProfileModal({ staff, onClose }) {
           <div className="py-12 text-center text-gray-500">Loading profile...</div>
         ) : (
           <>
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-5">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <h4 className="text-2xl font-bold text-gray-900">
+                    {profile?.full_name || staff.full_name}
+                  </h4>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {profile?.employee_id || staff.employee_id || "N/A"}
+                  </p>
+                  <div className="mt-5 space-y-3 text-sm">
+                    <div>
+                      <span className="text-gray-500">Department</span>
+                      <div className="font-semibold text-gray-900">
+                        {profile?.department || staff.department || "N/A"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Job Title</span>
+                      <div className="font-semibold text-gray-900">
+                        {profile?.job_title || staff.job_title || "N/A"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Work Type</span>
+                      <div className="mt-1">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            workType === "wfh"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {workType === "wfh" ? "WFH" : "Office"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">Email</span>
+                    <div>
+                      {profile?.email ? (
+                        <a
+                          href={`mailto:${profile.email}`}
+                          className="font-semibold text-blue-700 hover:text-blue-800"
+                        >
+                          {profile.email}
+                        </a>
+                      ) : (
+                        <span className="font-semibold text-gray-900">N/A</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Phone</span>
+                    <div className="font-semibold text-gray-900">
+                      {profile?.phone || "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Joining Date</span>
+                    <div className="font-semibold text-gray-900">
+                      {formattedJoiningDate}
+                    </div>
+                  </div>
+                  {currentUser?.role === "super_admin" && (
+                    <div>
+                      <span className="text-gray-500">Base Salary</span>
+                      <div className="font-semibold text-gray-900">
+                        {profile?.base_salary != null ? profile.base_salary : "N/A"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="mt-6 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
               <div className="rounded-xl bg-gray-50 p-4">
                 <div className="text-gray-500">Job Title</div>
@@ -2232,7 +2324,20 @@ function StaffManagementPanel({ openProfile }) {
               {users.map((user) => (
                 <tr key={user.id}>
                   <td className="px-4 py-3 font-semibold text-gray-900">
-                    {user.full_name}
+                    <div className="flex items-center gap-2">
+                      <span>{user.full_name}</span>
+                      <span className="group relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                        i
+                        <span className="pointer-events-none absolute left-1/2 top-7 z-20 hidden w-64 -translate-x-1/2 rounded-lg bg-gray-900 p-3 text-left text-xs font-medium text-white shadow-lg group-hover:block">
+                          <span className="block">
+                            Email: {user.email || "N/A"}
+                          </span>
+                          <span className="mt-1 block">
+                            Phone: {user.phone || "N/A"}
+                          </span>
+                        </span>
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{user.employee_id}</td>
                   <td className="px-4 py-3 text-gray-600">

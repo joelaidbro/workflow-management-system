@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from datetime import date as date_type
+from datetime import date as date_type, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -290,22 +290,27 @@ def generate_agent_token(
             detail="Agent token can only be generated for staff users",
         )
 
-    existing_tokens = (
-        db.query(MachineToken)
-        .filter(MachineToken.user_id == user.id, MachineToken.is_active.is_(True))
-        .all()
-    )
-    for existing_token in existing_tokens:
-        existing_token.is_active = False
-
     new_token = secrets.token_hex(32)
-    machine_token = MachineToken(
-        company_id=user.company_id,
-        user_id=user.id,
-        token=new_token,
-        is_active=True,
+
+    existing_token = (
+        db.query(MachineToken)
+        .filter(MachineToken.user_id == user.id)
+        .first()
     )
-    db.add(machine_token)
+
+    if existing_token:
+        existing_token.token = new_token
+        existing_token.is_active = True
+        existing_token.created_at = datetime.utcnow()
+    else:
+        machine_token = MachineToken(
+            company_id=user.company_id,
+            user_id=user.id,
+            token=new_token,
+            is_active=True,
+        )
+        db.add(machine_token)
+
     db.commit()
 
     return {
