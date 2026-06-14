@@ -109,15 +109,30 @@ def check_alerts():
         logging.exception("Alert polling failed: %s", exc)
 
 
-def show_alert_popup(alert: dict):
-    if alert["alert_type"] == "urgent":
-        title = "⚠️ Urgent"
-    else:
-        title = "ℹ️ Info"
+def show_alert_popup(alert: dict) -> None:
+    try:
+        alert_type = alert.get("alert_type", "info")
+        sender = alert.get("sender_name", "Admin")
+        message = alert.get("message", "")
 
-    body = f"{alert['sender_name']}:\n\n{alert['message']}"
-    ctypes.windll.user32.MessageBoxW(0, body, title, 0)
+        title = "🔴 URGENT ALERT" if alert_type == "urgent" else "ℹ️ Info"
+        body = f"From: {sender}\n\n{message}"
 
+        # Use MB_SYSTEMMODAL flag (0x00001000) to force window above all others
+        # Combined with MB_OK (0x00000000) and MB_SETFOREGROUND (0x00010000)
+        MB_OK = 0x00000000
+        MB_SYSTEMMODAL = 0x00001000
+        MB_SETFOREGROUND = 0x00010000
+        MB_ICONWARNING = 0x00000030
+        MB_ICONINFORMATION = 0x00000040
+
+        icon = MB_ICONWARNING if alert_type == "urgent" else MB_ICONINFORMATION
+        flags = MB_OK | MB_SYSTEMMODAL | MB_SETFOREGROUND | icon
+
+        ctypes.windll.user32.MessageBoxW(0, body, title, flags)
+
+    except Exception as exc:
+        logging.exception("Failed to show alert popup: %s", exc)
 
 def acknowledge_alert(alert_recipient_id: str):
     try:

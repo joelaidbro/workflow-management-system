@@ -311,8 +311,8 @@ def generate_agent_token(
     return {
         "machine_token": new_token,
         "staff_id": str(user.id),
-        "token_preview": f"••••••••{new_token[-8:]}",
-        "message": "Save this token now — it will not be shown again in full",
+        "token_preview": f"********{new_token[-8:]}",
+        "message": "Save this token now. It will not be shown again in full.",
     }
 
 
