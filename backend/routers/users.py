@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, hash_password
 from database import get_db
-from models import MachineToken, User
+from models import MachineToken, Session as UserSession, User
 
 router = APIRouter()
 
@@ -32,11 +32,16 @@ class CreateUserRequest(BaseModel):
 
 class UpdateUserRequest(BaseModel):
     full_name: str | None = None
+    email: str | None = None
     department: str | None = None
     job_title: str | None = None
     phone: str | None = None
     work_type: str | None = None
     base_salary: Decimal | None = None
+
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str
 
 
 def require_super_admin(current_user: User):
@@ -245,12 +250,55 @@ def update_user(
             detail="Invalid work type",
         )
 
+    if "email" in update_data:
+        existing_email = (
+            db.query(User)
+            .filter(
+                User.company_id == current_user.company_id,
+                User.email == update_data["email"],
+                User.id != user.id,
+            )
+            .first()
+        )
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already in use",
+            )
+
     for field, value in update_data.items():
         setattr(user, field, value)
 
     db.commit()
     db.refresh(user)
     return format_user(user)
+
+
+@router.post("/users/{user_id}/reset-password")
+def reset_user_password(
+    user_id: str,
+    password_data: ResetPasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+    user = get_company_user(user_id, current_user, db)
+
+    if len(password_data.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+
+    user.password_hash = hash_password(password_data.new_password)
+    (
+        db.query(UserSession)
+        .filter(UserSession.user_id == user.id, UserSession.is_active.is_(True))
+        .update({"is_active": False}, synchronize_session=False)
+    )
+    db.commit()
+
+    return {"message": "Password reset successfully"}
 
 
 @router.post("/users/{user_id}/deactivate")

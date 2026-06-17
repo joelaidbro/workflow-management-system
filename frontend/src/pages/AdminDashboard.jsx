@@ -1963,6 +1963,22 @@ function StaffManagementPanel({ openProfile }) {
     };
   });
   const [downloadingSalarySlip, setDownloadingSalarySlip] = useState(false);
+  const [editModal, setEditModal] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [editError, setEditError] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [passwordModal, setPasswordModal] = useState(null);
+  const [passwordForm, setPasswordForm] = useState({
+    new_password: "",
+    confirm_password: "",
+  });
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const currentUser = useMemo(() => {
+    const storedUser = localStorage.getItem("user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  }, []);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -2085,6 +2101,111 @@ function StaffManagementPanel({ openProfile }) {
       );
     } catch (error) {
       toast.error("Could not deactivate user");
+    }
+  };
+
+  const openEditModal = (user) => {
+    setEditModal(user);
+    setEditError("");
+    setEditForm({
+      full_name: user.full_name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      department: user.department || "",
+      job_title: user.job_title || "",
+      work_type: user.work_type || "office",
+      base_salary: user.base_salary ?? "",
+    });
+  };
+
+  const updateEditForm = (field, value) => {
+    setEditForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSaveEdit = async (event) => {
+    event.preventDefault();
+    if (!editModal) {
+      return;
+    }
+
+    const payload = {};
+    const fields = [
+      "full_name",
+      "email",
+      "phone",
+      "department",
+      "job_title",
+      "work_type",
+      "base_salary",
+    ];
+
+    fields.forEach((field) => {
+      if (field === "base_salary" && currentUser?.role !== "super_admin") {
+        return;
+      }
+
+      const originalValue = editModal[field] ?? "";
+      const nextValue = editForm[field] ?? "";
+      if (String(originalValue) !== String(nextValue)) {
+        if (field === "base_salary") {
+          payload[field] = nextValue === "" ? 0 : nextValue;
+        } else if (["full_name", "email", "work_type"].includes(field)) {
+          payload[field] = nextValue;
+        } else {
+          payload[field] = nextValue || null;
+        }
+      }
+    });
+
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      await api.patch(`/api/users/${editModal.id}`, payload);
+      toast.success("Staff details updated");
+      setEditModal(null);
+      fetchUsers();
+    } catch (error) {
+      setEditError(error.response?.data?.detail || "Could not update staff details");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const openPasswordModal = (user) => {
+    setPasswordModal(user);
+    setPasswordForm({ new_password: "", confirm_password: "" });
+    setPasswordError("");
+    setShowResetPassword(false);
+  };
+
+  const handleResetPassword = async (event) => {
+    event.preventDefault();
+    if (!passwordModal) {
+      return;
+    }
+
+    if (passwordForm.new_password.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      return;
+    }
+
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordError("Passwords do not match");
+      return;
+    }
+
+    setResettingPassword(true);
+    setPasswordError("");
+    try {
+      await api.post(`/api/users/${passwordModal.id}/reset-password`, {
+        new_password: passwordForm.new_password,
+      });
+      toast.success("Password reset successfully. Staff member will need to log in again.");
+      setPasswordModal(null);
+    } catch (error) {
+      setPasswordError(error.response?.data?.detail || "Could not reset password");
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -2320,6 +2441,20 @@ function StaffManagementPanel({ openProfile }) {
                       </button>
                       <button
                         type="button"
+                        onClick={() => openEditModal(user)}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openPasswordModal(user)}
+                        className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-600"
+                      >
+                        Reset Password
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleAgentTokenClick(user.id)}
                         className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200"
                       >
@@ -2347,6 +2482,212 @@ function StaffManagementPanel({ openProfile }) {
           </table>
         )}
       </div>
+
+      {editModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-xl font-bold text-gray-900">Edit Staff Details</h3>
+            <p className="mt-1 text-sm text-gray-500">{editModal.full_name}</p>
+
+            <form onSubmit={handleSaveEdit} className="mt-6 grid grid-cols-2 gap-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Full Name
+                </span>
+                <input
+                  type="text"
+                  value={editForm.full_name || ""}
+                  onChange={(event) => updateEditForm("full_name", event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Email
+                </span>
+                <input
+                  type="email"
+                  value={editForm.email || ""}
+                  onChange={(event) => updateEditForm("email", event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Phone
+                </span>
+                <input
+                  type="text"
+                  value={editForm.phone || ""}
+                  onChange={(event) => updateEditForm("phone", event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Department
+                </span>
+                <input
+                  type="text"
+                  value={editForm.department || ""}
+                  onChange={(event) =>
+                    updateEditForm("department", event.target.value)
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Job Title
+                </span>
+                <input
+                  type="text"
+                  value={editForm.job_title || ""}
+                  onChange={(event) => updateEditForm("job_title", event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Work Type
+                </span>
+                <select
+                  value={editForm.work_type || "office"}
+                  onChange={(event) => updateEditForm("work_type", event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                >
+                  <option value="office">Office</option>
+                  <option value="wfh">WFH</option>
+                </select>
+              </label>
+
+              {currentUser?.role === "super_admin" && (
+                <label className="col-span-2 block">
+                  <span className="mb-2 block text-sm font-medium text-gray-700">
+                    Base Salary
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.base_salary ?? ""}
+                    onChange={(event) =>
+                      updateEditForm("base_salary", event.target.value)
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+              )}
+
+              {editError && (
+                <div className="col-span-2 text-sm font-medium text-red-600">
+                  {editError}
+                </div>
+              )}
+
+              <div className="col-span-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditModal(null)}
+                  className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {savingEdit ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {passwordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-xl font-bold text-gray-900">Reset Password</h3>
+            <p className="mt-1 text-sm text-gray-500">{passwordModal.full_name}</p>
+
+            <form onSubmit={handleResetPassword} className="mt-6 space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  New Password
+                </span>
+                <input
+                  type={showResetPassword ? "text" : "password"}
+                  value={passwordForm.new_password}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      new_password: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Confirm Password
+                </span>
+                <input
+                  type={showResetPassword ? "text" : "password"}
+                  value={passwordForm.confirm_password}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      confirm_password: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={showResetPassword}
+                  onChange={(event) => setShowResetPassword(event.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                Show password
+              </label>
+
+              {passwordError && (
+                <div className="text-sm font-medium text-red-600">
+                  {passwordError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPasswordModal(null)}
+                  className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resettingPassword}
+                  className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {resettingPassword ? "Resetting..." : "Reset Password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {tokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
