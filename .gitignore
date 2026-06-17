@@ -44,3 +44,8 @@ backend/.env.production
 backend/gunicorn.conf.py
 
 agent/config.json
+agent/WorkFlowAgent
+agent/agent.log
+agent/dist
+agent/WorkFlowAgent.zip
+agent/build

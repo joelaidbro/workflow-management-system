@@ -58,6 +58,10 @@ def calculate_total_days(start_date: date_type, end_date: date_type) -> int:
     return (end_date - start_date).days + 1
 
 
+def format_utc_datetime(value):
+    return value.isoformat() + "Z" if value else None
+
+
 def get_staff_user(user_id: str, current_user: User, db: Session):
     try:
         user_uuid = uuid.UUID(str(user_id))
@@ -106,9 +110,9 @@ def format_leave_request(leave_request: LeaveRequest):
         "reviewed_by": (
             str(leave_request.reviewed_by) if leave_request.reviewed_by else None
         ),
-        "reviewed_at": leave_request.reviewed_at,
+        "reviewed_at": format_utc_datetime(leave_request.reviewed_at),
         "admin_comment": leave_request.admin_comment,
-        "created_at": leave_request.created_at,
+        "created_at": format_utc_datetime(leave_request.created_at),
     }
 
 

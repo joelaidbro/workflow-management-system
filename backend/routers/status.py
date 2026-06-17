@@ -56,6 +56,10 @@ def write_activity_log(user, status_value, timestamp, db):
     )
 
 
+def format_utc_datetime(value):
+    return value.isoformat() + "Z" if value else None
+
+
 def calculate_status(current_status):
     if not current_status:
         return "offline"
@@ -79,10 +83,14 @@ def format_status_response(user, current_status):
         "department": user.department,
         "role": user.role,
         "status": calculate_status(current_status),
-        "updated_at": current_status.updated_at if current_status else None,
+        "updated_at": format_utc_datetime(current_status.updated_at)
+        if current_status
+        else None,
         "today_work_mode": current_status.today_work_mode if current_status else None,
         "break_started_at": (
-            current_status.break_started_at if current_status else None
+            format_utc_datetime(current_status.break_started_at)
+            if current_status
+            else None
         ),
     }
 
@@ -163,7 +171,7 @@ def get_user_status(
 
     response_data = format_status_response(user, current_status)
     response_data["login_time_today"] = (
-        login_activity.timestamp if login_activity else None
+        format_utc_datetime(login_activity.timestamp) if login_activity else None
     )
     return response_data
 
@@ -195,7 +203,7 @@ def start_break(
     write_activity_log(current_user, "break", now, db)
     db.commit()
 
-    return {"status": "break", "break_started_at": now.isoformat()}
+    return {"status": "break", "break_started_at": format_utc_datetime(now)}
 
 
 @router.post("/status/break/end")

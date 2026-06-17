@@ -33,6 +33,10 @@ def strip_html_tags(message: str) -> str:
     return re.sub(r"<[^>]*>", "", message).strip()
 
 
+def format_utc_datetime(value):
+    return value.isoformat() + "Z" if value else None
+
+
 @router.post("/alerts/send")
 @limiter.limit("30/minute")
 def send_alert(
@@ -175,7 +179,7 @@ def get_pending_alerts(
             "alert_recipient_id": str(alert_recipient.id),
             "alert_type": alert.alert_type,
             "message": alert.message,
-            "created_at": alert.created_at,
+            "created_at": format_utc_datetime(alert.created_at),
             "sender_name": sender.full_name,
         }
         for alert_recipient, alert, sender in pending_alerts
@@ -271,7 +275,7 @@ def get_sent_alerts(
                     else f"{alert.message[:60]}..."
                 ),
                 "alert_type": alert.alert_type,
-                "created_at": alert.created_at,
+                "created_at": format_utc_datetime(alert.created_at),
                 "total_recipients": len(recipient_rows),
                 "acknowledged_count": acknowledged_count,
                 "pending_count": pending_count,
@@ -337,7 +341,7 @@ def get_delivery_report(
         "alert_id": str(alert.id),
         "message": alert.message,
         "alert_type": alert.alert_type,
-        "created_at": alert.created_at,
+        "created_at": format_utc_datetime(alert.created_at),
         "total_recipients": len(recipient_rows),
         "acknowledged_count": acknowledged_count,
         "pending_count": pending_count,
@@ -346,7 +350,9 @@ def get_delivery_report(
                 "recipient_id": str(recipient.id),
                 "full_name": recipient.full_name,
                 "status": alert_recipient.status,
-                "acknowledged_at": alert_recipient.acknowledged_at,
+                "acknowledged_at": format_utc_datetime(
+                    alert_recipient.acknowledged_at
+                ),
                 "reply": alert_recipient.reply,
             }
             for alert_recipient, recipient in recipient_rows

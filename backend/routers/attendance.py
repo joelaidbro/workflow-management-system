@@ -40,6 +40,10 @@ def strip_html_tags(value: str) -> str:
     return re.sub(r"<[^>]*>", "", value).strip()
 
 
+def format_utc_datetime(value):
+    return value.isoformat() + "Z" if value else None
+
+
 def require_staff(current_user: User):
     if current_user.role != "staff":
         raise HTTPException(
@@ -140,7 +144,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         "department": user.department,
         "job_title": user.job_title,
         "work_type": user.work_type,
-        "joining_date": user.joining_date.isoformat() if user.joining_date else None,
+        "joining_date": format_utc_datetime(user.joining_date),
         "base_salary": float(user.base_salary) if user.base_salary else None,
         "month": month,
         "year": year,
@@ -156,8 +160,8 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
                 "is_present": record.is_present,
                 "work_mode": record.work_mode,
                 "working_minutes": record.working_minutes,
-                "login_time": record.login_time,
-                "logout_time": record.logout_time,
+                "login_time": format_utc_datetime(record.login_time),
+                "logout_time": format_utc_datetime(record.logout_time),
             }
             for record in records
         ],
@@ -330,8 +334,8 @@ def get_today_attendance(
         "report_submitted": attendance.report_submitted,
         "is_present": attendance.is_present,
         "work_mode": attendance.work_mode,
-        "login_time": attendance.login_time,
-        "logout_time": attendance.logout_time,
+        "login_time": format_utc_datetime(attendance.login_time),
+        "logout_time": format_utc_datetime(attendance.logout_time),
         "working_minutes": attendance.working_minutes,
         "break_minutes": attendance.break_minutes,
         "meeting_minutes": attendance.meeting_minutes,
@@ -368,9 +372,9 @@ def get_my_reports(
             "id": str(report.id),
             "report_date": report.report_date,
             "content": report.content,
-            "submitted_at": report.submitted_at,
+            "submitted_at": format_utc_datetime(report.submitted_at),
             "admin_reply": report.admin_reply,
-            "admin_reply_at": report.admin_reply_at,
+            "admin_reply_at": format_utc_datetime(report.admin_reply_at),
             "is_read_by_admin": report.is_read_by_admin,
         }
         for report in reports
@@ -415,7 +419,7 @@ def get_team_reports(
             "id": str(report.id),
             "report_date": report.report_date,
             "content": report.content,
-            "submitted_at": report.submitted_at,
+            "submitted_at": format_utc_datetime(report.submitted_at),
             "admin_reply": report.admin_reply,
             "is_read_by_admin": report.is_read_by_admin,
             "full_name": staff.full_name,
@@ -727,7 +731,9 @@ def get_salary_calculation(
         "calculated_salary": calculated_salary,
         "is_approved": salary_record.is_approved if salary_record else False,
         "approved_by": str(salary_record.approved_by) if salary_record else None,
-        "approved_at": salary_record.approved_at if salary_record else None,
+        "approved_at": format_utc_datetime(salary_record.approved_at)
+        if salary_record
+        else None,
     }
 
 

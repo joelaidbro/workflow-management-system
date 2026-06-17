@@ -3,6 +3,13 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import api from "../api.js";
+import {
+  formatDate,
+  formatDateTime,
+  formatDuration,
+  formatTime,
+  minutesToHours,
+} from "../utils/dateUtils";
 
 const statusColors = {
   active: "bg-green-500",
@@ -20,29 +27,18 @@ const statusLabels = {
   offline: "⚫ Offline",
 };
 
-function formatTime(value) {
-  if (!value) {
-    return "N/A";
-  }
-
-  return new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDuration(startValue, endValue) {
+function formatElapsedDuration(startValue, endValue) {
   if (!startValue || !endValue) {
     return "N/A";
   }
 
+  const normalize = (value) =>
+    typeof value === "string" && !value.endsWith("Z") ? `${value}Z` : value;
   const minutes = Math.max(
     0,
-    Math.floor((new Date(endValue) - new Date(startValue)) / 60000)
+    Math.floor((new Date(normalize(endValue)) - new Date(normalize(startValue))) / 60000)
   );
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
+  return formatDuration(minutes);
 }
 
 function getBreakMinutes(startValue) {
@@ -245,7 +241,7 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                       <div>
                         <span className="text-gray-500">Working hours today</span>
                         <div className="font-medium text-gray-900">
-                          {formatDuration(staff.login_time, staff.updated_at)}
+                          {formatElapsedDuration(staff.login_time, staff.updated_at)}
                         </div>
                       </div>
                     </div>
@@ -428,13 +424,7 @@ function StaffProfileModal({ staff, onClose }) {
   );
   const profile = summary || staff;
   const workType = profile?.work_type || staff?.work_type || staff?.today_work_mode;
-  const formattedJoiningDate = profile?.joining_date
-    ? new Date(profile.joining_date).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    : "N/A";
+  const formattedJoiningDate = formatDate(profile?.joining_date);
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const calendarDays = Array.from({ length: daysInMonth }, (_, index) => {
     const day = index + 1;
@@ -589,13 +579,13 @@ function StaffProfileModal({ staff, onClose }) {
               <div className="rounded-xl bg-blue-50 p-4">
                 <div className="text-blue-700">Working Hours</div>
                 <div className="mt-1 text-2xl font-bold text-blue-900">
-                  {(((summary?.total_working_minutes || 0) / 60).toFixed(1))}
+                  {minutesToHours(summary?.total_working_minutes || 0)}
                 </div>
               </div>
               <div className="rounded-xl bg-orange-50 p-4">
                 <div className="text-orange-700">Break Time</div>
                 <div className="mt-1 text-2xl font-bold text-orange-900">
-                  {(((summary?.total_break_minutes || 0) / 60).toFixed(1))}h
+                  {minutesToHours(summary?.total_break_minutes || 0)}
                 </div>
               </div>
             </div>
@@ -827,7 +817,7 @@ function ReportsPanel() {
                   </p>
                 </div>
                 <div className="text-right text-sm text-gray-500">
-                  <div>{report.report_date}</div>
+                  <div>{formatDate(report.report_date)}</div>
                   <div>{formatTime(report.submitted_at)}</div>
                 </div>
               </div>
@@ -993,14 +983,9 @@ function LeavePanel() {
         <div className="space-y-4">
           {leaveRequests.map((request) => {
             const isReviewing = reviewingRequest?.requestId === request.id;
-            const dateRange = `${new Date(request.start_date).toLocaleDateString(
-              undefined,
-              { day: "2-digit", month: "short", year: "numeric" }
-            )} → ${new Date(request.end_date).toLocaleDateString(undefined, {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}`;
+            const dateRange = `${formatDate(request.start_date)} -> ${formatDate(
+              request.end_date
+            )}`;
 
             return (
               <div
@@ -1114,7 +1099,7 @@ function LeavePanel() {
                     )}
                     {request.reviewed_at && (
                       <p className="mt-2 text-gray-500">
-                        Reviewed {new Date(request.reviewed_at).toLocaleString()}
+                        Reviewed {formatDateTime(request.reviewed_at)}
                       </p>
                     )}
                   </div>
@@ -1187,20 +1172,6 @@ function AlertsPanel() {
       clearInterval(intervalId);
     };
   }, []);
-
-  const formatAlertTime = (isoString) => {
-    if (!isoString) {
-      return "";
-    }
-
-    return new Date(isoString).toLocaleString([], {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
 
   const handleViewDeliveryReport = async (alertId) => {
     setLoadingReportId(alertId);
@@ -1374,7 +1345,7 @@ function AlertsPanel() {
                           {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {formatAlertTime(alert.created_at)}
+                          {formatDateTime(alert.created_at)}
                         </span>
                       </div>
                       <p className="mt-3 text-sm font-medium text-gray-900">
@@ -1472,7 +1443,7 @@ function AlertsPanel() {
                     </div>
                     {recipient.acknowledged_at && (
                       <div className="mt-1 text-xs text-gray-500">
-                        {formatAlertTime(recipient.acknowledged_at)}
+                        {formatDateTime(recipient.acknowledged_at)}
                       </div>
                     )}
                     {recipient.reply && (
@@ -1505,26 +1476,6 @@ function ChatPanel({ chatWithUser }) {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
-  const formatMessageTime = (isoString) => {
-    if (!isoString) return "";
-    const date = new Date(isoString);
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const formatMessageDate = (isoString) => {
-    if (!isoString) return "";
-    const date = new Date(isoString);
-    return date.toLocaleDateString([], {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   const currentUserId = user?.user_id || user?.id;
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -1875,7 +1826,7 @@ function ChatPanel({ chatWithUser }) {
                     </div>
                   </div>
                   <div className="text-xs text-gray-500">
-                    {formatMessageTime(conversation.last_message_at)}
+                    {formatTime(conversation.last_message_at)}
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-3">
@@ -1946,7 +1897,7 @@ function ChatPanel({ chatWithUser }) {
                             sentByMe ? "text-right" : "text-left"
                           }`}
                         >
-                          {formatMessageTime(message.created_at)}
+                          {formatTime(message.created_at)}
                         </div>
                       </div>
                     </div>
@@ -2172,16 +2123,6 @@ function StaffManagementPanel({ openProfile }) {
     } finally {
       setDownloadingSalarySlip(false);
     }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "Unknown";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
   };
 
   if (view === "create") {
@@ -3281,7 +3222,7 @@ function AdminDashboard() {
               {activeItem?.label || "Dashboard"}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              {currentTime.toLocaleDateString()} {currentTime.toLocaleTimeString()}
+              {formatDateTime(currentTime.toISOString())}
             </p>
           </div>
         </header>

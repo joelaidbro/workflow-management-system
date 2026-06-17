@@ -3,38 +3,24 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import api from "../api.js";
+import {
+  formatDate,
+  formatDuration,
+  formatTime,
+} from "../utils/dateUtils";
 
-function formatTime(value) {
-  if (!value) {
-    return "N/A";
-  }
-
-  return new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDate(value) {
-  if (!value) {
-    return "N/A";
-  }
-
-  return new Date(value).toLocaleDateString();
-}
-
-function formatDuration(startValue, endValue = new Date()) {
+function formatElapsedDuration(startValue, endValue = new Date()) {
   if (!startValue) {
     return "0h 0m";
   }
 
+  const normalize = (value) =>
+    typeof value === "string" && !value.endsWith("Z") ? `${value}Z` : value;
   const minutes = Math.max(
     0,
-    Math.floor((new Date(endValue) - new Date(startValue)) / 60000)
+    Math.floor((new Date(normalize(endValue)) - new Date(normalize(startValue))) / 60000)
   );
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
+  return formatDuration(minutes);
 }
 
 function truncate(value, length) {
@@ -52,26 +38,6 @@ function StaffDashboard() {
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
   const currentUserId = user?.user_id || user?.id;
-  const formatMessageTime = (isoString) => {
-    if (!isoString) return "";
-    const date = new Date(isoString);
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const formatMessageDate = (isoString) => {
-    if (!isoString) return "";
-    const date = new Date(isoString);
-    return date.toLocaleDateString([], {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   const [attendance, setAttendance] = useState(null);
   const [workMode, setWorkMode] = useState("office");
   const [loadingAttendance, setLoadingAttendance] = useState(true);
@@ -696,7 +662,7 @@ function StaffDashboard() {
                 Your day has ended. See you tomorrow!
               </h2>
               <p className="mt-3 text-gray-600">
-                Working hours: {formatDuration(attendance.login_time, attendance.logout_time)}
+                Working hours: {formatElapsedDuration(attendance.login_time, attendance.logout_time)}
               </p>
             </div>
           ) : (
@@ -711,7 +677,7 @@ function StaffDashboard() {
                 <div className="rounded-xl bg-gray-50 p-4">
                   <div className="text-sm text-gray-500">Working hours so far</div>
                   <div className="mt-1 font-bold text-gray-900">
-                    {formatDuration(attendance.login_time, currentTime)}
+                    {formatElapsedDuration(attendance.login_time, currentTime)}
                   </div>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-4">
@@ -1017,7 +983,7 @@ function StaffDashboard() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500">
-                      {formatMessageTime(conversation.last_message_at)}
+                      {formatTime(conversation.last_message_at)}
                     </span>
                     {conversation.unread_count > 0 && (
                       <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-700 px-2 text-xs font-bold text-white">
@@ -1124,7 +1090,7 @@ function StaffDashboard() {
                             sentByMe ? "text-right" : "text-left"
                           }`}
                         >
-                          {formatMessageTime(message.created_at)}
+                          {formatTime(message.created_at)}
                         </div>
                       </div>
                     </div>
