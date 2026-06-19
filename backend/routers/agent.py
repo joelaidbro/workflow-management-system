@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import ActivityLog, CurrentStatus, MachineToken, User
+from models import ActivityLog, Attendance, CurrentStatus, MachineToken, User
 
 router = APIRouter()
 
@@ -83,6 +83,30 @@ def heartbeat(
     )
 
     if current_status:
+        previous_status = current_status.status
+
+        if current_status_value == "idle" and previous_status != "idle":
+            current_status.idle_started_at = now
+
+        if previous_status == "idle" and current_status_value == "active":
+            if current_status.idle_started_at:
+                idle_duration_minutes = round(
+                    (now - current_status.idle_started_at).total_seconds() / 60
+                )
+                attendance = (
+                    db.query(Attendance)
+                    .filter(
+                        Attendance.user_id == current_status.user_id,
+                        Attendance.date == now.date(),
+                    )
+                    .first()
+                )
+                if attendance and idle_duration_minutes > 0:
+                    attendance.idle_minutes = (
+                        attendance.idle_minutes or 0
+                    ) + idle_duration_minutes
+            current_status.idle_started_at = None
+
         current_status.status = current_status_value
         current_status.updated_at = now
         current_status.machine_id = str(machine_token_row.id)
@@ -92,6 +116,7 @@ def heartbeat(
             status=current_status_value,
             updated_at=now,
             machine_id=str(machine_token_row.id),
+            idle_started_at=now if current_status_value == "idle" else None,
         )
         db.add(current_status)
 

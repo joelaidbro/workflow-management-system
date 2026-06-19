@@ -66,6 +66,9 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
     const fetchTeamStatus = async () => {
       try {
         const response = await api.get("/api/status/team");
+        console.log("TEAM STATUS DATA");
+        console.log(response.data);
+        console.log(JSON.stringify(response.data, null, 2));
         if (isMounted) {
           setStaffList(response.data);
           setError("");
@@ -242,6 +245,12 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                         <span className="text-gray-500">Working hours today</span>
                         <div className="font-medium text-gray-900">
                           {formatElapsedDuration(staff.login_time, staff.updated_at)}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Idle Time Today</span>
+                        <div className="font-medium text-gray-900">
+                          {minutesToHours(staff.idle_minutes || 0)}
                         </div>
                       </div>
                     </div>
@@ -586,6 +595,12 @@ function StaffProfileModal({ staff, onClose }) {
                 <div className="text-orange-700">Break Time</div>
                 <div className="mt-1 text-2xl font-bold text-orange-900">
                   {minutesToHours(summary?.total_break_minutes || 0)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-yellow-50 p-4">
+                <div className="text-yellow-700">Idle Time</div>
+                <div className="mt-1 text-2xl font-bold text-yellow-900">
+                  {minutesToHours(summary?.total_idle_minutes || 0)}
                 </div>
               </div>
             </div>

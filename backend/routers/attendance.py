@@ -154,12 +154,14 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         "total_working_minutes": sum(record.working_minutes or 0 for record in records),
         "total_break_minutes": sum(record.break_minutes or 0 for record in records),
         "total_meeting_minutes": sum(record.meeting_minutes or 0 for record in records),
+        "total_idle_minutes": sum(record.idle_minutes or 0 for record in records),
         "attendance_records": [
             {
                 "date": record.date,
                 "is_present": record.is_present,
                 "work_mode": record.work_mode,
                 "working_minutes": record.working_minutes,
+                "idle_minutes": record.idle_minutes,
                 "login_time": format_utc_datetime(record.login_time),
                 "logout_time": format_utc_datetime(record.logout_time),
             }
@@ -339,6 +341,7 @@ def get_today_attendance(
         "working_minutes": attendance.working_minutes,
         "break_minutes": attendance.break_minutes,
         "meeting_minutes": attendance.meeting_minutes,
+        "idle_minutes": attendance.idle_minutes,
     }
 
 

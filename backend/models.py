@@ -134,6 +134,7 @@ class CurrentStatus(Base):
     machine_id = Column(String(255), nullable=True)
     today_work_mode = Column(String(10), nullable=True)
     break_started_at = Column(DateTime, nullable=True)
+    idle_started_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="current_status")
 
@@ -274,6 +275,7 @@ class Attendance(Base):
     working_minutes = Column(Integer, default=0)
     break_minutes = Column(Integer, default=0)
     meeting_minutes = Column(Integer, default=0)
+    idle_minutes = Column(Integer, default=0)
 
     user = relationship("User", back_populates="attendance_records")
 

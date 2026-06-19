@@ -75,7 +75,11 @@ def calculate_status(current_status):
     return status_value
 
 
-def format_status_response(user, current_status):
+def format_status_response(user, current_status, attendance=None):
+    print("USER:", user.full_name)
+    print("ATTENDANCE:", attendance)
+    if attendance:
+        print("IDLE:", attendance.idle_minutes)
     return {
         "user_id": str(user.id),
         "full_name": user.full_name,
@@ -92,6 +96,7 @@ def format_status_response(user, current_status):
             if current_status
             else None
         ),
+        "idle_minutes": attendance.idle_minutes if attendance else 0,
     }
 
 
@@ -102,9 +107,14 @@ def get_team_status(
 ):
     require_admin_user(current_user)
 
+    today = datetime.utcnow().date()
     query = (
-        db.query(User, CurrentStatus)
+        db.query(User, CurrentStatus, Attendance)
         .outerjoin(CurrentStatus, CurrentStatus.user_id == User.id)
+        .outerjoin(
+            Attendance,
+            (Attendance.user_id == User.id) & (Attendance.date == today),
+        )
         .filter(
             User.company_id == current_user.company_id,
             User.is_active.is_(True),
@@ -118,8 +128,8 @@ def get_team_status(
 
     users_with_status = query.all()
     return [
-        format_status_response(user, current_status)
-        for user, current_status in users_with_status
+        format_status_response(user, current_status, attendance)
+        for user, current_status, attendance in users_with_status
     ]
 
 
