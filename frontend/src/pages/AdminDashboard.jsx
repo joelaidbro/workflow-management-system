@@ -375,6 +375,12 @@ function StaffProfileModal({ staff, onClose }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [tooltip, setTooltip] = useState({
+    visible: false,
+    day: null,
+    x: 0,
+    y: 0,
+  });
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -453,7 +459,18 @@ function StaffProfileModal({ staff, onClose }) {
       dotClass = "bg-green-500";
     }
 
-    return { day, dotClass };
+    return {
+      day,
+      date: dateKey,
+      dotClass,
+      record,
+      work_mode: record?.work_mode || (isWeekend ? "weekend" : "office"),
+      working_minutes: record?.working_minutes || 0,
+      break_minutes: record?.break_minutes || 0,
+      idle_minutes: record?.idle_minutes || 0,
+      login_time: record?.login_time || null,
+      logout_time: record?.logout_time || null,
+    };
   });
 
   return (
@@ -622,10 +639,44 @@ function StaffProfileModal({ staff, onClose }) {
                     className="flex flex-col items-center gap-1 rounded-lg bg-white p-2 text-xs text-gray-600"
                   >
                     <span>{item.day}</span>
-                    <span className={`h-3 w-3 rounded-full ${item.dotClass}`} />
+                    <span
+                      className={`h-3 w-3 cursor-pointer rounded-full ${item.dotClass}`}
+                      onMouseEnter={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        setTooltip({
+                          visible: true,
+                          day: item,
+                          x: rect.left,
+                          y: rect.top,
+                        });
+                      }}
+                      onMouseLeave={() =>
+                        setTooltip({ visible: false, day: null, x: 0, y: 0 })
+                      }
+                    />
                   </div>
                 ))}
               </div>
+              {tooltip.visible && tooltip.day && (
+                <div
+                  className="pointer-events-none fixed z-50 rounded-lg bg-gray-900 p-3 text-xs text-white shadow-xl"
+                  style={{ left: tooltip.x + 10, top: tooltip.y - 80 }}
+                >
+                  <div className="mb-1 font-bold">
+                    {formatDate(tooltip.day.date)}
+                  </div>
+                  <div>🕐 Working: {minutesToHours(tooltip.day.working_minutes)}</div>
+                  <div>☕ Break: {minutesToHours(tooltip.day.break_minutes)}</div>
+                  <div>💤 Idle: {minutesToHours(tooltip.day.idle_minutes)}</div>
+                  <div>🔵 Mode: {tooltip.day.work_mode || "Office"}</div>
+                  {tooltip.day.login_time && (
+                    <div>⏰ Login: {formatTime(tooltip.day.login_time)}</div>
+                  )}
+                  {tooltip.day.logout_time && (
+                    <div>⏰ Logout: {formatTime(tooltip.day.logout_time)}</div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="mt-6 flex justify-end">
