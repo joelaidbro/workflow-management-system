@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import api from "../api.js";
 import {
   formatDate,
+  formatDateTime,
   formatDuration,
   formatTime,
   minutesToHours,
@@ -39,6 +40,7 @@ function StaffDashboard() {
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
   const currentUserId = user?.user_id || user?.id;
+  const [activeSection, setActiveSection] = useState("dashboard");
   const [attendance, setAttendance] = useState(null);
   const [workMode, setWorkMode] = useState("office");
   const [loadingAttendance, setLoadingAttendance] = useState(true);
@@ -69,6 +71,25 @@ function StaffDashboard() {
   };
 
   const todayDate = getDateInputValue(new Date());
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [attendanceSummary, setAttendanceSummary] = useState(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [calendarTooltip, setCalendarTooltip] = useState({
+    visible: false,
+    day: null,
+    x: 0,
+    y: 0,
+  });
+  const [profileDetails, setProfileDetails] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [alertTab, setAlertTab] = useState("pending");
+  const [pendingAlerts, setPendingAlerts] = useState([]);
+  const [alertHistory, setAlertHistory] = useState([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
+  const [acknowledgingAlertId, setAcknowledgingAlertId] = useState(null);
 
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loadingLeaveRequests, setLoadingLeaveRequests] = useState(true);
@@ -91,6 +112,22 @@ function StaffDashboard() {
       toast.error("Could not load leave requests");
     } finally {
       setLoadingLeaveRequests(false);
+    }
+  };
+
+  const fetchAlerts = async () => {
+    setLoadingAlerts(true);
+    try {
+      const [pendingResponse, historyResponse] = await Promise.all([
+        api.get("/api/alerts/my-pending"),
+        api.get("/api/alerts/my-history"),
+      ]);
+      setPendingAlerts(pendingResponse.data);
+      setAlertHistory(historyResponse.data);
+    } catch (error) {
+      toast.error("Could not load alerts");
+    } finally {
+      setLoadingAlerts(false);
     }
   };
 
@@ -125,7 +162,7 @@ function StaffDashboard() {
   useEffect(() => {
     const intervalId = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000);
+    }, 1000);
 
     return () => clearInterval(intervalId);
   }, []);
@@ -186,9 +223,51 @@ function StaffDashboard() {
     fetchReports();
     fetchConversations();
     fetchLeaveRequests();
+    fetchAlerts();
 
     const attendanceIntervalId = setInterval(fetchAttendance, 30000);
     return () => clearInterval(attendanceIntervalId);
+  }, []);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      if (!currentUserId) {
+        return;
+      }
+
+      setLoadingSummary(true);
+      try {
+        const response = await api.get(`/api/attendance/summary/${currentUserId}`, {
+          params: {
+            month: selectedMonth.getMonth() + 1,
+            year: selectedMonth.getFullYear(),
+          },
+        });
+        setAttendanceSummary(response.data);
+      } catch (error) {
+        toast.error("Could not load attendance summary");
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+
+    fetchSummary();
+  }, [currentUserId, selectedMonth]);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoadingProfile(true);
+      try {
+        const response = await api.get("/api/auth/me");
+        setProfileDetails(response.data);
+      } catch (error) {
+        toast.error("Could not load profile");
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
   }, []);
 
   useEffect(() => {
@@ -583,35 +662,171 @@ function StaffDashboard() {
     approved: "bg-green-100 text-green-700",
     rejected: "bg-red-100 text-red-700",
   };
+  const alertTypeClasses = {
+    urgent: "bg-red-100 text-red-700",
+    info: "bg-blue-100 text-blue-700",
+  };
   const liveStatus = statusLabels[currentStatus] || "Active";
   const breakDurationMinutes = breakStartedAt
     ? Math.max(0, Math.floor((currentTime - new Date(breakStartedAt)) / 60000))
     : 0;
+  const sectionTitles = {
+    dashboard: "Dashboard",
+    reports: "Reports",
+    leave: "Leave Requests",
+    messages: "Messages",
+    attendance: "Attendance",
+    alerts: "Alerts",
+    profile: "Profile",
+  };
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: "🏠" },
+    { id: "reports", label: "Reports", icon: "📋" },
+    { id: "leave", label: "Leave Requests", icon: "🗓️" },
+    { id: "messages", label: "Messages", icon: "💬" },
+    { id: "attendance", label: "Attendance", icon: "📅" },
+    { id: "alerts", label: "Alerts", icon: "🔔" },
+    { id: "profile", label: "Profile", icon: "👤" },
+  ];
+  const selectedMonthNumber = selectedMonth.getMonth() + 1;
+  const selectedYear = selectedMonth.getFullYear();
+  const recordsByDate = new Map(
+    (attendanceSummary?.attendance_records || []).map((record) => [record.date, record])
+  );
+  const daysInMonth = new Date(selectedYear, selectedMonthNumber, 0).getDate();
+  const leadingBlankDays =
+    (new Date(selectedYear, selectedMonthNumber - 1, 1).getDay() + 6) % 7;
+  const calendarDays = [
+    ...Array.from({ length: leadingBlankDays }, (_, index) => ({
+      blank: true,
+      id: `blank-${index}`,
+    })),
+    ...Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      const date = new Date(selectedYear, selectedMonthNumber - 1, day);
+      const dateKey = `${selectedYear}-${String(selectedMonthNumber).padStart(
+        2,
+        "0"
+      )}-${String(day).padStart(2, "0")}`;
+      const record = recordsByDate.get(dateKey);
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      const isFuture = date > new Date();
+      let dotClass = "bg-white border border-gray-300";
+
+      if (isWeekend || isFuture) {
+        dotClass = "bg-gray-300";
+      } else if (record?.work_mode === "leave") {
+        dotClass = "bg-blue-500";
+      } else if (record?.is_present) {
+        dotClass = "bg-green-500";
+      } else if (record) {
+        dotClass = "bg-red-500";
+      }
+
+      return {
+        id: dateKey,
+        date: dateKey,
+        day,
+        dotClass,
+        work_mode: record?.work_mode || "office",
+        working_minutes: record?.working_minutes || 0,
+        break_minutes: record?.break_minutes || 0,
+        idle_minutes: record?.idle_minutes || 0,
+        login_time: record?.login_time || null,
+        logout_time: record?.logout_time || null,
+      };
+    }),
+  ];
+  const profile = attendanceSummary || profileDetails || user;
+
+  const changeSelectedMonth = (offset) => {
+    setSelectedMonth(
+      (current) => new Date(current.getFullYear(), current.getMonth() + offset, 1)
+    );
+  };
+
+  const handleAcknowledgeAlert = async (alertRecipientId) => {
+    setAcknowledgingAlertId(alertRecipientId);
+    try {
+      await api.post(`/api/alerts/my-acknowledge/${alertRecipientId}`, {
+        reply: null,
+      });
+      toast.success("Alert acknowledged");
+      fetchAlerts();
+    } catch (error) {
+      toast.error("Could not acknowledge alert");
+    } finally {
+      setAcknowledgingAlertId(null);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="flex items-center justify-between bg-blue-900 px-8 py-4 text-white">
-        <div className="text-2xl font-bold">WorkFlow</div>
-        <div
-          className={`rounded-full px-4 py-2 text-sm font-semibold ${
-            statusClasses[currentStatus] || "bg-green-700"
-          }`}
-        >
-          {liveStatus}
+    <div className="flex min-h-screen bg-gray-100">
+      <aside className="fixed inset-y-0 left-0 flex w-64 flex-col bg-blue-900 text-white">
+        <div className="border-b border-blue-800 p-6">
+          <div className="text-2xl font-bold">WorkFlow</div>
+          <div className="mt-1 text-sm text-blue-200">
+            {user?.company_name || "Staff Portal"}
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium">{user?.full_name || "Staff"}</span>
+
+        <nav className="flex-1 space-y-1 p-4">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveSection(item.id)}
+              className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
+                activeSection === item.id
+                  ? "bg-blue-700 text-white"
+                  : "text-blue-100 hover:bg-blue-800"
+              }`}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="border-t border-blue-800 p-4">
+          <div className="font-semibold">{user?.full_name || "Staff"}</div>
+          <span className="mt-2 inline-flex rounded-full bg-blue-700 px-3 py-1 text-xs font-bold uppercase text-white">
+            {user?.role || "staff"}
+          </span>
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-lg bg-blue-800 px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+            className="mt-4 w-full rounded-lg bg-blue-800 px-4 py-2 text-sm font-semibold hover:bg-blue-700"
           >
             Logout
           </button>
         </div>
-      </header>
+      </aside>
 
-      <main className="mx-auto max-w-6xl space-y-6 px-6 py-8">
+      <div className="ml-64 flex min-h-screen flex-1 flex-col">
+        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-8 py-4 shadow-sm">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {sectionTitles[activeSection]}
+            </h1>
+            <div
+              className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold text-white ${
+                statusClasses[currentStatus] || "bg-green-700"
+              }`}
+            >
+              {liveStatus}
+            </div>
+          </div>
+          <div className="text-right text-sm text-gray-600">
+            <div className="font-semibold text-gray-900">
+              {formatDateTime(currentTime.toISOString())}
+            </div>
+            <div>{user?.full_name || "Staff"}</div>
+          </div>
+        </header>
+
+      <main className="flex-1 space-y-6 p-8">
+        {activeSection === "dashboard" && (
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           {loadingAttendance ? (
             <div className="text-center text-gray-500">Loading work day...</div>
@@ -734,7 +949,9 @@ function StaffDashboard() {
             </div>
           )}
         </section>
+        )}
 
+        {activeSection === "reports" && (
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-bold text-gray-900">Recent Reports</h2>
           <div className="mt-4 space-y-3">
@@ -778,7 +995,9 @@ function StaffDashboard() {
             )}
           </div>
         </section>
+        )}
 
+        {activeSection === "leave" && (
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-bold text-gray-900">Leave Requests</h2>
@@ -923,7 +1142,9 @@ function StaffDashboard() {
             </div>
           )}
         </section>
+        )}
 
+        {activeSection === "messages" && (
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-bold text-gray-900">Messages</h2>
@@ -1003,7 +1224,325 @@ function StaffDashboard() {
             )}
           </div>
         </section>
+        )}
+
+        {activeSection === "attendance" && (
+          <section className="space-y-6">
+            <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                className="rounded-lg bg-gray-100 px-4 py-2 font-bold text-gray-700 hover:bg-gray-200"
+              >
+                &lt;
+              </button>
+              <div className="text-center">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {selectedMonth.toLocaleDateString([], {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </h2>
+                <p className="text-sm text-gray-500">Monthly attendance summary</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                className="rounded-lg bg-gray-100 px-4 py-2 font-bold text-gray-700 hover:bg-gray-200"
+              >
+                &gt;
+              </button>
+            </div>
+
+            {loadingSummary ? (
+              <div className="text-center text-gray-500">Loading attendance...</div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-5">
+                <div className="rounded-xl bg-green-50 p-4">
+                  <div className="text-sm font-medium text-green-700">Days Present</div>
+                  <div className="mt-2 text-2xl font-bold text-green-900">
+                    {attendanceSummary?.days_present || 0}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-red-50 p-4">
+                  <div className="text-sm font-medium text-red-700">Days Absent</div>
+                  <div className="mt-2 text-2xl font-bold text-red-900">
+                    {attendanceSummary?.days_absent || 0}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-blue-50 p-4">
+                  <div className="text-sm font-medium text-blue-700">
+                    Total Working Hours
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-blue-900">
+                    {minutesToHours(attendanceSummary?.total_working_minutes || 0)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-orange-50 p-4">
+                  <div className="text-sm font-medium text-orange-700">
+                    Total Break Time
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-orange-900">
+                    {minutesToHours(attendanceSummary?.total_break_minutes || 0)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <div className="text-sm font-medium text-gray-700">Total Idle Time</div>
+                  <div className="mt-2 text-2xl font-bold text-gray-900">
+                    {minutesToHours(attendanceSummary?.total_idle_minutes || 0)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-gray-500">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                  <div key={day}>{day}</div>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-7 gap-2">
+                {calendarDays.map((day) =>
+                  day.blank ? (
+                    <div key={day.id} className="h-12" />
+                  ) : (
+                    <div
+                      key={day.id}
+                      className="flex h-14 flex-col items-center justify-center gap-1 rounded-lg bg-gray-50 text-xs text-gray-600"
+                    >
+                      <span>{day.day}</span>
+                      <span
+                        className={`h-6 w-6 cursor-pointer rounded-full ${day.dotClass}`}
+                        onMouseEnter={(event) => {
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          setCalendarTooltip({
+                            visible: true,
+                            day,
+                            x: rect.left,
+                            y: rect.top,
+                          });
+                        }}
+                        onMouseLeave={() =>
+                          setCalendarTooltip({
+                            visible: false,
+                            day: null,
+                            x: 0,
+                            y: 0,
+                          })
+                        }
+                      />
+                    </div>
+                  )
+                )}
+              </div>
+              {calendarTooltip.visible && calendarTooltip.day && (
+                <div
+                  className="pointer-events-none fixed z-50 rounded-lg bg-gray-900 p-3 text-xs text-white shadow-xl"
+                  style={{ left: calendarTooltip.x + 10, top: calendarTooltip.y - 95 }}
+                >
+                  <div className="mb-1 font-bold">
+                    {formatDate(calendarTooltip.day.date)}
+                  </div>
+                  <div>
+                    Working: {minutesToHours(calendarTooltip.day.working_minutes)}
+                  </div>
+                  <div>Break: {minutesToHours(calendarTooltip.day.break_minutes)}</div>
+                  <div>Idle: {minutesToHours(calendarTooltip.day.idle_minutes)}</div>
+                  <div>Mode: {calendarTooltip.day.work_mode || "Office"}</div>
+                  {calendarTooltip.day.login_time && (
+                    <div>Login: {formatTime(calendarTooltip.day.login_time)}</div>
+                  )}
+                  {calendarTooltip.day.logout_time && (
+                    <div>Logout: {formatTime(calendarTooltip.day.logout_time)}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeSection === "alerts" && (
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
+              {["pending", "history"].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setAlertTab(tab)}
+                  className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold capitalize ${
+                    alertTab === tab
+                      ? "bg-blue-700 text-white"
+                      : "text-gray-600 hover:bg-white"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {loadingAlerts ? (
+                <div className="py-10 text-center text-gray-500">Loading alerts...</div>
+              ) : (alertTab === "pending" ? pendingAlerts : alertHistory).length === 0 ? (
+                <div className="py-10 text-center text-gray-500">No alerts found</div>
+              ) : (
+                (alertTab === "pending" ? pendingAlerts : alertHistory).map((alert) => (
+                  <div
+                    key={alert.alert_recipient_id}
+                    className="rounded-xl border border-gray-200 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                            alertTypeClasses[alert.alert_type] || alertTypeClasses.info
+                          }`}
+                        >
+                          {alert.alert_type}
+                        </span>
+                        <div className="mt-3 font-semibold text-gray-900">
+                          {alert.sender_name}
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-gray-700">
+                          {alert.message}
+                        </p>
+                        <div className="mt-3 text-xs text-gray-500">
+                          Sent: {formatDateTime(alert.created_at)}
+                        </div>
+                        {alert.acknowledged_at && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Acknowledged: {formatDateTime(alert.acknowledged_at)}
+                          </div>
+                        )}
+                        {alert.reply && (
+                          <div className="mt-2 rounded-lg bg-gray-50 p-2 text-sm text-gray-700">
+                            {alert.reply}
+                          </div>
+                        )}
+                      </div>
+                      {alertTab === "pending" && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAcknowledgeAlert(alert.alert_recipient_id)
+                          }
+                          disabled={acknowledgingAlertId === alert.alert_recipient_id}
+                          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {acknowledgingAlertId === alert.alert_recipient_id
+                            ? "Acknowledging..."
+                            : "Acknowledge"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeSection === "profile" && (
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {profile?.full_name || user?.full_name || "Staff"}
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {profile?.employee_id || "Employee ID not available"}
+              </p>
+              {loadingProfile ? (
+                <div className="mt-6 text-gray-500">Loading profile...</div>
+              ) : (
+                <div className="mt-6 grid gap-4 text-sm md:grid-cols-2">
+                  <div>
+                    <span className="text-gray-500">Department</span>
+                    <div className="font-semibold text-gray-900">
+                      {profile?.department || "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Job Title</span>
+                    <div className="font-semibold text-gray-900">
+                      {profile?.job_title || "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Email</span>
+                    <div className="font-semibold text-gray-900">
+                      {profile?.email || "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Phone</span>
+                    <div className="font-semibold text-gray-900">
+                      {profile?.phone || "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Work Type</span>
+                    <div className="mt-1">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          profile?.work_type === "wfh"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {profile?.work_type === "wfh" ? "WFH" : "Office"}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Joining Date</span>
+                    <div className="font-semibold text-gray-900">
+                      {formatDate(profile?.joining_date)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-5">
+              <div className="rounded-xl bg-green-50 p-4">
+                <div className="text-sm font-medium text-green-700">Days Present</div>
+                <div className="mt-2 text-2xl font-bold text-green-900">
+                  {attendanceSummary?.days_present || 0}
+                </div>
+              </div>
+              <div className="rounded-xl bg-red-50 p-4">
+                <div className="text-sm font-medium text-red-700">Days Absent</div>
+                <div className="mt-2 text-2xl font-bold text-red-900">
+                  {attendanceSummary?.days_absent || 0}
+                </div>
+              </div>
+              <div className="rounded-xl bg-blue-50 p-4">
+                <div className="text-sm font-medium text-blue-700">
+                  Total Working Hours
+                </div>
+                <div className="mt-2 text-2xl font-bold text-blue-900">
+                  {minutesToHours(attendanceSummary?.total_working_minutes || 0)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-orange-50 p-4">
+                <div className="text-sm font-medium text-orange-700">
+                  Total Break Time
+                </div>
+                <div className="mt-2 text-2xl font-bold text-orange-900">
+                  {minutesToHours(attendanceSummary?.total_break_minutes || 0)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="text-sm font-medium text-gray-700">Total Idle Time</div>
+                <div className="mt-2 text-2xl font-bold text-gray-900">
+                  {minutesToHours(attendanceSummary?.total_idle_minutes || 0)}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
+      </div>
 
       {showEndDayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">

@@ -29,6 +29,10 @@ class AcknowledgeAlertRequest(BaseModel):
     reply: str | None = None
 
 
+class BrowserAcknowledgeAlertRequest(BaseModel):
+    reply: str | None = None
+
+
 def strip_html_tags(message: str) -> str:
     return re.sub(r"<[^>]*>", "", message).strip()
 
@@ -221,6 +225,101 @@ def acknowledge_alert(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
+        )
+
+    alert_recipient.status = "acknowledged"
+    alert_recipient.acknowledged_at = datetime.utcnow()
+    alert_recipient.reply = acknowledge_data.reply
+    db.commit()
+
+    return {"acknowledged": True}
+
+
+def format_alert_recipient(alert_recipient, alert, sender):
+    return {
+        "alert_recipient_id": str(alert_recipient.id),
+        "alert_type": alert.alert_type,
+        "message": alert.message,
+        "sender_name": sender.full_name,
+        "created_at": format_utc_datetime(alert.created_at),
+        "status": alert_recipient.status,
+        "acknowledged_at": format_utc_datetime(alert_recipient.acknowledged_at),
+        "reply": alert_recipient.reply,
+    }
+
+
+@router.get("/alerts/my-pending")
+def get_my_pending_alerts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    now = datetime.utcnow()
+    alert_rows = (
+        db.query(AlertRecipient, Alert, User)
+        .join(Alert, Alert.id == AlertRecipient.alert_id)
+        .join(User, User.id == Alert.sender_id)
+        .filter(
+            AlertRecipient.recipient_id == current_user.id,
+            AlertRecipient.status == "pending",
+            Alert.expires_at > now,
+        )
+        .order_by(Alert.created_at.desc())
+        .all()
+    )
+
+    return [
+        format_alert_recipient(alert_recipient, alert, sender)
+        for alert_recipient, alert, sender in alert_rows
+    ]
+
+
+@router.get("/alerts/my-history")
+def get_my_alert_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    alert_rows = (
+        db.query(AlertRecipient, Alert, User)
+        .join(Alert, Alert.id == AlertRecipient.alert_id)
+        .join(User, User.id == Alert.sender_id)
+        .filter(AlertRecipient.recipient_id == current_user.id)
+        .order_by(Alert.created_at.desc())
+        .all()
+    )
+
+    return [
+        format_alert_recipient(alert_recipient, alert, sender)
+        for alert_recipient, alert, sender in alert_rows
+    ]
+
+
+@router.post("/alerts/my-acknowledge/{alert_recipient_id}")
+def acknowledge_my_alert(
+    alert_recipient_id: str,
+    acknowledge_data: BrowserAcknowledgeAlertRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        alert_recipient_uuid = uuid.UUID(str(alert_recipient_id))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alert not found",
+        )
+
+    alert_recipient = (
+        db.query(AlertRecipient)
+        .filter(
+            AlertRecipient.id == alert_recipient_uuid,
+            AlertRecipient.recipient_id == current_user.id,
+        )
+        .first()
+    )
+    if not alert_recipient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alert not found",
         )
 
     alert_recipient.status = "acknowledged"
