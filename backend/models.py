@@ -110,6 +110,7 @@ class User(Base):
         back_populates="reviewer",
         foreign_keys="LeaveRequest.reviewed_by",
     )
+    screenshots = relationship("Screenshot", back_populates="user")
 
 
 class Session(Base):
@@ -334,6 +335,24 @@ class LeaveRequest(Base):
     )
 
 
+class Screenshot(Base):
+    __tablename__ = "screenshots"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    employee_id = Column(String(50), nullable=False)
+    captured_at = Column(DateTime, nullable=False)
+    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_size_kb = Column(Integer, nullable=True)
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    is_deleted = Column(Boolean, default=False)
+
+    user = relationship("User", back_populates="screenshots")
+
+
 Index(
     "ix_activity_logs_company_id_user_id_timestamp",
     ActivityLog.company_id,
@@ -396,3 +415,11 @@ Index(
     LeaveRequest.status,
     LeaveRequest.created_at,
 )
+Index(
+    "ix_screenshots_company_id_user_id_captured_at",
+    Screenshot.company_id,
+    Screenshot.user_id,
+    Screenshot.captured_at,
+)
+Index("ix_screenshots_captured_at", Screenshot.captured_at)
+Index("ix_screenshots_is_deleted", Screenshot.is_deleted)

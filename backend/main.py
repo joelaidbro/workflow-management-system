@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from database import SessionLocal
-from models import ActivityLog, CurrentStatus, User
+from models import ActivityLog, CurrentStatus, Screenshot, User
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -24,6 +24,7 @@ from routers.chat import router as chat_router
 from routers.leave import router as leave_router
 from routers.platform import router as platform_router
 from routers.settings import router as settings_router
+from routers.screenshots import router as screenshots_router
 from routers.status import router as status_router
 from routers.users import router as users_router
 
@@ -68,20 +69,61 @@ async def offline_detection_task():
         await asyncio.sleep(60)
 
 
+async def screenshot_cleanup_task():
+    print("Screenshot cleanup task started")
+    while True:
+        db = SessionLocal()
+        try:
+            cutoff = datetime.utcnow() - timedelta(hours=48)
+            old_screenshots = (
+                db.query(Screenshot)
+                .filter(
+                    Screenshot.captured_at < cutoff,
+                    Screenshot.is_deleted == False,
+                )
+                .all()
+            )
+
+            for screenshot in old_screenshots:
+                try:
+                    full_path = os.path.join(
+                        "/home/teams.aidbro.com/screenshots",
+                        screenshot.file_path,
+                    )
+                    if os.path.exists(full_path):
+                        os.remove(full_path)
+                except Exception:
+                    pass
+                screenshot.is_deleted = True
+
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+        await asyncio.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create the task inside the lifespan context.
     # This guarantees the event loop is running.
-    task = asyncio.create_task(offline_detection_task())
+    tasks = [
+        asyncio.create_task(offline_detection_task()),
+        asyncio.create_task(screenshot_cleanup_task()),
+    ]
     try:
         yield
     finally:
-        # Clean shutdown - cancel the task when server stops.
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+        # Clean shutdown - cancel the tasks when server stops.
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(lifespan=lifespan)
@@ -113,6 +155,7 @@ app.include_router(leave_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
+app.include_router(screenshots_router, prefix="/api")
 
 
 @app.get("/health")

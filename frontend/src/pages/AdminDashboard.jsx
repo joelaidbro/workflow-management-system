@@ -3486,9 +3486,313 @@ function SettingsPanel() {
   );
 }
 
+function ScreenshotsPanel() {
+  const [staffList, setStaffList] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  });
+  const [screenshots, setScreenshots] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [modalIndex, setModalIndex] = useState(null);
+  const perPage = 20;
+
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const response = await api.get("/api/users/list", {
+          params: { role: "staff" },
+        });
+        setStaffList(response.data.filter((staff) => staff.role === "staff"));
+      } catch (error) {
+        toast.error("Could not load staff members");
+      }
+    };
+
+    fetchStaff();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      screenshots.forEach((screenshot) => {
+        if (screenshot.image_url) {
+          URL.revokeObjectURL(screenshot.image_url);
+        }
+      });
+    };
+  }, [screenshots]);
+
+  const loadScreenshots = async (nextPage = page) => {
+    if (!selectedUserId) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.get(`/api/screenshots/${selectedUserId}`, {
+        params: {
+          date: selectedDate,
+          page: nextPage,
+          per_page: perPage,
+        },
+      });
+
+      const screenshotsWithImages = await Promise.all(
+        response.data.screenshots.map(async (screenshot) => {
+          const imageResponse = await api.get(
+            `/api/screenshots/file/${screenshot.id}`,
+            { responseType: "blob" }
+          );
+          return {
+            ...screenshot,
+            image_url: URL.createObjectURL(imageResponse.data),
+          };
+        })
+      );
+
+      setScreenshots(screenshotsWithImages);
+      setTotal(response.data.total);
+      setPage(response.data.page);
+    } catch (error) {
+      toast.error("Could not load screenshots");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (screenshotId) => {
+    const confirmed = window.confirm("Delete this screenshot?");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/screenshots/${screenshotId}`);
+      toast.success("Screenshot deleted");
+      loadScreenshots(page);
+    } catch (error) {
+      toast.error("Could not delete screenshot");
+    }
+  };
+
+  const selectedStaff = staffList.find((staff) => staff.id === selectedUserId);
+  const showingStart = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const showingEnd = Math.min(page * perPage, total);
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const modalScreenshot = modalIndex !== null ? screenshots[modalIndex] : null;
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-gray-700">
+              Staff member
+            </span>
+            <select
+              value={selectedUserId}
+              onChange={(event) => {
+                setSelectedUserId(event.target.value);
+                setScreenshots([]);
+                setTotal(0);
+                setPage(1);
+              }}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            >
+              <option value="">Select staff member</option>
+              {staffList.map((staff) => (
+                <option key={staff.id} value={staff.id}>
+                  {staff.full_name} ({staff.employee_id})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {selectedUserId && (
+            <>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">
+                  Date
+                </span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => {
+                    setSelectedDate(event.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => loadScreenshots(1)}
+                  className="w-full rounded-lg bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800"
+                >
+                  Load Screenshots
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {!selectedUserId && (
+          <div className="mt-8 rounded-xl bg-gray-50 p-8 text-center text-gray-500">
+            Select a staff member to view screenshots
+          </div>
+        )}
+        {selectedStaff && (
+          <div className="mt-4 text-sm text-gray-500">
+            Viewing screenshots for {selectedStaff.full_name}
+          </div>
+        )}
+      </div>
+
+      {selectedUserId && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          {loading ? (
+            <div className="py-16 text-center text-gray-500">
+              Loading screenshots...
+            </div>
+          ) : screenshots.length === 0 ? (
+            <div className="py-16 text-center text-gray-500">
+              No screenshots found for this date
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {screenshots.map((screenshot, index) => (
+                  <div
+                    key={screenshot.id}
+                    className="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setModalIndex(index)}
+                      className="block w-full"
+                    >
+                      <img
+                        src={screenshot.image_url}
+                        alt={`Screenshot ${formatTime(screenshot.captured_at)}`}
+                        className="aspect-video w-full object-cover"
+                      />
+                    </button>
+                    <div className="flex items-center justify-between gap-3 p-3 text-xs text-gray-600">
+                      <div>
+                        <div className="font-semibold text-gray-900">
+                          {formatTime(screenshot.captured_at)}
+                        </div>
+                        <div>{screenshot.file_size_kb || 0} KB</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(screenshot.id)}
+                        className="rounded-lg bg-red-600 px-3 py-2 text-white opacity-0 transition hover:bg-red-700 group-hover:opacity-100"
+                        title="Delete screenshot"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex items-center justify-between gap-4 text-sm text-gray-600">
+                <div>
+                  Showing {showingStart}-{showingEnd} of {total} screenshots
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => loadScreenshots(page - 1)}
+                    disabled={page <= 1}
+                    className="rounded-lg bg-gray-100 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadScreenshots(page + 1)}
+                    disabled={page >= totalPages}
+                    className="rounded-lg bg-gray-100 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {modalScreenshot && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4"
+          onClick={() => setModalIndex(null)}
+        >
+          <div
+            className="relative max-h-[92vh] w-full max-w-6xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setModalIndex(null)}
+              className="absolute right-0 top-0 z-10 rounded-bl-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+            >
+              Close
+            </button>
+            <img
+              src={modalScreenshot.image_url}
+              alt="Screenshot full size"
+              className="max-h-[82vh] w-full rounded-lg object-contain"
+            />
+            <div className="mt-3 flex items-center justify-between rounded-lg bg-white p-4 text-sm text-gray-700">
+              <button
+                type="button"
+                onClick={() => setModalIndex((current) => Math.max(0, current - 1))}
+                disabled={modalIndex <= 0}
+                className="rounded-lg bg-gray-100 px-4 py-2 font-semibold hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <div className="text-center">
+                <div className="font-semibold text-gray-900">
+                  {formatDateTime(modalScreenshot.captured_at)}
+                </div>
+                <div>
+                  {modalScreenshot.width || "?"} x {modalScreenshot.height || "?"} ·{" "}
+                  {modalScreenshot.file_size_kb || 0} KB
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setModalIndex((current) =>
+                    Math.min(screenshots.length - 1, current + 1)
+                  )
+                }
+                disabled={modalIndex >= screenshots.length - 1}
+                className="rounded-lg bg-gray-100 px-4 py-2 font-semibold hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard" },
   { id: "staff-management", label: "Staff" },
+  { id: "screenshots", label: "Screenshots", superAdminOnly: true },
   { id: "reports", label: "Reports" },
   { id: "leave", label: "Leave Requests" },
   { id: "alerts", label: "Alerts" },
@@ -3518,6 +3822,9 @@ function AdminDashboard() {
   }, []);
 
   const activeItem = navItems.find((item) => item.id === activeSection);
+  const visibleNavItems = navItems.filter(
+    (item) => !item.superAdminOnly || user?.role === "super_admin"
+  );
 
   const handleLogout = async () => {
     try {
@@ -3536,6 +3843,10 @@ function AdminDashboard() {
 
     if (activeSection === "staff-management") {
       return <StaffManagementPanel openProfile={setProfileUser} />;
+    }
+
+    if (activeSection === "screenshots") {
+      return <ScreenshotsPanel />;
     }
 
     if (activeSection === "reports") {
@@ -3573,7 +3884,7 @@ function AdminDashboard() {
 
         <nav className="flex-1 px-4 py-6">
           <div className="space-y-2">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <button
                 key={item.id}
                 type="button"

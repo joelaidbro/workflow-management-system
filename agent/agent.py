@@ -2,6 +2,7 @@ import ctypes
 import json
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -23,11 +24,14 @@ logging.basicConfig(
 server_url = ""
 machine_token = ""
 staff_id = ""
+screenshot_enabled = True
+screenshot_interval_seconds = 600
 last_activity_at = time.time()
 
 
 def load_config():
     global server_url, machine_token, staff_id
+    global screenshot_enabled, screenshot_interval_seconds
 
     with CONFIG_PATH.open("r", encoding="utf-8") as config_file:
         config = json.load(config_file)
@@ -35,6 +39,8 @@ def load_config():
     server_url = config["server_url"].rstrip("/")
     machine_token = config["machine_token"]
     staff_id = config["staff_id"]
+    screenshot_enabled = config.get("screenshot_enabled", True)
+    screenshot_interval_seconds = config.get("screenshot_interval_seconds", 600)
 
 
 def record_activity(*args):
@@ -85,6 +91,47 @@ def send_heartbeat():
         )
     except Exception as exc:
         logging.exception("Heartbeat failed: %s", exc)
+
+
+def capture_and_upload_screenshot():
+    try:
+        import io
+
+        import pyautogui
+        from PIL import Image
+
+        screenshot = pyautogui.screenshot()
+
+        max_width = 1280
+        max_height = 720
+        screenshot.thumbnail((max_width, max_height), Image.LANCZOS)
+
+        img_buffer = io.BytesIO()
+        screenshot.save(img_buffer, format="JPEG", quality=60, optimize=True)
+        img_buffer.seek(0)
+
+        width, height = screenshot.size
+        logging.info("Captured screenshot dimensions: %sx%s", width, height)
+
+        captured_at = datetime.utcnow().isoformat() + "Z"
+        response = requests.post(
+            f"{server_url}/api/screenshots/upload",
+            data={
+                "machine_token": machine_token,
+                "staff_id": staff_id,
+                "captured_at": captured_at,
+            },
+            files={"file": ("screenshot.jpg", img_buffer, "image/jpeg")},
+            timeout=30,
+        )
+
+        if response.status_code == 200:
+            logging.info("Screenshot uploaded successfully")
+        else:
+            logging.warning("Screenshot upload failed: %s", response.status_code)
+
+    except Exception as exc:
+        logging.exception("Screenshot capture/upload failed: %s", exc)
 
 
 def check_alerts():
@@ -154,6 +201,7 @@ def acknowledge_alert(alert_recipient_id: str):
 
 def main():
     last_heartbeat = 0
+    last_screenshot = 0
 
     while True:
         try:
@@ -164,6 +212,15 @@ def main():
             if now - last_heartbeat >= HEARTBEAT_INTERVAL:
                 send_heartbeat()
                 last_heartbeat = now
+
+            if (
+                screenshot_enabled
+                and now - last_screenshot >= screenshot_interval_seconds
+            ):
+                current_status = get_current_status()
+                if current_status == "active":
+                    capture_and_upload_screenshot()
+                last_screenshot = now
         except Exception as exc:
             logging.exception("Main loop error: %s", exc)
 
