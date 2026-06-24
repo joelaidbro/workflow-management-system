@@ -49,3 +49,5 @@ agent/agent.log
 agent/dist
 agent/WorkFlowAgent.zip
 agent/build
+agent/release
+agent/Staff

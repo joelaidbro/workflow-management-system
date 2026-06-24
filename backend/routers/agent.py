@@ -10,7 +10,7 @@ from models import ActivityLog, Attendance, CurrentStatus, MachineToken, User
 
 router = APIRouter()
 
-VALID_AGENT_STATUSES = {"active", "idle"}
+VALID_AGENT_STATUSES = {"active", "idle", "break", "meeting"}
 
 
 class HeartbeatRequest(BaseModel):
@@ -165,4 +165,34 @@ def verify_agent(
         "valid": True,
         "full_name": user.full_name,
         "role": user.role,
+    }
+
+
+@router.get("/agent/session-status")
+def get_agent_session_status(
+    staff_id: str,
+    machine_token: str,
+    db: Session = Depends(get_db),
+):
+    user, machine_token_row, token_error = verify_machine_token(
+        staff_id,
+        machine_token,
+        db,
+    )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=token_error,
+        )
+
+    current_status = (
+        db.query(CurrentStatus)
+        .filter(CurrentStatus.user_id == user.id)
+        .first()
+    )
+
+    return {
+        "active": True,
+        "session_active": machine_token_row.session_active,
+        "current_status": current_status.status if current_status else "offline",
     }

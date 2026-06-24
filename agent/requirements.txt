@@ -1,6 +1,7 @@
 requests
 pynput
-pyinstaller 
+pyinstaller
 Pillow
 pyautogui
 python-multipart
+pystray

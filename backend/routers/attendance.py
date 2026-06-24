@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from main import limiter
-from models import Attendance, Company, DailyReport, SalaryRecord, User
+from models import Attendance, Company, DailyReport, MachineToken, SalaryRecord, User
 
 router = APIRouter()
 
@@ -235,6 +235,17 @@ def start_day(
         attendance.login_time = now
         attendance.work_mode = start_data.work_mode
 
+    machine_token = (
+        db.query(MachineToken)
+        .filter(
+            MachineToken.user_id == current_user.id,
+            MachineToken.is_active.is_(True),
+        )
+        .first()
+    )
+    if machine_token:
+        machine_token.session_active = True
+
     db.commit()
 
     return {
@@ -299,6 +310,18 @@ def end_day(
             submitted_at=now,
         )
     )
+
+    machine_token = (
+        db.query(MachineToken)
+        .filter(
+            MachineToken.user_id == current_user.id,
+            MachineToken.is_active.is_(True),
+        )
+        .first()
+    )
+    if machine_token:
+        machine_token.session_active = False
+
     db.commit()
 
     return {
