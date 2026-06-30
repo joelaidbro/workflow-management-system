@@ -210,6 +210,23 @@ def start_day(
 
     now = datetime.utcnow()
     today = now.date()
+
+    from models import LeaveRequest
+    approved_leave = (
+        db.query(LeaveRequest)
+        .filter(
+            LeaveRequest.user_id == current_user.id,
+            LeaveRequest.status == "approved",
+            LeaveRequest.start_date <= today,
+            LeaveRequest.end_date >= today,
+        )
+        .first()
+    )
+    if approved_leave:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Start Day is not allowed while on approved leave.",
+        )
     attendance = (
         db.query(Attendance)
         .filter(

@@ -395,7 +395,7 @@ function StaffDashboard() {
       });
       setCurrentStatus("active");
     } catch (error) {
-      toast.error("Could not start day");
+      toast.error(getErrorMessage(error, "Could not start day"));
     }
   };
 
