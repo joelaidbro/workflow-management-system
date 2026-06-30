@@ -709,7 +709,10 @@ function StaffDashboard() {
         "0"
       )}-${String(day).padStart(2, "0")}`;
       const record = recordsByDate.get(dateKey);
-      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      const defaultWorkingDays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+      const workingDays = attendanceSummary?.working_days || defaultWorkingDays;
+      const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
       const isFuture = date > new Date();
       let dotClass = "bg-white border border-gray-300";
 

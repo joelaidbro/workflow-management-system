@@ -135,6 +135,10 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
     days_present = sum(1 for record in records if record.is_present)
     days_absent = total_working_days - days_present
 
+    company = db.query(Company).filter(Company.id == user.company_id).first()
+    company_config = company.config if company and company.config else {}
+    working_days = company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
+
     return {
         "user_id": str(user.id),
         "full_name": user.full_name,
@@ -155,6 +159,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         "total_break_minutes": sum(record.break_minutes or 0 for record in records),
         "total_meeting_minutes": sum(record.meeting_minutes or 0 for record in records),
         "total_idle_minutes": sum(record.idle_minutes or 0 for record in records),
+        "working_days": working_days,
         "attendance_records": [
             {
                 "date": record.date,

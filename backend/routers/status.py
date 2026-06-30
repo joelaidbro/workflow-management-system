@@ -90,14 +90,18 @@ def format_status_response(user, current_status, attendance=None):
         "updated_at": format_utc_datetime(current_status.updated_at)
         if current_status
         else None,
-        "today_work_mode": current_status.today_work_mode if current_status else None,
+        "today_work_mode": attendance.work_mode if attendance else None,
         "break_started_at": (
             format_utc_datetime(current_status.break_started_at)
             if current_status
             else None
         ),
         "idle_minutes": attendance.idle_minutes if attendance else 0,
+        "login_time": format_utc_datetime(attendance.login_time)
+        if attendance and attendance.login_time
+        else None,
     }
+
 
 
 @router.get("/status/team")
@@ -179,7 +183,17 @@ def get_user_status(
         .first()
     )
 
-    response_data = format_status_response(user, current_status)
+    today = datetime.utcnow().date()
+    attendance = (
+        db.query(Attendance)
+        .filter(
+            Attendance.user_id == user.id,
+            Attendance.date == today,
+        )
+        .first()
+    )
+
+    response_data = format_status_response(user, current_status, attendance)
     response_data["login_time_today"] = (
         format_utc_datetime(login_activity.timestamp) if login_activity else None
     )

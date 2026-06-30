@@ -24,7 +24,7 @@ else:
 CONFIG_PATH = BASE_DIR / "config.json"
 LOG_PATH = BASE_DIR / "agent.log"
 
-IDLE_THRESHOLD_SECONDS = 600
+idle_threshold_seconds = 600
 HEARTBEAT_INTERVAL = 60
 ALERT_INTERVAL = 15
 SESSION_POLL_INTERVAL = 15
@@ -125,12 +125,13 @@ def get_idle_seconds() -> int:
 
 
 def get_current_status() -> str:
-    if get_idle_seconds() > IDLE_THRESHOLD_SECONDS:
+    if get_idle_seconds() > idle_threshold_seconds:
         return "idle"
     return "active"
 
 
 def verify_agent_startup() -> tuple[bool, str]:
+    global idle_threshold_seconds
     try:
         response = requests.post(
             f"{config['server_url']}/api/agent/verify",
@@ -148,6 +149,9 @@ def verify_agent_startup() -> tuple[bool, str]:
         data = response.json()
         name = data.get("full_name", "")
         set_state(connected=True, name=name)
+        if "idle_timeout_minutes" in data:
+            idle_threshold_seconds = int(data["idle_timeout_minutes"]) * 60
+            logging.info("Updated idle threshold to %d seconds from verify", idle_threshold_seconds)
         return True, name
     except Exception as exc:
         logging.exception("Agent verify failed: %s", exc)
@@ -288,6 +292,7 @@ def normalize_server_status(status: str | None, active_session: bool) -> str:
 
 
 def poll_session_status() -> None:
+    global idle_threshold_seconds
     try:
         response = requests.get(
             f"{config['server_url']}/api/agent/session-status",
@@ -306,6 +311,9 @@ def poll_session_status() -> None:
         data = response.json()
         active_session = bool(data.get("session_active"))
         server_status = data.get("current_status", "offline")
+        if "idle_timeout_minutes" in data:
+            idle_threshold_seconds = int(data["idle_timeout_minutes"]) * 60
+            
         snapshot = get_state_snapshot()
 
         next_state = None
