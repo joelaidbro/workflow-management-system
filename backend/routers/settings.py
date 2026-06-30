@@ -38,6 +38,9 @@ DEFAULT_CONFIG = {
     "leave_types": [],
     "half_day_leave_enabled": False,
     "leave_carry_forward": False,
+    "screenshot_enabled": True,
+    "screenshot_interval_seconds": 600,
+    "monitoring_enabled": True,
 }
 
 

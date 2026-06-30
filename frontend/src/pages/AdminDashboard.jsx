@@ -97,6 +97,7 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
     active: staffList.filter((staff) => staff.status === "active").length,
     idle: staffList.filter((staff) => staff.status === "idle").length,
     break: staffList.filter((staff) => staff.status === "break").length,
+    meeting: staffList.filter((staff) => staff.status === "meeting").length,
     offline: staffList.filter((staff) => staff.status === "offline").length,
   };
 
@@ -138,7 +139,7 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
     <div className="space-y-6">
       {error && <div className="text-sm font-medium text-red-600">{error}</div>}
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <div className="rounded-xl border border-green-200 bg-green-50 p-5">
           <div className="text-sm font-medium text-green-700">🟢 Active</div>
           <div className="mt-3 text-3xl font-bold text-green-900">
@@ -155,6 +156,12 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
           <div className="text-sm font-medium text-orange-700">☕ On Break</div>
           <div className="mt-3 text-3xl font-bold text-orange-900">
             {counts.break}
+          </div>
+        </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+          <div className="text-sm font-medium text-blue-700">📋 In Meeting</div>
+          <div className="mt-3 text-3xl font-bold text-blue-900">
+            {counts.meeting}
           </div>
         </div>
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
@@ -2958,6 +2965,9 @@ function SettingsPanel() {
     working_hours_start: "09:00",
     working_hours_end: "18:00",
     working_days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+    screenshot_enabled: true,
+    screenshot_interval_seconds: 600,
+    monitoring_enabled: true,
   });
   const [securitySettings, setSecuritySettings] = useState({
     failed_login_lockout_attempts: 5,
@@ -3020,6 +3030,9 @@ function SettingsPanel() {
         "thursday",
         "friday",
       ],
+      screenshot_enabled: config.screenshot_enabled ?? true,
+      screenshot_interval_seconds: config.screenshot_interval_seconds ?? 600,
+      monitoring_enabled: config.monitoring_enabled ?? true,
     });
     setSecuritySettings({
       failed_login_lockout_attempts: config.failed_login_lockout_attempts ?? 5,
@@ -3240,6 +3253,26 @@ function SettingsPanel() {
                 monitoringSettings,
                 setMonitoringSettings,
                 "18:00"
+              )}
+              {renderNumberInput(
+                "Screenshot interval (seconds)",
+                "screenshot_interval_seconds",
+                monitoringSettings,
+                setMonitoringSettings,
+                10,
+                3600
+              )}
+              {renderToggleRow(
+                "Enable screenshot capture",
+                "screenshot_enabled",
+                monitoringSettings,
+                setMonitoringSettings
+              )}
+              {renderToggleRow(
+                "Enable monitoring",
+                "monitoring_enabled",
+                monitoringSettings,
+                setMonitoringSettings
               )}
             </div>
             <div>

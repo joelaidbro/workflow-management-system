@@ -168,12 +168,18 @@ def verify_agent(
     company = db.query(Company).filter(Company.id == user.company_id).first()
     company_config = company.config if company and company.config else {}
     idle_timeout_minutes = company_config.get("idle_timeout_minutes", 10)
+    screenshot_enabled = company_config.get("screenshot_enabled", True)
+    screenshot_interval_seconds = company_config.get("screenshot_interval_seconds", 600)
+    monitoring_enabled = company_config.get("monitoring_enabled", True)
 
     return {
         "valid": True,
         "full_name": user.full_name,
         "role": user.role,
         "idle_timeout_minutes": idle_timeout_minutes,
+        "screenshot_enabled": screenshot_enabled,
+        "screenshot_interval_seconds": screenshot_interval_seconds,
+        "monitoring_enabled": monitoring_enabled,
     }
 
 
@@ -203,10 +209,16 @@ def get_agent_session_status(
     company = db.query(Company).filter(Company.id == user.company_id).first()
     company_config = company.config if company and company.config else {}
     idle_timeout_minutes = company_config.get("idle_timeout_minutes", 10)
+    screenshot_enabled = company_config.get("screenshot_enabled", True)
+    screenshot_interval_seconds = company_config.get("screenshot_interval_seconds", 600)
+    monitoring_enabled = company_config.get("monitoring_enabled", True)
 
     return {
         "active": True,
         "session_active": machine_token_row.session_active,
         "current_status": current_status.status if current_status else "offline",
         "idle_timeout_minutes": idle_timeout_minutes,
+        "screenshot_enabled": screenshot_enabled,
+        "screenshot_interval_seconds": screenshot_interval_seconds,
+        "monitoring_enabled": monitoring_enabled,
     }

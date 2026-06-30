@@ -25,6 +25,9 @@ CONFIG_PATH = BASE_DIR / "config.json"
 LOG_PATH = BASE_DIR / "agent.log"
 
 idle_threshold_seconds = 600
+screenshot_enabled = True
+screenshot_interval_seconds = 600
+monitoring_enabled = True
 HEARTBEAT_INTERVAL = 60
 ALERT_INTERVAL = 15
 SESSION_POLL_INTERVAL = 15
@@ -51,7 +54,7 @@ main_window = None
 
 
 def load_config() -> None:
-    global config
+    global config, screenshot_enabled, screenshot_interval_seconds
 
     with CONFIG_PATH.open("r", encoding="utf-8") as config_file:
         loaded_config = json.load(config_file)
@@ -71,6 +74,8 @@ def load_config() -> None:
         600,
     )
     config = loaded_config
+    screenshot_enabled = config["screenshot_enabled"]
+    screenshot_interval_seconds = config["screenshot_interval_seconds"]
 
 
 def set_state(
@@ -131,7 +136,7 @@ def get_current_status() -> str:
 
 
 def verify_agent_startup() -> tuple[bool, str]:
-    global idle_threshold_seconds
+    global idle_threshold_seconds, screenshot_enabled, screenshot_interval_seconds, monitoring_enabled
     try:
         response = requests.post(
             f"{config['server_url']}/api/agent/verify",
@@ -152,6 +157,12 @@ def verify_agent_startup() -> tuple[bool, str]:
         if "idle_timeout_minutes" in data:
             idle_threshold_seconds = int(data["idle_timeout_minutes"]) * 60
             logging.info("Updated idle threshold to %d seconds from verify", idle_threshold_seconds)
+        if "screenshot_enabled" in data:
+            screenshot_enabled = bool(data["screenshot_enabled"])
+        if "screenshot_interval_seconds" in data:
+            screenshot_interval_seconds = int(data["screenshot_interval_seconds"])
+        if "monitoring_enabled" in data:
+            monitoring_enabled = bool(data["monitoring_enabled"])
         return True, name
     except Exception as exc:
         logging.exception("Agent verify failed: %s", exc)
@@ -164,6 +175,8 @@ def get_status_display_text() -> str:
 
 
 def get_status_color() -> str:
+    if not monitoring_enabled:
+        return "gray"
     snapshot = get_state_snapshot()
     return {
         "working": "green",
@@ -292,7 +305,7 @@ def normalize_server_status(status: str | None, active_session: bool) -> str:
 
 
 def poll_session_status() -> None:
-    global idle_threshold_seconds
+    global idle_threshold_seconds, screenshot_enabled, screenshot_interval_seconds, monitoring_enabled
     try:
         response = requests.get(
             f"{config['server_url']}/api/agent/session-status",
@@ -313,6 +326,12 @@ def poll_session_status() -> None:
         server_status = data.get("current_status", "offline")
         if "idle_timeout_minutes" in data:
             idle_threshold_seconds = int(data["idle_timeout_minutes"]) * 60
+        if "screenshot_enabled" in data:
+            screenshot_enabled = bool(data["screenshot_enabled"])
+        if "screenshot_interval_seconds" in data:
+            screenshot_interval_seconds = int(data["screenshot_interval_seconds"])
+        if "monitoring_enabled" in data:
+            monitoring_enabled = bool(data["monitoring_enabled"])
             
         snapshot = get_state_snapshot()
 
@@ -496,6 +515,8 @@ def create_tray_icon_image() -> Image.Image:
 
 
 def get_status_label() -> str:
+    if not monitoring_enabled:
+        return "Disabled"
     snapshot = get_state_snapshot()
     return {
         "working": "Working",
@@ -568,7 +589,7 @@ def start_tray_icon() -> None:
 
 
 def main_loop() -> None:
-    screenshot_interval = config.get("screenshot_interval_seconds", 600)
+    global screenshot_interval_seconds, screenshot_enabled, monitoring_enabled
     last_heartbeat = 0
     last_screenshot = 0
     last_session_poll = 0
@@ -581,23 +602,23 @@ def main_loop() -> None:
                 poll_session_status()
                 last_session_poll = now
 
-            check_alerts()
+            if monitoring_enabled:
+                check_alerts()
 
-            current_agent_state = get_state_snapshot()["agent_state"]
+                current_agent_state = get_state_snapshot()["agent_state"]
 
-            if current_agent_state in ("working", "break", "meeting"):
-                if now - last_heartbeat >= HEARTBEAT_INTERVAL:
-                    send_heartbeat()
-                    last_heartbeat = now
+                if current_agent_state in ("working", "break", "meeting"):
+                    if now - last_heartbeat >= HEARTBEAT_INTERVAL:
+                        send_heartbeat()
+                        last_heartbeat = now
 
-            screenshot_enabled = config.get("screenshot_enabled", True)
-            if screenshot_enabled and now - last_screenshot >= screenshot_interval:
-                if (
-                    get_state_snapshot()["agent_state"] == "working"
-                    and get_current_status() == "active"
-                ):
-                    capture_and_upload_screenshot()
-                last_screenshot = now
+                if screenshot_enabled and now - last_screenshot >= screenshot_interval_seconds:
+                    if (
+                        get_state_snapshot()["agent_state"] == "working"
+                        and get_current_status() == "active"
+                    ):
+                        capture_and_upload_screenshot()
+                    last_screenshot = now
         except Exception as exc:
             logging.exception("Main loop error: %s", exc)
 
