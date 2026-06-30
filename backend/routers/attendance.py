@@ -277,6 +277,18 @@ def end_day(
             detail="Report content must not be empty",
         )
 
+    from models import CurrentStatus
+    current_status = (
+        db.query(CurrentStatus)
+        .filter(CurrentStatus.user_id == current_user.id)
+        .first()
+    )
+    if current_status and current_status.status == "break":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot end workday while on break. Please end your break first.",
+        )
+
     now = datetime.utcnow()
     today = now.date()
     attendance = (

@@ -86,6 +86,9 @@ def heartbeat(
     if current_status:
         previous_status = current_status.status
 
+        if previous_status in {"break", "meeting"} and current_status_value in {"active", "idle"}:
+            current_status_value = previous_status
+
         if current_status_value == "idle" and previous_status != "idle":
             current_status.idle_started_at = now
 

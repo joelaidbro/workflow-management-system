@@ -462,7 +462,7 @@ function StaffDashboard() {
       localStorage.removeItem("user");
       navigate("/login");
     } catch (error) {
-      toast.error("Could not end day");
+      toast.error(error.response?.data?.detail || "Could not end day");
     } finally {
       setSubmittingReport(false);
     }
