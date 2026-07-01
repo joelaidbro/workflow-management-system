@@ -90,6 +90,8 @@ function StaffDashboard() {
   const [alertHistory, setAlertHistory] = useState([]);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
   const [acknowledgingAlertId, setAcknowledgingAlertId] = useState(null);
+  const [replyAlertId, setReplyAlertId] = useState(null);
+  const [replyText, setReplyText] = useState("");
 
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loadingLeaveRequests, setLoadingLeaveRequests] = useState(true);
@@ -763,6 +765,26 @@ function StaffDashboard() {
     }
   };
 
+  const handleSendAlertReply = async (alert) => {
+    const cleanReply = replyText.trim();
+    if (!cleanReply) {
+      toast.error("Reply message cannot be empty");
+      return;
+    }
+
+    try {
+      await api.post(`/api/alerts/my-acknowledge/${alert.alert_recipient_id}`, {
+        reply: cleanReply,
+      });
+      toast.success("Reply submitted successfully!");
+      setReplyAlertId(null);
+      setReplyText("");
+      fetchAlerts();
+    } catch (error) {
+      toast.error("Could not submit reply");
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       <aside className="fixed inset-y-0 left-0 flex w-64 flex-col bg-blue-900 text-white">
@@ -1422,21 +1444,65 @@ function StaffDashboard() {
                             {alert.reply}
                           </div>
                         )}
+                        {replyAlertId === alert.alert_recipient_id && (
+                          <div className="mt-3 space-y-2">
+                            <textarea
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder="Type your reply message..."
+                              className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+                              rows={2}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSendAlertReply(alert)}
+                                className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800"
+                              >
+                                Send Reply
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplyAlertId(null);
+                                  setReplyText("");
+                                }}
+                                className="rounded-lg bg-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {alertTab === "pending" && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAcknowledgeAlert(alert.alert_recipient_id)
-                          }
-                          disabled={acknowledgingAlertId === alert.alert_recipient_id}
-                          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          {acknowledgingAlertId === alert.alert_recipient_id
-                            ? "Acknowledging..."
-                            : "Acknowledge"}
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {alertTab === "pending" && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleAcknowledgeAlert(alert.alert_recipient_id)
+                            }
+                            disabled={acknowledgingAlertId === alert.alert_recipient_id}
+                            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            {acknowledgingAlertId === alert.alert_recipient_id
+                              ? "Acknowledging..."
+                              : "Acknowledge"}
+                          </button>
+                        )}
+                        {replyAlertId !== alert.alert_recipient_id && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyAlertId(alert.alert_recipient_id);
+                              setReplyText("");
+                            }}
+                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                          >
+                            Reply
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))

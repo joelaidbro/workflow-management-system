@@ -36,28 +36,37 @@ async def chat_websocket(websocket: WebSocket, user_id: str):
     await manager.connect(user_id, websocket)
     try:
         auth_message = await websocket.receive_json()
-        payload = decode_jwt(auth_message.get("token"))
-        if not payload:
-            await websocket.close(code=1008)
-            return
+        token = auth_message.get("token")
+        machine_token = auth_message.get("machine_token")
 
-        token_user_id = payload.get("user_id")
-        if str(token_user_id) != user_id:
-            await websocket.close(code=1008)
-            return
+        payload = decode_jwt(token) if token else None
+        if payload:
+            token_user_id = payload.get("user_id")
+            if str(token_user_id) != user_id:
+                await websocket.close(code=1008)
+                return
 
-        try:
-            sender_uuid = uuid.UUID(str(token_user_id))
-        except ValueError:
-            await websocket.close(code=1008)
-            return
+            try:
+                sender_uuid = uuid.UUID(str(token_user_id))
+            except ValueError:
+                await websocket.close(code=1008)
+                return
 
-        sender = (
-            db.query(User)
-            .filter(User.id == sender_uuid, User.is_active.is_(True))
-            .first()
-        )
-        if not sender:
+            sender = (
+                db.query(User)
+                .filter(User.id == sender_uuid, User.is_active.is_(True))
+                .first()
+            )
+            if not sender:
+                await websocket.close(code=1008)
+                return
+        elif machine_token:
+            from routers.agent import verify_machine_token
+            sender, _, token_error = verify_machine_token(user_id, machine_token, db)
+            if token_error or not sender:
+                await websocket.close(code=1008)
+                return
+        else:
             await websocket.close(code=1008)
             return
 

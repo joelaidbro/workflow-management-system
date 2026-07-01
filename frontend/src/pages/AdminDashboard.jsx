@@ -1468,14 +1468,41 @@ function AlertsPanel() {
       {deliveryReport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">
                   Delivery Report
                 </h3>
-                <p className="mt-2 text-sm text-gray-600">
+                <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-600">
+                  <div>
+                    <span className="font-semibold text-gray-500">Type:</span>{" "}
+                    <span className="capitalize font-semibold text-gray-900">
+                      {deliveryReport.alert_type}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-500">Sender:</span>{" "}
+                    <span className="font-semibold text-gray-900">
+                      {deliveryReport.sender_name || "Admin"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-500">Sent Time:</span>{" "}
+                    <span className="font-semibold text-gray-900">
+                      {formatDateTime(deliveryReport.created_at)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-500">Recipients:</span>{" "}
+                    <span className="font-semibold text-gray-900">
+                      {deliveryReport.total_recipients}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-800 border border-gray-100">
+                  <div className="font-semibold text-gray-700 mb-1">Message:</div>
                   {deliveryReport.message}
-                </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -1507,38 +1534,78 @@ function AlertsPanel() {
               </div>
             </div>
 
-            <div className="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-200">
-              {deliveryReport.recipients.map((recipient) => (
-                <div
-                  key={recipient.recipient_id}
-                  className="flex items-start justify-between gap-4 p-4 text-sm"
-                >
-                  <div>
-                    <div className="font-semibold text-gray-900">
-                      {recipient.full_name}
-                    </div>
-                    {recipient.acknowledged_at && (
-                      <div className="mt-1 text-xs text-gray-500">
-                        {formatDateTime(recipient.acknowledged_at)}
-                      </div>
-                    )}
-                    {recipient.reply && (
-                      <div className="mt-2 rounded-lg bg-gray-50 p-2 text-gray-700">
-                        {recipient.reply}
-                      </div>
-                    )}
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      recipient.status === "acknowledged"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-orange-100 text-orange-700"
-                    }`}
+            <div className="mt-6">
+              <h4 className="text-sm font-bold text-gray-700 mb-2">Acknowledgements</h4>
+              <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 max-h-60 overflow-y-auto">
+                {deliveryReport.recipients.map((recipient) => (
+                  <div
+                    key={recipient.recipient_id}
+                    className="flex items-start justify-between gap-4 p-4 text-sm"
                   >
-                    {recipient.status}
-                  </span>
+                    <div>
+                      <div className="font-semibold text-gray-900">
+                        {recipient.full_name}
+                      </div>
+                      {recipient.acknowledged_at && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          {formatDateTime(recipient.acknowledged_at)}
+                        </div>
+                      )}
+                      {recipient.reply && (
+                        <div className="mt-2 rounded-lg bg-gray-50 p-2 text-gray-700">
+                          {recipient.reply}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        recipient.status === "acknowledged"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-orange-100 text-orange-700"
+                      }`}
+                    >
+                      {recipient.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-gray-100 pt-6">
+              <h4 className="text-sm font-bold text-gray-700 mb-2">Replies</h4>
+              {((deliveryReport.recipients || [])
+                .filter((r) => r.reply)
+                .sort((a, b) => new Date(a.acknowledged_at) - new Date(b.acknowledged_at))
+              ).length === 0 ? (
+                <div className="text-sm text-gray-500 italic py-2">No replies yet</div>
+              ) : (
+                <div className="space-y-3">
+                  {(deliveryReport.recipients || [])
+                    .filter((r) => r.reply)
+                    .sort((a, b) => new Date(a.acknowledged_at) - new Date(b.acknowledged_at))
+                    .map((reply) => (
+                      <div
+                        key={reply.recipient_id}
+                        className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 text-sm"
+                      >
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <div className="font-semibold text-gray-900">
+                            {reply.full_name}{" "}
+                            {reply.employee_id && (
+                              <span className="text-xs font-normal text-gray-500">
+                                ({reply.employee_id})
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {formatDateTime(reply.acknowledged_at)}
+                          </div>
+                        </div>
+                        <div className="mt-2 text-gray-700">{reply.reply}</div>
+                      </div>
+                    ))}
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

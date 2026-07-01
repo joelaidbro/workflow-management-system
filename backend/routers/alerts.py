@@ -185,6 +185,7 @@ def get_pending_alerts(
             "message": alert.message,
             "created_at": format_utc_datetime(alert.created_at),
             "sender_name": sender.full_name,
+            "sender_id": str(sender.id),
         }
         for alert_recipient, alert, sender in pending_alerts
     ]
@@ -441,6 +442,7 @@ def get_delivery_report(
         "message": alert.message,
         "alert_type": alert.alert_type,
         "created_at": format_utc_datetime(alert.created_at),
+        "sender_name": alert.sender.full_name,
         "total_recipients": len(recipient_rows),
         "acknowledged_count": acknowledged_count,
         "pending_count": pending_count,
@@ -448,6 +450,7 @@ def get_delivery_report(
             {
                 "recipient_id": str(recipient.id),
                 "full_name": recipient.full_name,
+                "employee_id": recipient.employee_id,
                 "status": alert_recipient.status,
                 "acknowledged_at": format_utc_datetime(
                     alert_recipient.acknowledged_at

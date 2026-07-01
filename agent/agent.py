@@ -2,6 +2,7 @@ import ctypes
 import io
 import json
 import logging
+import queue
 import sys
 import threading
 import time
@@ -28,6 +29,8 @@ idle_threshold_seconds = 600
 screenshot_enabled = True
 screenshot_interval_seconds = 600
 monitoring_enabled = True
+alert_queue = queue.Queue()
+displayed_alert_ids = set()
 HEARTBEAT_INTERVAL = 60
 ALERT_INTERVAL = 15
 SESSION_POLL_INTERVAL = 15
@@ -205,7 +208,6 @@ def create_status_window():
     window = tk.Tk()
     main_window = window
     window.title("WorkFlow Agent")
-    window.geometry("380x220")
     window.resizable(False, False)
 
     def on_close():
@@ -213,12 +215,6 @@ def create_status_window():
 
     window.protocol("WM_DELETE_WINDOW", on_close)
     window.attributes("-topmost", False)
-
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
-    x = int((screen_width - 380) / 2)
-    y = int((screen_height - 220) / 2)
-    window.geometry(f"380x220+{x}+{y}")
 
     container = ttk.Frame(window, padding=14)
     container.pack(fill="both", expand=True)
@@ -272,6 +268,20 @@ def create_status_window():
     exit_button = ttk.Button(container, text="Exit", command=exit_from_status_window)
     exit_button.pack(anchor="e", pady=(8, 0))
 
+    window.update_idletasks()
+    req_width = window.winfo_reqwidth()
+    req_height = window.winfo_reqheight()
+
+    width = req_width + 10
+    height = req_height + 15
+
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = int((screen_width - width) / 2)
+    y = int((screen_height - height) / 2)
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
+    window.after(500, process_alert_queue)
     return window
 
 
@@ -386,6 +396,17 @@ def send_heartbeat() -> None:
         set_state(connected=False)
 
 
+def process_alert_queue() -> None:
+    try:
+        while True:
+            alert = alert_queue.get_nowait()
+            show_alert_popup_gui(alert)
+    except queue.Empty:
+        pass
+    if main_window:
+        main_window.after(500, process_alert_queue)
+
+
 def check_alerts() -> None:
     try:
         response = requests.get(
@@ -401,16 +422,22 @@ def check_alerts() -> None:
             return
 
         for alert in response.json():
-            show_alert_popup(alert)
-            acknowledge_alert(alert["alert_recipient_id"])
+            rec_id = alert.get("alert_recipient_id")
+            if rec_id and rec_id not in displayed_alert_ids:
+                displayed_alert_ids.add(rec_id)
+                show_alert_popup(alert)
     except Exception as exc:
         logging.exception("Alert polling failed: %s", exc)
 
 
-def show_alert_popup(alert: dict) -> None:
+
+
+
+def show_alert_popup_gui(alert: dict) -> None:
     try:
         alert_type = alert.get("alert_type", "info")
         sender = alert.get("sender_name", "Admin")
+        sender_id = alert.get("sender_id")
         message = alert.get("message", "")
 
         title = (
@@ -418,30 +445,154 @@ def show_alert_popup(alert: dict) -> None:
             if alert_type == "urgent"
             else "ℹ️ Info — WorkFlow Alert"
         )
-        separator = "─────────────────────────────"
-        body = (
-            f"From: {sender}\n"
-            f"{separator}\n\n"
-            f"{message}\n\n"
-            f"{separator}\n"
-            "Click OK to acknowledge"
+
+        popup = tk.Toplevel(main_window)
+        popup.title(title)
+        popup.resizable(False, False)
+        popup.attributes("-topmost", True)
+        popup.focus_force()
+
+        container = ttk.Frame(popup, padding=15)
+        container.pack(fill="both", expand=True)
+
+        header_label = tk.Label(
+            container,
+            text=title,
+            font=("Segoe UI", 12, "bold"),
+            fg="#dc2626" if alert_type == "urgent" else "#2563eb"
         )
+        header_label.pack(anchor="w", pady=(0, 5))
 
-        MB_OK = 0x00000000
-        MB_SYSTEMMODAL = 0x00001000
-        MB_SETFOREGROUND = 0x00010000
-        MB_ICONWARNING = 0x00000030
-        MB_ICONINFORMATION = 0x00000040
+        sender_label = tk.Label(
+            container,
+            text=f"From: {sender}",
+            font=("Segoe UI", 10, "bold"),
+            fg="#4b5563"
+        )
+        sender_label.pack(anchor="w", pady=(0, 10))
 
-        icon = MB_ICONWARNING if alert_type == "urgent" else MB_ICONINFORMATION
-        flags = MB_OK | MB_SYSTEMMODAL | MB_SETFOREGROUND | icon
+        message_frame = ttk.LabelFrame(container, text="Alert Message", padding=10)
+        message_frame.pack(fill="both", expand=True, pady=(0, 10))
 
-        ctypes.windll.user32.MessageBoxW(0, body, title, flags)
+        message_text = tk.Text(
+            message_frame,
+            wrap="word",
+            font=("Segoe UI", 9),
+            bg="#f9fafb",
+            height=4,
+            bd=0,
+            highlightthickness=0
+        )
+        message_text.insert("1.0", message)
+        message_text.configure(state="disabled")
+        message_text.pack(fill="both", expand=True)
+
+        reply_frame = ttk.Frame(container)
+        reply_frame.pack(fill="x", pady=(0, 10))
+
+        reply_entry = ttk.Entry(reply_frame, font=("Segoe UI", 9))
+        reply_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+
+        def on_send_reply():
+            reply_content = reply_entry.get().strip()
+            if not reply_content:
+                return
+            alert_recipient_id = alert.get("alert_recipient_id")
+            if alert_recipient_id:
+                threading.Thread(
+                    target=acknowledge_alert,
+                    args=(alert_recipient_id, reply_content),
+                    daemon=True
+                ).start()
+            popup.destroy()
+
+        send_button = ttk.Button(
+            reply_frame,
+            text="Send Reply",
+            command=on_send_reply
+        )
+        send_button.pack(side="right")
+
+        def on_acknowledge():
+            alert_recipient_id = alert.get("alert_recipient_id")
+            if alert_recipient_id:
+                threading.Thread(
+                    target=acknowledge_alert,
+                    args=(alert_recipient_id,),
+                    daemon=True
+                ).start()
+            popup.destroy()
+
+        popup.protocol("WM_DELETE_WINDOW", on_acknowledge)
+
+        ack_button = ttk.Button(
+            container,
+            text="Acknowledge & Close",
+            command=on_acknowledge
+        )
+        ack_button.pack(anchor="e")
+
+        popup.update_idletasks()
+        req_width = popup.winfo_reqwidth()
+        req_height = popup.winfo_reqheight()
+
+        width = max(req_width + 10, 450)
+        height = req_height + 15
+
+        screen_width = popup.winfo_screenwidth()
+        screen_height = popup.winfo_screenheight()
+        x = int((screen_width - width) / 2)
+        y = int((screen_height - height) / 2)
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+
+        popup.transient(main_window)
+        popup.grab_set()
     except Exception as exc:
-        logging.exception("Failed to show alert popup: %s", exc)
+        logging.exception("Failed to create GUI alert popup: %s", exc)
 
 
-def acknowledge_alert(alert_recipient_id: str) -> None:
+def show_alert_popup(alert: dict) -> None:
+    if main_window:
+        alert_queue.put(alert)
+    else:
+        try:
+            alert_type = alert.get("alert_type", "info")
+            sender = alert.get("sender_name", "Admin")
+            message = alert.get("message", "")
+
+            title = (
+                "⚠️ URGENT — WorkFlow Alert"
+                if alert_type == "urgent"
+                else "ℹ️ Info — WorkFlow Alert"
+            )
+            separator = "─────────────────────────────"
+            body = (
+                f"From: {sender}\n"
+                f"{separator}\n\n"
+                f"{message}\n\n"
+                f"{separator}\n"
+                "Click OK to acknowledge"
+            )
+
+            MB_OK = 0x00000000
+            MB_SYSTEMMODAL = 0x00001000
+            MB_SETFOREGROUND = 0x00010000
+            MB_ICONWARNING = 0x00000030
+            MB_ICONINFORMATION = 0x00000040
+
+            icon = MB_ICONWARNING if alert_type == "urgent" else MB_ICONINFORMATION
+            flags = MB_OK | MB_SYSTEMMODAL | MB_SETFOREGROUND | icon
+
+            ctypes.windll.user32.MessageBoxW(0, body, title, flags)
+            
+            alert_recipient_id = alert.get("alert_recipient_id")
+            if alert_recipient_id:
+                acknowledge_alert(alert_recipient_id)
+        except Exception as exc:
+            logging.exception("Failed to show alert popup fallback: %s", exc)
+
+
+def acknowledge_alert(alert_recipient_id: str, reply: str | None = None) -> None:
     try:
         response = requests.post(
             f"{config['server_url']}/api/alerts/acknowledge",
@@ -451,7 +602,7 @@ def acknowledge_alert(alert_recipient_id: str) -> None:
             },
             json={
                 "alert_recipient_id": alert_recipient_id,
-                "reply": None,
+                "reply": reply,
             },
             timeout=10,
         )
