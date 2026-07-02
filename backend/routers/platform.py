@@ -1,5 +1,7 @@
 from copy import deepcopy
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
+import os
+import shutil
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,7 +11,12 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, hash_password
 from database import get_db
-from models import Alert, Company, CurrentStatus, Message, User
+from models import (
+    Alert, Company, CurrentStatus, Message, User,
+    ActivityLog, AlertRecipient, Attendance, DailyReport,
+    LeaveRequest, SalaryRecord, Screenshot, MachineToken,
+    Session as SessionModel
+)
 from routers.settings import DEFAULT_CONFIG
 
 router = APIRouter()
@@ -42,6 +49,9 @@ def format_company(company: Company):
         "name": company.name,
         "is_active": company.is_active,
         "created_at": company.created_at,
+        "is_deletion_pending": company.is_deletion_pending,
+        "deletion_requested_at": company.deletion_requested_at,
+        "deletion_scheduled_at": company.deletion_scheduled_at,
     }
 
 
@@ -230,3 +240,155 @@ def get_platform_stats(
         .filter(Alert.created_at >= today_start)
         .count(),
     }
+
+
+class RequestDeletionBody(BaseModel):
+    confirmation_name: str
+
+
+@router.post("/platform/companies/{company_id}/request-deletion")
+def request_company_deletion(
+    company_id: str,
+    body: RequestDeletionBody,
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    company = get_company_or_404(company_id, db)
+
+    if body.confirmation_name != company.name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Company name does not match. Please type the exact company name to confirm.",
+        )
+
+    if company.is_deletion_pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Deletion already scheduled",
+        )
+
+    now = datetime.utcnow()
+    company.is_deletion_pending = True
+    company.is_active = False
+    company.deletion_requested_at = now
+    company.deletion_scheduled_at = now + timedelta(days=30)
+
+    db.query(User).filter(User.company_id == company.id).update({"is_active": False})
+    db.commit()
+
+    return {
+        "message": "Company scheduled for deletion",
+        "company_name": company.name,
+        "deletion_scheduled_at": company.deletion_scheduled_at,
+        "grace_period_days": 30,
+    }
+
+
+@router.post("/platform/companies/{company_id}/cancel-deletion")
+def cancel_company_deletion(
+    company_id: str,
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    company = get_company_or_404(company_id, db)
+
+    if not company.is_deletion_pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No deletion scheduled",
+        )
+
+    company.is_deletion_pending = False
+    company.is_active = True
+    company.deletion_requested_at = None
+    company.deletion_scheduled_at = None
+
+    db.query(User).filter(User.company_id == company.id).update({"is_active": True})
+    db.commit()
+
+    return {"message": "Deletion cancelled. Company restored."}
+
+
+def delete_company_data(company_id: str, db: Session) -> None:
+    user_ids = [u.id for u in db.query(User).filter(User.company_id == company_id).all()]
+
+    # 1. screenshots
+    screenshots = db.query(Screenshot).filter(Screenshot.company_id == company_id).all()
+    for s in screenshots:
+        if s.file_path and os.path.exists(s.file_path) and os.path.isfile(s.file_path):
+            try:
+                os.remove(s.file_path)
+            except Exception:
+                pass
+
+    company_screenshot_dir = f"/home/teams.aidbro.com/screenshots/{company_id}"
+    if os.path.exists(company_screenshot_dir):
+        try:
+            shutil.rmtree(company_screenshot_dir)
+        except Exception:
+            pass
+
+    db.query(Screenshot).filter(Screenshot.company_id == company_id).delete(synchronize_session=False)
+
+    # 2. activity_logs
+    db.query(ActivityLog).filter(ActivityLog.company_id == company_id).delete(synchronize_session=False)
+
+    # 3. alert_recipients
+    if user_ids:
+        db.query(AlertRecipient).filter(AlertRecipient.recipient_id.in_(user_ids)).delete(synchronize_session=False)
+
+    # 4. alerts
+    db.query(Alert).filter(Alert.company_id == company_id).delete(synchronize_session=False)
+
+    # 5. messages
+    db.query(Message).filter(Message.company_id == company_id).delete(synchronize_session=False)
+
+    # 6. daily_reports
+    db.query(DailyReport).filter(DailyReport.company_id == company_id).delete(synchronize_session=False)
+
+    # 7. attendance
+    db.query(Attendance).filter(Attendance.company_id == company_id).delete(synchronize_session=False)
+
+    # 8. salary_records
+    db.query(SalaryRecord).filter(SalaryRecord.company_id == company_id).delete(synchronize_session=False)
+
+    # 9. leave_requests
+    db.query(LeaveRequest).filter(LeaveRequest.company_id == company_id).delete(synchronize_session=False)
+
+    # 10. current_status
+    if user_ids:
+        db.query(CurrentStatus).filter(CurrentStatus.user_id.in_(user_ids)).delete(synchronize_session=False)
+
+    # 11. machine_tokens
+    db.query(MachineToken).filter(MachineToken.company_id == company_id).delete(synchronize_session=False)
+
+    # 12. sessions
+    if user_ids:
+        db.query(SessionModel).filter(SessionModel.user_id.in_(user_ids)).delete(synchronize_session=False)
+
+    # 13. users
+    db.query(User).filter(User.company_id == company_id).delete(synchronize_session=False)
+
+    # 14. companies
+    db.query(Company).filter(Company.id == company_id).delete(synchronize_session=False)
+
+
+@router.post("/platform/companies/{company_id}/execute-deletion")
+def execute_company_deletion(
+    company_id: str,
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    company = get_company_or_404(company_id, db)
+
+    if not company.is_deletion_pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Company deletion is not pending",
+        )
+
+    company_name = company.name
+    delete_company_data(str(company.id), db)
+    db.commit()
+
+    return {"message": "Company permanently deleted", "company_name": company_name}

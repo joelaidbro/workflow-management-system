@@ -29,6 +29,9 @@ class Company(Base):
     config = Column(JSON, nullable=False, default=dict)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    deletion_requested_at = Column(DateTime, nullable=True)
+    deletion_scheduled_at = Column(DateTime, nullable=True)
+    is_deletion_pending = Column(Boolean, default=False, nullable=False)
 
     users = relationship("User", back_populates="company")
 

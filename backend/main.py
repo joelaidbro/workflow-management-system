@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from database import SessionLocal
-from models import ActivityLog, CurrentStatus, Screenshot, User
+from models import ActivityLog, Company, CurrentStatus, Screenshot, User
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -22,7 +22,7 @@ from routers.attendance import router as attendance_router
 from routers.auth import router as auth_router
 from routers.chat import router as chat_router
 from routers.leave import router as leave_router
-from routers.platform import router as platform_router
+from routers.platform import router as platform_router, delete_company_data
 from routers.settings import router as settings_router
 from routers.screenshots import router as screenshots_router
 from routers.status import router as status_router
@@ -105,6 +105,29 @@ async def screenshot_cleanup_task():
         await asyncio.sleep(3600)
 
 
+async def company_deletion_task():
+    print("Company deletion task started")
+    while True:
+        db = SessionLocal()
+        try:
+            now = datetime.utcnow()
+            companies_to_delete = db.query(Company).filter(
+                Company.is_deletion_pending == True,
+                Company.deletion_scheduled_at <= now
+            ).all()
+
+            for company in companies_to_delete:
+                logging.info(f"Auto-deleting company: {company.name}")
+                delete_company_data(str(company.id), db)
+                db.commit()
+        except Exception as e:
+            logging.exception(f"Error in company deletion task: {e}")
+            db.rollback()
+        finally:
+            db.close()
+        await asyncio.sleep(3600)  # Check every hour
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create the task inside the lifespan context.
@@ -112,6 +135,7 @@ async def lifespan(app: FastAPI):
     tasks = [
         asyncio.create_task(offline_detection_task()),
         asyncio.create_task(screenshot_cleanup_task()),
+        asyncio.create_task(company_deletion_task()),
     ]
     try:
         yield
