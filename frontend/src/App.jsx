@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import PlatformDashboard from "./pages/PlatformDashboard.jsx";
+import LegalPolicy from "./pages/LegalPolicy.jsx";
 import StaffDashboard from "./pages/StaffDashboard.jsx";
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/privacy-policy" element={<LegalPolicy />} />
       <Route
         path="/staff"
         element={
