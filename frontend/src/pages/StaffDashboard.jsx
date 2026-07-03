@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import api from "../api.js";
+import { playMessageSound } from "../utils/sounds";
 import {
   formatDate,
   formatDateTime,
@@ -40,7 +41,23 @@ function StaffDashboard() {
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
   const currentUserId = user?.user_id || user?.id;
+  const [unreadCount, setUnreadCount] = useState(0);
   const [activeSection, setActiveSection] = useState("dashboard");
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await api.get("/api/chat/unread-count");
+        setUnreadCount(response.data.unread_count);
+      } catch (err) {
+        console.error("Could not load unread count", err);
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
   const [attendance, setAttendance] = useState(null);
   const [workMode, setWorkMode] = useState("office");
   const [loadingAttendance, setLoadingAttendance] = useState(true);
@@ -228,7 +245,11 @@ function StaffDashboard() {
     fetchAlerts();
 
     const attendanceIntervalId = setInterval(fetchAttendance, 30000);
-    return () => clearInterval(attendanceIntervalId);
+    const alertsIntervalId = setInterval(fetchAlerts, 30000);
+    return () => {
+      clearInterval(attendanceIntervalId);
+      clearInterval(alertsIntervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -336,6 +357,10 @@ function StaffDashboard() {
 
       if (data.type !== "new_message") {
         return;
+      }
+
+      if (data.sender_id !== currentUserId) {
+        playMessageSound();
       }
 
       const activeConversation = selectedConversationRef.current;
@@ -800,7 +825,12 @@ function StaffDashboard() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setActiveSection(item.id)}
+              onClick={() => {
+                if (item.id === "messages") {
+                  setUnreadCount(0);
+                }
+                setActiveSection(item.id);
+              }}
               className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
                 activeSection === item.id
                   ? "bg-blue-700 text-white"
@@ -808,7 +838,18 @@ function StaffDashboard() {
               }`}
             >
               <span>{item.icon}</span>
-              <span>{item.label}</span>
+              {item.id === "messages" ? (
+                <div className="relative inline-block">
+                  Messages
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-6 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span>{item.label}</span>
+              )}
             </button>
           ))}
         </nav>

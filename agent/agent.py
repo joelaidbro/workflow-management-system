@@ -1,4 +1,5 @@
 import ctypes
+import winsound
 import io
 import json
 import logging
@@ -24,13 +25,20 @@ else:
 
 CONFIG_PATH = BASE_DIR / "config.json"
 LOG_PATH = BASE_DIR / "agent.log"
+DISPLAYED_IDS_PATH = BASE_DIR / "displayed_alerts.json"
+# Max age (seconds) for persisted alert IDs — entries older than this are pruned on load.
+DISPLAYED_IDS_TTL = 86400  # 24 hours
 
 idle_threshold_seconds = 600
 screenshot_enabled = True
 screenshot_interval_seconds = 600
 monitoring_enabled = True
 alert_queue = queue.Queue()
-displayed_alert_ids = set()
+# displayed_alert_ids: maps alert_recipient_id -> unix timestamp when it was added.
+# Persisted to disk so restarts don't re-show already-queued alerts.
+displayed_alert_ids: dict[str, float] = {}
+# Guards against opening a second alert popup while one is already visible.
+active_popup_open = False
 HEARTBEAT_INTERVAL = 60
 ALERT_INTERVAL = 15
 SESSION_POLL_INTERVAL = 15
@@ -79,6 +87,38 @@ def load_config() -> None:
     config = loaded_config
     screenshot_enabled = config["screenshot_enabled"]
     screenshot_interval_seconds = config["screenshot_interval_seconds"]
+
+
+def load_displayed_alert_ids() -> None:
+    """Load persisted alert IDs from disk, pruning entries older than DISPLAYED_IDS_TTL."""
+    global displayed_alert_ids
+    if not DISPLAYED_IDS_PATH.exists():
+        displayed_alert_ids = {}
+        return
+    try:
+        with DISPLAYED_IDS_PATH.open("r", encoding="utf-8") as f:
+            raw: dict[str, float] = json.load(f)
+        now = time.time()
+        displayed_alert_ids = {
+            k: v for k, v in raw.items() if (now - v) < DISPLAYED_IDS_TTL
+        }
+        logging.info(
+            "Loaded %d persisted alert IDs (%d expired and pruned)",
+            len(displayed_alert_ids),
+            len(raw) - len(displayed_alert_ids),
+        )
+    except Exception as exc:
+        logging.exception("Failed to load displayed alert IDs: %s", exc)
+        displayed_alert_ids = {}
+
+
+def save_displayed_alert_ids() -> None:
+    """Persist the current displayed_alert_ids map to disk."""
+    try:
+        with DISPLAYED_IDS_PATH.open("w", encoding="utf-8") as f:
+            json.dump(displayed_alert_ids, f)
+    except Exception as exc:
+        logging.exception("Failed to save displayed alert IDs: %s", exc)
 
 
 def set_state(
@@ -397,12 +437,15 @@ def send_heartbeat() -> None:
 
 
 def process_alert_queue() -> None:
-    try:
-        while True:
+    # Fix #3: Show at most ONE alert per cycle.
+    # If a popup is already open, skip this cycle entirely — the alert stays
+    # in the queue and will be shown after the current popup is closed.
+    if not active_popup_open:
+        try:
             alert = alert_queue.get_nowait()
             show_alert_popup_gui(alert)
-    except queue.Empty:
-        pass
+        except queue.Empty:
+            pass
     if main_window:
         main_window.after(500, process_alert_queue)
 
@@ -423,8 +466,10 @@ def check_alerts() -> None:
 
         for alert in response.json():
             rec_id = alert.get("alert_recipient_id")
+            # Fix #4 (persistence): use the dict key check; value is the timestamp.
             if rec_id and rec_id not in displayed_alert_ids:
-                displayed_alert_ids.add(rec_id)
+                displayed_alert_ids[rec_id] = time.time()
+                save_displayed_alert_ids()
                 show_alert_popup(alert)
     except Exception as exc:
         logging.exception("Alert polling failed: %s", exc)
@@ -434,7 +479,15 @@ def check_alerts() -> None:
 
 
 def show_alert_popup_gui(alert: dict) -> None:
+    global active_popup_open
+    # Fix #1: Guard — only one popup at a time.
+    # If called while a popup is already open, put the alert back and bail.
+    if active_popup_open:
+        alert_queue.put(alert)
+        return
     try:
+        active_popup_open = True
+
         alert_type = alert.get("alert_type", "info")
         sender = alert.get("sender_name", "Admin")
         sender_id = alert.get("sender_id")
@@ -449,8 +502,6 @@ def show_alert_popup_gui(alert: dict) -> None:
         popup = tk.Toplevel(main_window)
         popup.title(title)
         popup.resizable(False, False)
-        popup.attributes("-topmost", True)
-        popup.focus_force()
 
         container = ttk.Frame(popup, padding=15)
         container.pack(fill="both", expand=True)
@@ -493,6 +544,15 @@ def show_alert_popup_gui(alert: dict) -> None:
         reply_entry = ttk.Entry(reply_frame, font=("Segoe UI", 9))
         reply_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
+        def _close_popup() -> None:
+            """Release the active_popup_open guard and destroy the popup."""
+            global active_popup_open
+            active_popup_open = False
+            try:
+                popup.destroy()
+            except Exception:
+                pass
+
         def on_send_reply():
             reply_content = reply_entry.get().strip()
             if not reply_content:
@@ -504,7 +564,7 @@ def show_alert_popup_gui(alert: dict) -> None:
                     args=(alert_recipient_id, reply_content),
                     daemon=True
                 ).start()
-            popup.destroy()
+            _close_popup()
 
         send_button = ttk.Button(
             reply_frame,
@@ -521,9 +581,15 @@ def show_alert_popup_gui(alert: dict) -> None:
                     args=(alert_recipient_id,),
                     daemon=True
                 ).start()
-            popup.destroy()
+            _close_popup()
 
+        # Only allow closing via the Acknowledge / Send Reply buttons.
         popup.protocol("WM_DELETE_WINDOW", on_acknowledge)
+
+        # NOTE: popup.transient(main_window) is intentionally NOT set here.
+        # On Windows, making a Toplevel transient for a non-topmost parent causes
+        # the OS to silently cancel the child's -topmost attribute, which is why
+        # the popup was disappearing behind other apps after the crash fix.
 
         ack_button = ttk.Button(
             container,
@@ -545,13 +611,40 @@ def show_alert_popup_gui(alert: dict) -> None:
         y = int((screen_height - height) / 2)
         popup.geometry(f"{width}x{height}+{x}+{y}")
 
-        popup.transient(main_window)
-        popup.grab_set()
+        # Set -topmost and focus AFTER geometry is finalised so it takes effect
+        # as the very last window operation. This ensures no subsequent Tkinter
+        # call resets the HWND_TOPMOST flag.
+        popup.attributes("-topmost", True)
+        popup.lift()
+        popup.focus_force()
+
+        # Periodically re-assert topmost so the popup can never be buried behind
+        # another app (e.g. a fullscreen game or another topmost window) while
+        # the user has not yet acknowledged the alert.
+        def keep_on_top() -> None:
+            try:
+                if popup.winfo_exists():
+                    popup.attributes("-topmost", True)
+                    popup.lift()
+                    popup.after(1000, keep_on_top)
+            except Exception:
+                pass
+
+        popup.after(500, keep_on_top)
+
     except Exception as exc:
+        # Make sure the guard is always released even on error.
+        active_popup_open = False
         logging.exception("Failed to create GUI alert popup: %s", exc)
 
 
 def show_alert_popup(alert: dict) -> None:
+    try:
+        # Same sound for both urgent and info alerts
+        winsound.Beep(700, 400)  # 700Hz for 400ms
+    except Exception as exc:
+        logging.exception("Failed to play alert sound: %s", exc)
+
     if main_window:
         alert_queue.put(alert)
     else:
@@ -779,6 +872,7 @@ def main_loop() -> None:
 if __name__ == "__main__":
     try:
         load_config()
+        load_displayed_alert_ids()  # Fix #4: restore persisted alert IDs before polling starts
         start_idle_detector()
         verify_agent_startup()
         threading.Thread(target=main_loop, daemon=True).start()

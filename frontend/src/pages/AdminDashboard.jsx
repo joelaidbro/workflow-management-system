@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import api from "../api.js";
+import { playMessageSound } from "../utils/sounds";
 import {
   formatDate,
   formatDateTime,
@@ -1232,7 +1233,9 @@ function AlertsPanel() {
   const fetchSentAlerts = async () => {
     try {
       const response = await api.get("/api/alerts/sent");
-      setSentAlerts(response.data);
+      setSentAlerts((prev) => {
+        return response.data;
+      });
     } catch (err) {
       toast.error("Could not load sent alerts");
     } finally {
@@ -1723,6 +1726,9 @@ function ChatPanel({ chatWithUser }) {
       }
 
       if (data.type === "new_message") {
+        if (data.sender_id !== currentUserId) {
+          playMessageSound();
+        }
         const activeConversation = selectedConversationRef.current;
         if (activeConversation?.user_id === data.sender_id) {
           setMessages((current) => [
@@ -3908,10 +3914,26 @@ function AdminDashboard() {
   const [chatWithUser, setChatWithUser] = useState(null);
   const [profileUser, setProfileUser] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const user = useMemo(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
+  }, []);
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await api.get("/api/chat/unread-count");
+        setUnreadCount(response.data.unread_count);
+      } catch (err) {
+        console.error("Could not load unread count", err);
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -3991,14 +4013,30 @@ function AdminDashboard() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => {
+                  if (item.id === "chat") {
+                    setUnreadCount(0);
+                  }
+                  setActiveSection(item.id);
+                }}
                 className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
                   activeSection === item.id
                     ? "bg-blue-700 text-white"
                     : "text-blue-100 hover:bg-blue-800"
                 }`}
               >
-                {item.label}
+                {item.id === "chat" ? (
+                  <div className="relative inline-block">
+                    Chat
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-6 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  item.label
+                )}
               </button>
             ))}
             {user?.role === "super_admin" && (
