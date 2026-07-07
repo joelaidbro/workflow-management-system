@@ -22,13 +22,14 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            
+
             echo "=== Starting deployment ==="
 
             cd /home/teams.aidbro.com/workflow
 
-            echo "--- Pulling latest code ---"
-            git pull origin main
+            echo "--- Updating code ---"
+            git fetch origin
+            git reset --hard origin/main
 
             echo "--- Updating backend ---"
             source backend/.venv/bin/activate
