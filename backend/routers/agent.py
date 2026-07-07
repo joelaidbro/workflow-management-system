@@ -213,9 +213,31 @@ def get_agent_session_status(
     screenshot_interval_seconds = company_config.get("screenshot_interval_seconds", 600)
     monitoring_enabled = company_config.get("monitoring_enabled", True)
 
+    # Cross-validate the session flag: if it claims True, confirm there is an open
+    # attendance record for today.  This catches the case where the previous day's
+    # session was never closed (staff powered off without "End My Day") — the flag
+    # persists in the DB but no attendance row exists for today, so we reset it.
+    effective_session_active = machine_token_row.session_active
+    if effective_session_active:
+        today = datetime.utcnow().date()
+        open_attendance = (
+            db.query(Attendance)
+            .filter(
+                Attendance.user_id == user.id,
+                Attendance.date == today,
+                Attendance.logged_in.is_(True),
+                Attendance.logout_time.is_(None),
+            )
+            .first()
+        )
+        if not open_attendance:
+            machine_token_row.session_active = False
+            db.commit()
+            effective_session_active = False
+
     return {
         "active": True,
-        "session_active": machine_token_row.session_active,
+        "session_active": effective_session_active,
         "current_status": current_status.status if current_status else "offline",
         "idle_timeout_minutes": idle_timeout_minutes,
         "screenshot_enabled": screenshot_enabled,

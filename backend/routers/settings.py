@@ -41,6 +41,7 @@ DEFAULT_CONFIG = {
     "screenshot_enabled": True,
     "screenshot_interval_seconds": 600,
     "monitoring_enabled": True,
+    "timezone": "UTC",
 }
 
 

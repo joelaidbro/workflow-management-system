@@ -405,6 +405,10 @@ function StaffDashboard() {
   };
 
   const handleStartDay = async () => {
+    if (attendance?.agent_connected === false) {
+      toast.error("Agent not connected. Please ensure the WorkFlow Agent is running.");
+      return;
+    }
     try {
       const response = await api.post("/api/attendance/start-day", {
         work_mode: workMode,
@@ -959,7 +963,7 @@ function StaffDashboard() {
                 <div className="rounded-xl bg-gray-50 p-4">
                   <div className="text-sm text-gray-500">Working hours so far</div>
                   <div className="mt-1 font-bold text-gray-900">
-                    {formatElapsedDuration(attendance.login_time, currentTime)}
+                    {minutesToHours(attendance.working_minutes_so_far ?? 0)}
                   </div>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-4">

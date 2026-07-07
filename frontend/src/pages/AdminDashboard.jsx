@@ -252,7 +252,7 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                       <div>
                         <span className="text-gray-500">Working hours today</span>
                         <div className="font-medium text-gray-900">
-                          {formatElapsedDuration(staff.login_time, staff.updated_at)}
+                          {minutesToHours(staff.working_minutes_so_far ?? 0)}
                         </div>
                       </div>
                       <div>

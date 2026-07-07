@@ -281,6 +281,7 @@ class Attendance(Base):
     break_minutes = Column(Integer, default=0)
     meeting_minutes = Column(Integer, default=0)
     idle_minutes = Column(Integer, default=0)
+    offline_minutes = Column(Integer, default=0)
 
     user = relationship("User", back_populates="attendance_records")
 

@@ -11,3 +11,4 @@ slowapi
 openpyxl
 reportlab
 gunicorn
+tzdata

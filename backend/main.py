@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import os
+import zoneinfo
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -12,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from database import SessionLocal
-from models import ActivityLog, Company, CurrentStatus, Screenshot, User
+from models import ActivityLog, Attendance, Company, CurrentStatus, MachineToken, Screenshot, User
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -128,6 +129,190 @@ async def company_deletion_task():
         await asyncio.sleep(3600)  # Check every hour
 
 
+async def daily_reset_task():
+    """
+    Runs every 60 s. At 05:00–05:05 AM in each company's configured timezone,
+    closes any open Attendance records left over from prior days (staff who never
+    clicked "End My Day") and resets the corresponding session_active flag so the
+    agent returns to standby on next poll.
+
+    The session-status endpoint also guards this independently, but this task
+    ensures the Attendance row is cleanly closed with accurate timestamps rather
+    than left with logout_time=NULL indefinitely.
+    """
+    logging.info("Daily reset task started")
+    # Track which companies have already been reset for the current local date
+    # so we only run once per company per day even if the server restarts within
+    # the 5-minute window.
+    last_reset_dates: dict[str, object] = {}
+
+    while True:
+        db = SessionLocal()
+        try:
+            now_utc = datetime.now(tz=timezone.utc)
+
+            companies = db.query(Company).filter(Company.is_active.is_(True)).all()
+            for company in companies:
+                company_config = company.config if company.config else {}
+                tz_name = company_config.get("timezone", "UTC")
+
+                try:
+                    tz = zoneinfo.ZoneInfo(tz_name)
+                except zoneinfo.ZoneInfoNotFoundError:
+                    tz = zoneinfo.ZoneInfo("UTC")
+
+                now_local = now_utc.astimezone(tz)
+                local_date = now_local.date()
+                local_hour = now_local.hour
+                local_minute = now_local.minute
+
+                company_key = str(company.id)
+                if last_reset_dates.get(company_key) == local_date:
+                    continue  # Already ran for this company today
+
+                if not (local_hour == 5 and local_minute < 5):
+                    continue  # Not in the 05:00–05:04 window yet
+
+                last_reset_dates[company_key] = local_date
+
+                # Find every machine token for this company that still claims
+                # session_active=True.
+                stale_tokens = (
+                    db.query(MachineToken)
+                    .filter(
+                        MachineToken.company_id == company.id,
+                        MachineToken.is_active.is_(True),
+                        MachineToken.session_active.is_(True),
+                    )
+                    .all()
+                )
+
+                today_utc = now_utc.date()
+                reset_count = 0
+
+                for token in stale_tokens:
+                    # Skip if the user has a legitimately open session for today
+                    open_today = (
+                        db.query(Attendance)
+                        .filter(
+                            Attendance.user_id == token.user_id,
+                            Attendance.date == today_utc,
+                            Attendance.logged_in.is_(True),
+                            Attendance.logout_time.is_(None),
+                        )
+                        .first()
+                    )
+                    if open_today:
+                        continue
+
+                    # Find the most recent unclosed Attendance (from a prior day)
+                    stale_att = (
+                        db.query(Attendance)
+                        .filter(
+                            Attendance.user_id == token.user_id,
+                            Attendance.logout_time.is_(None),
+                        )
+                        .order_by(Attendance.date.desc())
+                        .first()
+                    )
+
+                    if stale_att:
+                        # Use the last non-offline ActivityLog entry as the
+                        # effective logout time (closest to when they stopped).
+                        last_active = (
+                            db.query(ActivityLog)
+                            .filter(
+                                ActivityLog.user_id == token.user_id,
+                                ActivityLog.timestamp >= stale_att.login_time,
+                                ActivityLog.status != "offline",
+                            )
+                            .order_by(ActivityLog.timestamp.desc())
+                            .first()
+                        )
+                        effective_logout = (
+                            last_active.timestamp if last_active else stale_att.login_time
+                        )
+
+                        # Reconstruct offline intervals between login and effective logout
+                        logs = (
+                            db.query(ActivityLog)
+                            .filter(
+                                ActivityLog.user_id == token.user_id,
+                                ActivityLog.timestamp >= stale_att.login_time,
+                                ActivityLog.timestamp <= effective_logout,
+                            )
+                            .order_by(ActivityLog.timestamp.asc())
+                            .all()
+                        )
+
+                        offline_minutes = 0
+                        offline_start = None
+                        for log in logs:
+                            if log.status == "offline" and offline_start is None:
+                                offline_start = log.timestamp
+                            elif log.status != "offline" and offline_start is not None:
+                                offline_minutes += round(
+                                    (log.timestamp - offline_start).total_seconds() / 60
+                                )
+                                offline_start = None
+                        if offline_start is not None:
+                            offline_minutes += round(
+                                (effective_logout - offline_start).total_seconds() / 60
+                            )
+
+                        total_elapsed = int(
+                            (effective_logout - stale_att.login_time).total_seconds() // 60
+                        )
+                        working_minutes = max(0, total_elapsed - offline_minutes)
+
+                        stale_att.logout_time = effective_logout
+                        stale_att.working_minutes = working_minutes
+                        stale_att.offline_minutes = offline_minutes
+                        # is_present and report_submitted intentionally left as-is;
+                        # admin can see this was auto-closed by the missing logout_time
+                        # vs login_time discrepancy in the report.
+
+                    # Reset the session flag
+                    token.session_active = False
+
+                    # Sync CurrentStatus to offline if it isn't already
+                    cs = (
+                        db.query(CurrentStatus)
+                        .filter(CurrentStatus.user_id == token.user_id)
+                        .first()
+                    )
+                    if cs and cs.status != "offline":
+                        cs.status = "offline"
+                        db.add(
+                            ActivityLog(
+                                company_id=company.id,
+                                user_id=token.user_id,
+                                status="offline",
+                                timestamp=now_utc.replace(tzinfo=None),
+                                machine_id=cs.machine_id,
+                            )
+                        )
+
+                    reset_count += 1
+
+                if reset_count:
+                    db.commit()
+                    logging.info(
+                        "Daily reset: closed %d stale session(s) for company '%s' (%s)",
+                        reset_count,
+                        company.name,
+                        tz_name,
+                    )
+
+        except Exception:
+            logging.exception("Error in daily reset task")
+            db.rollback()
+        finally:
+            db.close()
+
+        await asyncio.sleep(60)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create the task inside the lifespan context.
@@ -136,6 +321,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(offline_detection_task()),
         asyncio.create_task(screenshot_cleanup_task()),
         asyncio.create_task(company_deletion_task()),
+        asyncio.create_task(daily_reset_task()),
     ]
     try:
         yield

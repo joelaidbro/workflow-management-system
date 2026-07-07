@@ -75,11 +75,45 @@ def calculate_status(current_status):
     return status_value
 
 
-def format_status_response(user, current_status, attendance=None):
-    print("USER:", user.full_name)
-    print("ATTENDANCE:", attendance)
-    if attendance:
-        print("IDLE:", attendance.idle_minutes)
+def _compute_live_working_minutes(user_id, login_time, db) -> int:
+    """Compute net working minutes from login_time to now, deducting offline gaps."""
+    if not login_time:
+        return 0
+    now = datetime.utcnow()
+    logs = (
+        db.query(ActivityLog)
+        .filter(
+            ActivityLog.user_id == user_id,
+            ActivityLog.timestamp >= login_time,
+            ActivityLog.timestamp <= now,
+        )
+        .order_by(ActivityLog.timestamp.asc())
+        .all()
+    )
+    offline_minutes = 0
+    offline_start = None
+    for log in logs:
+        if log.status == "offline" and offline_start is None:
+            offline_start = log.timestamp
+        elif log.status != "offline" and offline_start is not None:
+            offline_minutes += round((log.timestamp - offline_start).total_seconds() / 60)
+            offline_start = None
+    if offline_start is not None:
+        offline_minutes += round((now - offline_start).total_seconds() / 60)
+    total_elapsed = int((now - login_time).total_seconds() // 60)
+    return max(0, total_elapsed - offline_minutes)
+
+
+def format_status_response(user, current_status, attendance=None, db=None):
+    if db and attendance and attendance.login_time and not attendance.logout_time:
+        working_minutes_so_far = _compute_live_working_minutes(
+            user.id, attendance.login_time, db
+        )
+    elif attendance and attendance.logout_time:
+        working_minutes_so_far = attendance.working_minutes or 0
+    else:
+        working_minutes_so_far = 0
+
     return {
         "user_id": str(user.id),
         "full_name": user.full_name,
@@ -100,6 +134,7 @@ def format_status_response(user, current_status, attendance=None):
         "login_time": format_utc_datetime(attendance.login_time)
         if attendance and attendance.login_time
         else None,
+        "working_minutes_so_far": working_minutes_so_far,
     }
 
 
@@ -132,7 +167,7 @@ def get_team_status(
 
     users_with_status = query.all()
     return [
-        format_status_response(user, current_status, attendance)
+        format_status_response(user, current_status, attendance, db)
         for user, current_status, attendance in users_with_status
     ]
 
@@ -193,7 +228,7 @@ def get_user_status(
         .first()
     )
 
-    response_data = format_status_response(user, current_status, attendance)
+    response_data = format_status_response(user, current_status, attendance, db)
     response_data["login_time_today"] = (
         format_utc_datetime(login_activity.timestamp) if login_activity else None
     )

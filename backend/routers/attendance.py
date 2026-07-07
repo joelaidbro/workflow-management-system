@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from main import limiter
-from models import Attendance, Company, DailyReport, MachineToken, SalaryRecord, User
+from models import ActivityLog, Attendance, Company, CurrentStatus, DailyReport, MachineToken, SalaryRecord, User
 
 router = APIRouter()
 
@@ -159,6 +159,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         "total_break_minutes": sum(record.break_minutes or 0 for record in records),
         "total_meeting_minutes": sum(record.meeting_minutes or 0 for record in records),
         "total_idle_minutes": sum(record.idle_minutes or 0 for record in records),
+        "total_offline_minutes": sum(record.offline_minutes or 0 for record in records),
         "working_days": working_days,
         "attendance_records": [
             {
@@ -192,6 +193,33 @@ def calculate_monthly_salary(user: User, summary: dict, db: Session):
         calculated_salary = Decimal("0")
 
     return calculated_salary.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def compute_live_working_minutes(user_id, login_time: datetime, db: Session) -> int:
+    """Compute net working minutes from login_time to now, deducting offline intervals."""
+    now = datetime.utcnow()
+    logs = (
+        db.query(ActivityLog)
+        .filter(
+            ActivityLog.user_id == user_id,
+            ActivityLog.timestamp >= login_time,
+            ActivityLog.timestamp <= now,
+        )
+        .order_by(ActivityLog.timestamp.asc())
+        .all()
+    )
+    offline_minutes = 0
+    offline_start = None
+    for log in logs:
+        if log.status == "offline" and offline_start is None:
+            offline_start = log.timestamp
+        elif log.status != "offline" and offline_start is not None:
+            offline_minutes += round((log.timestamp - offline_start).total_seconds() / 60)
+            offline_start = None
+    if offline_start is not None:
+        offline_minutes += round((now - offline_start).total_seconds() / 60)
+    total_elapsed = int((now - login_time).total_seconds() // 60)
+    return max(0, total_elapsed - offline_minutes)
 
 
 @router.post("/attendance/start-day")
@@ -294,7 +322,6 @@ def end_day(
             detail="Report content must not be empty",
         )
 
-    from models import CurrentStatus
     current_status = (
         db.query(CurrentStatus)
         .filter(CurrentStatus.user_id == current_user.id)
@@ -329,11 +356,38 @@ def end_day(
             detail="Day already ended",
         )
 
-    working_minutes = int((now - attendance.login_time).total_seconds() // 60)
+    # Reconstruct offline periods from the activity log so powered-off gaps are
+    # not counted as worked time.
+    activity_logs = (
+        db.query(ActivityLog)
+        .filter(
+            ActivityLog.user_id == current_user.id,
+            ActivityLog.timestamp >= attendance.login_time,
+            ActivityLog.timestamp <= now,
+        )
+        .order_by(ActivityLog.timestamp.asc())
+        .all()
+    )
+
+    offline_minutes = 0
+    offline_start = None
+    for log in activity_logs:
+        if log.status == "offline" and offline_start is None:
+            offline_start = log.timestamp
+        elif log.status != "offline" and offline_start is not None:
+            offline_minutes += round((log.timestamp - offline_start).total_seconds() / 60)
+            offline_start = None
+    if offline_start is not None:
+        offline_minutes += round((now - offline_start).total_seconds() / 60)
+
+    total_elapsed = int((now - attendance.login_time).total_seconds() // 60)
+    working_minutes = max(0, total_elapsed - offline_minutes)
+
     attendance.logout_time = now
     attendance.report_submitted = True
     attendance.is_present = True
     attendance.working_minutes = working_minutes
+    attendance.offline_minutes = offline_minutes
 
     db.add(
         DailyReport(
@@ -380,8 +434,31 @@ def get_today_attendance(
         .first()
     )
 
+    # Agent is considered connected if a heartbeat arrived within the last 65 s
+    # (heartbeat interval is 60 s; 5 s buffer for network/processing).
+    now = datetime.utcnow()
+    current_status_row = (
+        db.query(CurrentStatus)
+        .filter(CurrentStatus.user_id == current_user.id)
+        .first()
+    )
+    agent_connected = bool(
+        current_status_row
+        and current_status_row.updated_at
+        and (now - current_status_row.updated_at).total_seconds() < 65
+    )
+
     if not attendance:
-        return {"started": False}
+        return {"started": False, "agent_connected": agent_connected}
+
+    # Live working minutes: subtract offline gaps for an active session; use the
+    # stored value once the day is closed.
+    if attendance.login_time and not attendance.logout_time:
+        working_minutes_so_far = compute_live_working_minutes(
+            current_user.id, attendance.login_time, db
+        )
+    else:
+        working_minutes_so_far = attendance.working_minutes or 0
 
     return {
         "started": True,
@@ -396,9 +473,12 @@ def get_today_attendance(
         "login_time": format_utc_datetime(attendance.login_time),
         "logout_time": format_utc_datetime(attendance.logout_time),
         "working_minutes": attendance.working_minutes,
+        "working_minutes_so_far": working_minutes_so_far,
         "break_minutes": attendance.break_minutes,
         "meeting_minutes": attendance.meeting_minutes,
         "idle_minutes": attendance.idle_minutes,
+        "offline_minutes": attendance.offline_minutes,
+        "agent_connected": agent_connected,
     }
 
 
