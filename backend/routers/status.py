@@ -13,7 +13,7 @@ router = APIRouter()
 ADMIN_ROLES = {"admin", "super_admin"}
 OFFLINE_GRACE_PERIOD = timedelta(minutes=2)
 OFFLINE_EXEMPT_STATUSES = {"break", "meeting"}
-STAFF_ONLY_ROLES = {"staff"}
+STAFF_ONLY_ROLES = {"staff", "admin"}
 MEETING_ROLES = {"staff", "admin"}
 
 

@@ -2602,13 +2602,15 @@ function StaffManagementPanel({ openProfile }) {
                       >
                         Reset Password
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleAgentTokenClick(user.id)}
-                        className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200"
-                      >
-                        Agent Token
-                      </button>
+                      {(user.role === "staff" || user.role === "admin") && (
+                        <button
+                          type="button"
+                          onClick={() => handleAgentTokenClick(user.id)}
+                          className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200"
+                        >
+                          Agent Token
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setSalarySlipModal(user)}
@@ -4482,6 +4484,306 @@ function TasksPanel() {
   );
 }
 
+function MyDayPanel() {
+  const user = useMemo(() => {
+    const storedUser = localStorage.getItem("user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  }, []);
+
+  const [attendance, setAttendance] = useState(null);
+  const [workMode, setWorkMode] = useState("office");
+  const [loadingAttendance, setLoadingAttendance] = useState(true);
+  const [currentStatus, setCurrentStatus] = useState("not_started");
+  const [breakStartedAt, setBreakStartedAt] = useState(null);
+  const [checkingAgentConnection, setCheckingAgentConnection] = useState(false);
+  const [showEndDayModal, setShowEndDayModal] = useState(false);
+  const [reportContent, setReportContent] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const fetchAttendance = async () => {
+    try {
+      const response = await api.get("/api/attendance/today");
+      setAttendance(response.data);
+      if (response.data?.work_mode) {
+        setWorkMode(response.data.work_mode);
+      }
+      setCurrentStatus((prev) => {
+        if (!response.data?.started) return "not_started";
+        if (response.data.logout_time) return "ended";
+        if (prev === "break" || prev === "meeting") return prev;
+        return "active";
+      });
+    } catch {
+      toast.error("Could not load today's attendance");
+    } finally {
+      setLoadingAttendance(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAttendance();
+    const intervalId = setInterval(fetchAttendance, 30000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const handleStartDay = async () => {
+    setCheckingAgentConnection(true);
+    try {
+      const checkResponse = await api.get("/api/attendance/today");
+      if (checkResponse.data?.agent_connected === false) {
+        toast.error("Agent not connected. Please ensure the WorkFlow Agent is running.");
+        return;
+      }
+    } catch {
+      // proceed
+    } finally {
+      setCheckingAgentConnection(false);
+    }
+
+    try {
+      const response = await api.post("/api/attendance/start-day", { work_mode: workMode });
+      toast.success("Day started");
+      setAttendance({
+        started: true,
+        logged_in: true,
+        report_submitted: false,
+        is_present: false,
+        work_mode: response.data.work_mode,
+        login_time: new Date().toISOString(),
+        logout_time: null,
+        working_minutes: 0,
+        working_minutes_so_far: 0,
+        agent_connected: true,
+      });
+      setCurrentStatus("active");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not start day");
+    }
+  };
+
+  const handleStartBreak = async () => {
+    try {
+      const response = await api.post("/api/status/break/start");
+      setCurrentStatus("break");
+      setBreakStartedAt(response.data.break_started_at);
+      toast.success("Break started");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not start break");
+    }
+  };
+
+  const handleEndBreak = async () => {
+    try {
+      const response = await api.post("/api/status/break/end");
+      setCurrentStatus("active");
+      setBreakStartedAt(null);
+      toast.success(`Break ended — ${response.data.break_duration_minutes} minutes`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not end break");
+    }
+  };
+
+  const handleStartMeeting = async () => {
+    try {
+      await api.post("/api/status/meeting/start");
+      setCurrentStatus("meeting");
+      toast.success("Meeting started");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not start meeting");
+    }
+  };
+
+  const handleEndMeeting = async () => {
+    try {
+      await api.post("/api/status/meeting/end");
+      setCurrentStatus("active");
+      toast.success("Meeting ended");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not end meeting");
+    }
+  };
+
+  const handleEndDay = async () => {
+    const cleanReport = reportContent.trim();
+    if (!cleanReport) {
+      toast.error("Daily report is required");
+      return;
+    }
+
+    setSubmittingReport(true);
+    try {
+      await api.post("/api/attendance/end-day", { report_content: cleanReport });
+      toast.success("Day ended successfully");
+      setShowEndDayModal(false);
+      setReportContent("");
+      fetchAttendance();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not end day");
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
+  const breakDurationMinutes = breakStartedAt
+    ? Math.max(0, Math.floor((currentTime - new Date(breakStartedAt)) / 60000))
+    : 0;
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-6 text-xl font-bold text-gray-900">My Day</h2>
+
+      {loadingAttendance ? (
+        <div className="text-center text-gray-500">Loading work day...</div>
+      ) : !attendance?.started ? (
+        <div className="space-y-6">
+          <p className="text-gray-600">Start your monitored work session for today.</p>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Work mode</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setWorkMode("office")}
+                className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                  workMode === "office"
+                    ? "bg-blue-700 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Office
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkMode("wfh")}
+                className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                  workMode === "wfh"
+                    ? "bg-blue-700 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                WFH
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleStartDay}
+            disabled={checkingAgentConnection}
+            className="w-full rounded-lg bg-green-600 px-5 py-4 text-lg font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {checkingAgentConnection ? "Checking agent connection..." : "Start My Day"}
+          </button>
+        </div>
+      ) : attendance.logout_time ? (
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-gray-900">Your day has ended!</h3>
+          <p className="mt-3 text-gray-600">
+            Working hours: {formatElapsedDuration(attendance.login_time, attendance.logout_time)}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-4 gap-4">
+            <div className="rounded-xl bg-gray-50 p-4">
+              <div className="text-sm text-gray-500">Login time</div>
+              <div className="mt-1 font-bold text-gray-900">
+                {formatTime(attendance.login_time)}
+              </div>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <div className="text-sm text-gray-500">Working hours so far</div>
+              <div className="mt-1 font-bold text-gray-900">
+                {minutesToHours(attendance.working_minutes_so_far ?? 0)}
+              </div>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <div className="text-sm text-gray-500">Work mode</div>
+              <div className="mt-1 font-bold text-gray-900">
+                {attendance.work_mode?.toUpperCase() || "N/A"}
+              </div>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <div className="text-sm text-gray-500">Idle time</div>
+              <div className="mt-1 font-bold text-gray-900">
+                {minutesToHours(attendance.idle_minutes || 0)}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={currentStatus === "break" ? handleEndBreak : handleStartBreak}
+              className="rounded-lg bg-orange-400 px-4 py-3 font-semibold text-orange-950 hover:bg-orange-500"
+            >
+              {currentStatus === "break"
+                ? `End Break (${breakDurationMinutes} min)`
+                : "Start Break"}
+            </button>
+            <button
+              type="button"
+              onClick={currentStatus === "meeting" ? handleEndMeeting : handleStartMeeting}
+              className="rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
+            >
+              {currentStatus === "meeting" ? "End Meeting" : "Start Meeting"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEndDayModal(true)}
+              className="rounded-lg bg-red-600 px-4 py-3 text-lg font-bold text-white hover:bg-red-700"
+            >
+              End My Day
+            </button>
+          </div>
+
+          {currentStatus === "meeting" && (
+            <span className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
+              In Meeting
+            </span>
+          )}
+        </div>
+      )}
+
+      {showEndDayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-2xl font-bold text-gray-900">End My Day</h3>
+            <p className="mt-2 text-gray-600">Submit your daily report before ending.</p>
+            <textarea
+              value={reportContent}
+              onChange={(event) => setReportContent(event.target.value)}
+              placeholder="What did you work on today? Any blockers?"
+              className="mt-5 min-h-40 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            />
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowEndDayModal(false)}
+                className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleEndDay}
+                disabled={submittingReport}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submittingReport ? "Submitting..." : "Submit & End Day"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard" },
   { id: "staff-management", label: "Staff" },
@@ -4491,6 +4793,7 @@ const navItems = [
   { id: "alerts", label: "Alerts" },
   { id: "chat", label: "Chat" },
   { id: "tasks", label: "Tasks" },
+  { id: "my-day", label: "My Day", adminOnly: true },
 ];
 
 function AdminDashboard() {
@@ -4532,9 +4835,11 @@ function AdminDashboard() {
   }, []);
 
   const activeItem = navItems.find((item) => item.id === activeSection);
-  const visibleNavItems = navItems.filter(
-    (item) => !item.superAdminOnly || user?.role === "super_admin"
-  );
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.superAdminOnly && user?.role !== "super_admin") return false;
+    if (item.adminOnly && user?.role !== "admin") return false;
+    return true;
+  });
 
   const handleLogout = async () => {
     try {
@@ -4577,6 +4882,10 @@ function AdminDashboard() {
 
     if (activeSection === "tasks") {
       return <TasksPanel />;
+    }
+
+    if (activeSection === "my-day") {
+      return <MyDayPanel />;
     }
 
     return (

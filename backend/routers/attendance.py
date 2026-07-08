@@ -52,6 +52,14 @@ def require_staff(current_user: User):
         )
 
 
+def require_staff_or_admin(current_user: User):
+    if current_user.role not in {"staff", "admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+
 def require_admin(current_user: User):
     if current_user.role not in {"admin", "super_admin"}:
         raise HTTPException(
@@ -228,7 +236,7 @@ def start_day(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_staff(current_user)
+    require_staff_or_admin(current_user)
 
     if start_data.work_mode not in VALID_WORK_MODES:
         raise HTTPException(
@@ -313,7 +321,7 @@ def end_day(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_staff(current_user)
+    require_staff_or_admin(current_user)
 
     report_content = strip_html_tags(end_data.report_content)
     if not report_content:

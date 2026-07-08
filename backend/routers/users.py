@@ -332,10 +332,10 @@ def generate_agent_token(
     require_super_admin(current_user)
     user = get_company_user(user_id, current_user, db)
 
-    if user.role != "staff":
+    if user.role in {"super_admin", "platform_admin"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Agent token can only be generated for staff users",
+            detail="Agent token cannot be generated for this role",
         )
 
     new_token = secrets.token_hex(32)
