@@ -3070,6 +3070,17 @@ function SettingsPanel() {
     annual_limit: 1,
     carry_forward: false,
   });
+  const currentUser = useMemo(() => {
+    const storedUser = localStorage.getItem("user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  }, []);
+  const fileInputRef = useRef(null);
+  const [logoExists, setLogoExists] = useState(false);
+  const [logoTimestamp, setLogoTimestamp] = useState(Date.now());
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -3131,12 +3142,21 @@ function SettingsPanel() {
     });
   }, [config]);
 
+  useEffect(() => {
+    if (!currentUser?.company_id) return;
+    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+    fetch(`${apiBase}/api/settings/logo/file?company_id=${currentUser.company_id}`)
+      .then((response) => setLogoExists(response.ok))
+      .catch(() => setLogoExists(false));
+  }, []);
+
   const tabs = [
     { id: "monitoring", label: "Monitoring" },
     { id: "security", label: "Security" },
     { id: "chat", label: "Chat" },
     { id: "attendance", label: "Attendance & Salary" },
     { id: "leave", label: "Leave Management" },
+    { id: "branding", label: "Branding" },
   ];
 
   const days = [
@@ -3203,6 +3223,50 @@ function SettingsPanel() {
       toast.success("Leave type added");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Could not add leave type");
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleLogoUpload = async () => {
+    if (!selectedFile) return;
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    setUploading(true);
+    try {
+      await api.post("/api/settings/logo", formData);
+      toast.success("Logo uploaded successfully");
+      setLogoExists(true);
+      setLogoTimestamp(Date.now());
+      setSelectedFile(null);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not upload logo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleLogoDelete = async () => {
+    if (!window.confirm("Delete the company logo?")) return;
+    setDeleting(true);
+    try {
+      await api.delete("/api/settings/logo");
+      toast.success("Logo deleted");
+      setLogoExists(false);
+    } catch (error) {
+      toast.error("Could not delete logo");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -3590,6 +3654,86 @@ function SettingsPanel() {
             </button>
           </div>
         )}
+
+        {activeTab === "branding" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Company Logo</h3>
+              <p className="mt-1 text-sm text-gray-500">Maximum 2MB. PNG or JPG.</p>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-gray-200 bg-gray-50">
+                {logoExists ? (
+                  <img
+                    key={logoTimestamp}
+                    src={`${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/api/settings/logo/file?company_id=${currentUser?.company_id}&t=${logoTimestamp}`}
+                    alt="Company logo"
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-2xl font-bold text-gray-400">
+                    {(currentUser?.full_name || "Co").slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-600">
+                {logoExists ? "Current logo" : "No logo uploaded yet"}
+              </p>
+            </div>
+
+            {previewUrl && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">Preview</p>
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border-2 border-blue-200 bg-gray-50">
+                  <img
+                    src={previewUrl}
+                    alt="Logo preview"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">{selectedFile?.name}</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Choose File
+              </button>
+              {selectedFile && (
+                <button
+                  type="button"
+                  onClick={handleLogoUpload}
+                  disabled={uploading}
+                  className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {uploading ? "Uploading..." : "Upload Logo"}
+                </button>
+              )}
+              {logoExists && !selectedFile && (
+                <button
+                  type="button"
+                  onClick={handleLogoDelete}
+                  disabled={deleting}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {deleting ? "Deleting..." : "Delete Logo"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3898,6 +4042,39 @@ function ScreenshotsPanel() {
   );
 }
 
+function LogoDisplay({ user }) {
+  const [logoError, setLogoError] = useState(false);
+  const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  const logoSrc = user?.company_id
+    ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}`
+    : null;
+
+  const companyLogo = logoSrc && !logoError ? (
+    <img
+      src={logoSrc}
+      alt="Company logo"
+      style={{ maxHeight: "40px" }}
+      className="object-contain"
+      onError={() => setLogoError(true)}
+    />
+  ) : (
+    <span className="text-lg font-semibold text-blue-100">
+      {user?.company_name || "Company"}
+    </span>
+  );
+
+  if (user?.role === "super_admin") {
+    return (
+      <div className="flex items-center gap-3">
+        <span className="text-2xl font-bold">WorkFlow</span>
+        {companyLogo}
+      </div>
+    );
+  }
+
+  return companyLogo;
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard" },
   { id: "staff-management", label: "Staff" },
@@ -4003,7 +4180,7 @@ function AdminDashboard() {
     <div className="min-h-screen bg-gray-100">
       <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col bg-blue-900 text-white">
         <div className="border-b border-blue-800 px-6 py-6">
-          <h1 className="text-2xl font-bold">{user?.company_name || "WorkFlow"}</h1>
+          <LogoDisplay user={user} />
           <p className="mt-1 text-sm text-blue-200">Admin Console</p>
         </div>
 

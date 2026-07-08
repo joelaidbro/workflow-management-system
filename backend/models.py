@@ -32,6 +32,7 @@ class Company(Base):
     deletion_requested_at = Column(DateTime, nullable=True)
     deletion_scheduled_at = Column(DateTime, nullable=True)
     is_deletion_pending = Column(Boolean, default=False, nullable=False)
+    logo_path = Column(String(500), nullable=True)
 
     users = relationship("User", back_populates="company")
 

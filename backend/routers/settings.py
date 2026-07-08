@@ -1,12 +1,18 @@
+import io
+import os
 from copy import deepcopy
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from PIL import Image
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
 from models import Company, User
+
+LOGOS_DIR = "/home/teams.aidbro.com/logos"
+MAX_LOGO_BYTES = 2 * 1024 * 1024
 
 router = APIRouter()
 
@@ -168,3 +174,63 @@ def delete_leave_type(
     db.commit()
 
     return {"message": "Leave type removed"}
+
+
+@router.post("/settings/logo")
+async def upload_logo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+
+    if file.content_type not in ("image/jpeg", "image/png"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only JPEG and PNG images are allowed",
+        )
+
+    contents = await file.read()
+    if len(contents) > MAX_LOGO_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size must be under 2MB",
+        )
+
+    company = get_current_company(current_user, db)
+
+    try:
+        img = Image.open(io.BytesIO(contents))
+        img.thumbnail((400, 400))
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image file",
+        )
+
+    os.makedirs(LOGOS_DIR, exist_ok=True)
+    logo_filename = f"{company.id}.png"
+    img.save(os.path.join(LOGOS_DIR, logo_filename), "PNG")
+
+    company.logo_path = logo_filename
+    db.commit()
+
+    return {"url": "/api/settings/logo/file"}
+
+
+@router.delete("/settings/logo")
+def delete_logo(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+    company = get_current_company(current_user, db)
+
+    if company.logo_path:
+        full_path = os.path.join(LOGOS_DIR, company.logo_path)
+        if os.path.exists(full_path):
+            os.remove(full_path)
+        company.logo_path = None
+        db.commit()
+
+    return {"message": "Logo deleted"}

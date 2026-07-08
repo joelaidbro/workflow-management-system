@@ -34,6 +34,32 @@ function truncate(value, length) {
   return value.length > length ? `${value.slice(0, length)}...` : value;
 }
 
+function LogoDisplay({ user }) {
+  const [logoError, setLogoError] = useState(false);
+  const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  const logoSrc = user?.company_id
+    ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}`
+    : null;
+
+  if (logoSrc && !logoError) {
+    return (
+      <img
+        src={logoSrc}
+        alt="Company logo"
+        style={{ maxHeight: "40px" }}
+        className="object-contain"
+        onError={() => setLogoError(true)}
+      />
+    );
+  }
+
+  return (
+    <span className="text-2xl font-bold">
+      {user?.company_name || "Company"}
+    </span>
+  );
+}
+
 function StaffDashboard() {
   const navigate = useNavigate();
   const user = useMemo(() => {
@@ -832,10 +858,8 @@ function StaffDashboard() {
     <div className="flex min-h-screen bg-gray-100">
       <aside className="fixed inset-y-0 left-0 flex w-64 flex-col bg-blue-900 text-white">
         <div className="border-b border-blue-800 p-6">
-          <div className="text-2xl font-bold">WorkFlow</div>
-          <div className="mt-1 text-sm text-blue-200">
-            {user?.company_name || "Staff Portal"}
-          </div>
+          <LogoDisplay user={user} />
+          <div className="mt-1 text-sm text-blue-200">Staff Portal</div>
         </div>
 
         <nav className="flex-1 space-y-1 p-4">

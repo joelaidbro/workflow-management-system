@@ -6,13 +6,15 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from database import SessionLocal
+from database import SessionLocal, get_db
 from models import ActivityLog, Attendance, Company, CurrentStatus, MachineToken, Screenshot, User
 
 limiter = Limiter(key_func=get_remote_address)
@@ -371,3 +373,16 @@ app.include_router(screenshots_router, prefix="/api")
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/settings/logo/file")
+def get_logo_file(company_id: str, db: Session = Depends(get_db)):
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company or not company.logo_path:
+        raise HTTPException(status_code=404, detail="Logo not found")
+
+    logo_full_path = os.path.join("/home/teams.aidbro.com/logos", company.logo_path)
+    if not os.path.exists(logo_full_path):
+        raise HTTPException(status_code=404, detail="Logo not found")
+
+    return FileResponse(logo_full_path, media_type="image/png")
