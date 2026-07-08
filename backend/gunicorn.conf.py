@@ -1,4 +1,4 @@
-bind = "127.0.0.1:8001"
+bind = "0.0.0.0:8001"
 workers = 2
 worker_class = "uvicorn.workers.UvicornWorker"
 timeout = 120
@@ -8,3 +8,5 @@ max_requests_jitter = 100
 accesslog = "/var/log/workflowapp/access.log"
 errorlog = "/var/log/workflowapp/error.log"
 loglevel = "info"
+keyfile = "/etc/letsencrypt/live/teams.aidbro.com/privkey.pem"
+certfile = "/etc/letsencrypt/live/teams.aidbro.com/fullchain.pem"
