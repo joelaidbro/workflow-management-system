@@ -434,18 +434,22 @@ def get_today_attendance(
         .first()
     )
 
-    # Agent is considered connected if a heartbeat arrived within the last 65 s
-    # (heartbeat interval is 60 s; 5 s buffer for network/processing).
+    # Agent is considered connected if it polled session-status within the last 20 s
+    # (session-status poll interval is 15 s; 5 s buffer). Heartbeats are suppressed
+    # in standby, so we track presence via last_seen_at on the machine token instead.
     now = datetime.utcnow()
-    current_status_row = (
-        db.query(CurrentStatus)
-        .filter(CurrentStatus.user_id == current_user.id)
+    machine_token_row = (
+        db.query(MachineToken)
+        .filter(
+            MachineToken.user_id == current_user.id,
+            MachineToken.is_active.is_(True),
+        )
         .first()
     )
     agent_connected = bool(
-        current_status_row
-        and current_status_row.updated_at
-        and (now - current_status_row.updated_at).total_seconds() < 65
+        machine_token_row
+        and machine_token_row.last_seen_at
+        and (now - machine_token_row.last_seen_at).total_seconds() < 20
     )
 
     if not attendance:

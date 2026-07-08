@@ -213,13 +213,20 @@ def get_agent_session_status(
     screenshot_interval_seconds = company_config.get("screenshot_interval_seconds", 600)
     monitoring_enabled = company_config.get("monitoring_enabled", True)
 
+    # Record that the agent is alive right now (used for "agent connected" check on
+    # the web UI's Start Day flow). Heartbeats are suppressed in standby, so we
+    # track presence here instead — this endpoint is polled every 15 s regardless
+    # of agent state.
+    now = datetime.utcnow()
+    machine_token_row.last_seen_at = now
+
     # Cross-validate the session flag: if it claims True, confirm there is an open
     # attendance record for today.  This catches the case where the previous day's
     # session was never closed (staff powered off without "End My Day") — the flag
     # persists in the DB but no attendance row exists for today, so we reset it.
     effective_session_active = machine_token_row.session_active
     if effective_session_active:
-        today = datetime.utcnow().date()
+        today = now.date()
         open_attendance = (
             db.query(Attendance)
             .filter(
@@ -232,8 +239,9 @@ def get_agent_session_status(
         )
         if not open_attendance:
             machine_token_row.session_active = False
-            db.commit()
             effective_session_active = False
+
+    db.commit()
 
     return {
         "active": True,

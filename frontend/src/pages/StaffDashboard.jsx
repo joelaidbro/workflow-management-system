@@ -68,6 +68,7 @@ function StaffDashboard() {
   const [downloadingSalarySlip, setDownloadingSalarySlip] = useState(null);
   const [currentStatus, setCurrentStatus] = useState("not_started");
   const [breakStartedAt, setBreakStartedAt] = useState(null);
+  const [checkingAgentConnection, setCheckingAgentConnection] = useState(false);
 
   const [reports, setReports] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -405,10 +406,21 @@ function StaffDashboard() {
   };
 
   const handleStartDay = async () => {
-    if (attendance?.agent_connected === false) {
-      toast.error("Agent not connected. Please ensure the WorkFlow Agent is running.");
-      return;
+    setCheckingAgentConnection(true);
+    try {
+      // Fresh check — the cached attendance poll may be up to 30 s stale,
+      // so always re-fetch right now to get the latest agent_connected value.
+      const checkResponse = await api.get("/api/attendance/today");
+      if (checkResponse.data?.agent_connected === false) {
+        toast.error("Agent not connected. Please ensure the WorkFlow Agent is running.");
+        return;
+      }
+    } catch {
+      // Network error on the check — proceed and let the start-day call surface it.
+    } finally {
+      setCheckingAgentConnection(false);
     }
+
     try {
       const response = await api.post("/api/attendance/start-day", {
         work_mode: workMode,
@@ -423,6 +435,8 @@ function StaffDashboard() {
         login_time: new Date().toISOString(),
         logout_time: null,
         working_minutes: 0,
+        working_minutes_so_far: 0,
+        agent_connected: true,
       });
       setCurrentStatus("active");
     } catch (error) {
@@ -937,9 +951,10 @@ function StaffDashboard() {
               <button
                 type="button"
                 onClick={handleStartDay}
-                className="w-full rounded-lg bg-green-600 px-5 py-4 text-lg font-bold text-white hover:bg-green-700"
+                disabled={checkingAgentConnection}
+                className="w-full rounded-lg bg-green-600 px-5 py-4 text-lg font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Start My Day
+                {checkingAgentConnection ? "Checking agent connection..." : "Start My Day"}
               </button>
             </div>
           ) : attendance.logout_time ? (
