@@ -115,6 +115,16 @@ class User(Base):
         foreign_keys="LeaveRequest.reviewed_by",
     )
     screenshots = relationship("Screenshot", back_populates="user")
+    assigned_tasks = relationship(
+        "Task",
+        back_populates="assignee",
+        foreign_keys="Task.assigned_to",
+    )
+    created_tasks = relationship(
+        "Task",
+        back_populates="assigner",
+        foreign_keys="Task.assigned_by",
+    )
 
 
 class Session(Base):
@@ -360,6 +370,32 @@ class Screenshot(Base):
     user = relationship("User", back_populates="screenshots")
 
 
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    assigned_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    due_date = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    assignee = relationship(
+        "User",
+        back_populates="assigned_tasks",
+        foreign_keys=[assigned_to],
+    )
+    assigner = relationship(
+        "User",
+        back_populates="created_tasks",
+        foreign_keys=[assigned_by],
+    )
+
+
 Index(
     "ix_activity_logs_company_id_user_id_timestamp",
     ActivityLog.company_id,
@@ -430,3 +466,10 @@ Index(
 )
 Index("ix_screenshots_captured_at", Screenshot.captured_at)
 Index("ix_screenshots_is_deleted", Screenshot.is_deleted)
+Index(
+    "ix_tasks_company_id_assigned_to_status",
+    Task.company_id,
+    Task.assigned_to,
+    Task.status,
+)
+Index("ix_tasks_company_id_created_at", Task.company_id, Task.created_at)

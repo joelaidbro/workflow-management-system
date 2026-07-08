@@ -4075,6 +4075,413 @@ function LogoDisplay({ user }) {
   return companyLogo;
 }
 
+const TASK_STATUS_LABELS = {
+  pending: "Pending",
+  in_progress: "In Progress",
+  done: "Done",
+};
+
+const TASK_STATUS_COLORS = {
+  pending: "bg-yellow-100 text-yellow-800",
+  in_progress: "bg-blue-100 text-blue-800",
+  done: "bg-green-100 text-green-800",
+};
+
+function TasksPanel() {
+  const [tasks, setTasks] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
+
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignForm, setAssignForm] = useState({ title: "", description: "", assigned_to: "", due_date: "" });
+  const [assignError, setAssignError] = useState("");
+  const [submittingAssign, setSubmittingAssign] = useState(false);
+
+  const [editTask, setEditTask] = useState(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "", due_date: "" });
+  const [editError, setEditError] = useState("");
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+
+  const [deletingId, setDeletingId] = useState(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      if (assigneeFilter) params.assigned_to = assigneeFilter;
+      const response = await api.get("/api/tasks/", { params });
+      setTasks(response.data);
+    } catch {
+      toast.error("Could not load tasks");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const response = await api.get("/api/users/list");
+        setStaffList(response.data.filter((u) => u.role === "staff"));
+      } catch {
+        // staff list optional; leave empty
+      }
+    };
+    fetchStaff();
+  }, []);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [statusFilter, assigneeFilter]);
+
+  const openAssignModal = () => {
+    setAssignForm({ title: "", description: "", assigned_to: "", due_date: "" });
+    setAssignError("");
+    setShowAssignModal(true);
+  };
+
+  const handleAssignSubmit = async () => {
+    if (!assignForm.title.trim()) { setAssignError("Title is required"); return; }
+    if (!assignForm.description.trim()) { setAssignError("Description is required"); return; }
+    if (!assignForm.assigned_to) { setAssignError("Please select a staff member"); return; }
+
+    setSubmittingAssign(true);
+    setAssignError("");
+    try {
+      await api.post("/api/tasks/", {
+        title: assignForm.title.trim(),
+        description: assignForm.description.trim(),
+        assigned_to: assignForm.assigned_to,
+        due_date: assignForm.due_date || null,
+      });
+      toast.success("Task assigned successfully");
+      setShowAssignModal(false);
+      fetchTasks();
+    } catch (err) {
+      setAssignError(err.response?.data?.detail || "Could not assign task");
+    } finally {
+      setSubmittingAssign(false);
+    }
+  };
+
+  const openEditModal = (task) => {
+    setEditTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description,
+      due_date: task.due_date || "",
+    });
+    setEditError("");
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editForm.title.trim()) { setEditError("Title is required"); return; }
+    if (!editForm.description.trim()) { setEditError("Description is required"); return; }
+
+    setSubmittingEdit(true);
+    setEditError("");
+    try {
+      await api.patch(`/api/tasks/${editTask.id}`, {
+        title: editForm.title.trim(),
+        description: editForm.description.trim(),
+        due_date: editForm.due_date || null,
+        clear_due_date: !editForm.due_date,
+      });
+      toast.success("Task updated");
+      setEditTask(null);
+      fetchTasks();
+    } catch (err) {
+      setEditError(err.response?.data?.detail || "Could not update task");
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
+
+  const handleDelete = async (taskId) => {
+    setDeletingId(taskId);
+    try {
+      await api.delete(`/api/tasks/${taskId}`);
+      toast.success("Task deleted");
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    } catch {
+      toast.error("Could not delete task");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleStatusChange = async (taskId, newStatus) => {
+    setUpdatingStatusId(taskId);
+    try {
+      const response = await api.patch(`/api/tasks/${taskId}/status`, { status: newStatus });
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? response.data.task : t)));
+    } catch {
+      toast.error("Could not update status");
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="done">Done</option>
+          </select>
+          <select
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">All Staff</option>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id}>{s.full_name}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={openAssignModal}
+          className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+        >
+          + Assign Task
+        </button>
+      </div>
+
+      {/* Task table */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">Loading tasks...</div>
+        ) : tasks.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">No tasks found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-200 bg-gray-50">
+                <tr>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Task</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Assigned To</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Status</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Due Date</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Assigned By</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Created</th>
+                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {tasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-gray-50">
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-gray-900">{task.title}</div>
+                      <div className="mt-0.5 max-w-xs truncate text-xs text-gray-500">{task.description}</div>
+                    </td>
+                    <td className="px-5 py-4 text-gray-700">
+                      <div>{task.assigned_to_name}</div>
+                      <div className="text-xs text-gray-400">{task.assigned_to_employee_id}</div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <select
+                        value={task.status}
+                        disabled={updatingStatusId === task.id}
+                        onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold cursor-pointer border-0 focus:outline-none ${TASK_STATUS_COLORS[task.status]}`}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="done">Done</option>
+                      </select>
+                    </td>
+                    <td className="px-5 py-4 text-gray-600">
+                      {task.due_date ? formatDate(task.due_date) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-5 py-4 text-gray-600">{task.assigned_by_name}</td>
+                    <td className="px-5 py-4 text-gray-500">{formatDate(task.created_at)}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(task)}
+                          className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(task.id)}
+                          disabled={deletingId === task.id}
+                          className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60"
+                        >
+                          {deletingId === task.id ? "..." : "Delete"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Assign Task Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-gray-900">Assign New Task</h2>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Assign To</label>
+                <select
+                  value={assignForm.assigned_to}
+                  onChange={(e) => setAssignForm((f) => ({ ...f, assigned_to: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="">Select staff member...</option>
+                  {staffList.map((s) => (
+                    <option key={s.id} value={s.id}>{s.full_name} ({s.employee_id})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Task Title</label>
+                <input
+                  type="text"
+                  value={assignForm.title}
+                  onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Prepare monthly report"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <textarea
+                  value={assignForm.description}
+                  onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Describe what needs to be done..."
+                  rows={4}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Due Date <span className="text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={assignForm.due_date}
+                  onChange={(e) => setAssignForm((f) => ({ ...f, due_date: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              {assignError && <p className="text-sm text-red-600">{assignError}</p>}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAssignModal(false)}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAssignSubmit}
+                disabled={submittingAssign}
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+              >
+                {submittingAssign ? "Assigning..." : "Assign Task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Task Modal */}
+      {editTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-gray-900">Edit Task</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Assigned to: <span className="font-medium">{editTask.assigned_to_name}</span>
+            </p>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Task Title</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={4}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Due Date <span className="text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={editForm.due_date}
+                  onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                {editForm.due_date && (
+                  <button
+                    type="button"
+                    onClick={() => setEditForm((f) => ({ ...f, due_date: "" }))}
+                    className="mt-1 text-xs text-gray-400 hover:text-red-500"
+                  >
+                    Clear due date
+                  </button>
+                )}
+              </div>
+              {editError && <p className="text-sm text-red-600">{editError}</p>}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEditTask(null)}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleEditSubmit}
+                disabled={submittingEdit}
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+              >
+                {submittingEdit ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard" },
   { id: "staff-management", label: "Staff" },
@@ -4083,6 +4490,7 @@ const navItems = [
   { id: "leave", label: "Leave Requests" },
   { id: "alerts", label: "Alerts" },
   { id: "chat", label: "Chat" },
+  { id: "tasks", label: "Tasks" },
 ];
 
 function AdminDashboard() {
@@ -4165,6 +4573,10 @@ function AdminDashboard() {
 
     if (activeSection === "chat") {
       return <ChatPanel chatWithUser={chatWithUser} />;
+    }
+
+    if (activeSection === "tasks") {
+      return <TasksPanel />;
     }
 
     return (

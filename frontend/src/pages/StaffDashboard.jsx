@@ -137,6 +137,37 @@ function StaffDashboard() {
   const [replyAlertId, setReplyAlertId] = useState(null);
   const [replyText, setReplyText] = useState("");
 
+  const [myTasks, setMyTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [taskStatusFilter, setTaskStatusFilter] = useState("");
+  const [updatingTaskStatusId, setUpdatingTaskStatusId] = useState(null);
+
+  const fetchMyTasks = async () => {
+    setLoadingTasks(true);
+    try {
+      const params = {};
+      if (taskStatusFilter) params.status = taskStatusFilter;
+      const response = await api.get("/api/tasks/my-tasks", { params });
+      setMyTasks(response.data);
+    } catch {
+      toast.error("Could not load tasks");
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  const handleTaskStatusUpdate = async (taskId, newStatus) => {
+    setUpdatingTaskStatusId(taskId);
+    try {
+      const response = await api.patch(`/api/tasks/${taskId}/status`, { status: newStatus });
+      setMyTasks((prev) => prev.map((t) => (t.id === taskId ? response.data.task : t)));
+    } catch {
+      toast.error("Could not update task status");
+    } finally {
+      setUpdatingTaskStatusId(null);
+    }
+  };
+
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loadingLeaveRequests, setLoadingLeaveRequests] = useState(true);
   const [showLeaveForm, setShowLeaveForm] = useState(false);
@@ -270,6 +301,7 @@ function StaffDashboard() {
     fetchConversations();
     fetchLeaveRequests();
     fetchAlerts();
+    fetchMyTasks();
 
     const attendanceIntervalId = setInterval(fetchAttendance, 30000);
     const alertsIntervalId = setInterval(fetchAlerts, 30000);
@@ -278,6 +310,12 @@ function StaffDashboard() {
       clearInterval(alertsIntervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (activeSection === "tasks") {
+      fetchMyTasks();
+    }
+  }, [activeSection, taskStatusFilter]);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -748,6 +786,7 @@ function StaffDashboard() {
     messages: "Messages",
     attendance: "Attendance",
     alerts: "Alerts",
+    tasks: "My Tasks",
     profile: "Profile",
   };
   const navItems = [
@@ -757,6 +796,7 @@ function StaffDashboard() {
     { id: "messages", label: "Messages", icon: "💬" },
     { id: "attendance", label: "Attendance", icon: "📅" },
     { id: "alerts", label: "Alerts", icon: "🔔" },
+    { id: "tasks", label: "My Tasks", icon: "✅" },
     { id: "profile", label: "Profile", icon: "👤" },
   ];
   const selectedMonthNumber = selectedMonth.getMonth() + 1;
@@ -1592,6 +1632,82 @@ function StaffDashboard() {
                 ))
               )}
             </div>
+          </section>
+        )}
+
+        {activeSection === "tasks" && (
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <select
+                value={taskStatusFilter}
+                onChange={(e) => setTaskStatusFilter(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+
+            {loadingTasks ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-500 shadow-sm">
+                Loading tasks...
+              </div>
+            ) : myTasks.length === 0 ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-500 shadow-sm">
+                No tasks assigned to you yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myTasks.map((task) => {
+                  const statusColors = {
+                    pending: "bg-yellow-100 text-yellow-800",
+                    in_progress: "bg-blue-100 text-blue-800",
+                    done: "bg-green-100 text-green-800",
+                  };
+                  return (
+                    <div
+                      key={task.id}
+                      className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-base font-bold text-gray-900">{task.title}</h3>
+                          <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{task.description}</p>
+                          <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
+                            <span>Assigned by: <span className="font-medium text-gray-700">{task.assigned_by_name}</span></span>
+                            <span>Created: <span className="font-medium text-gray-700">{formatDate(task.created_at)}</span></span>
+                            {task.due_date && (
+                              <span>Due: <span className="font-medium text-gray-700">{formatDate(task.due_date)}</span></span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[task.status]}`}
+                          >
+                            {task.status === "in_progress" ? "In Progress" : task.status === "done" ? "Done" : "Pending"}
+                          </span>
+                          {task.status !== "done" && (
+                            <select
+                              value={task.status}
+                              disabled={updatingTaskStatusId === task.id}
+                              onChange={(e) => handleTaskStatusUpdate(task.id, e.target.value)}
+                              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none disabled:opacity-60"
+                            >
+                              <option value="pending">Mark Pending</option>
+                              <option value="in_progress">Mark In Progress</option>
+                              <option value="done">Mark Done</option>
+                            </select>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         )}
 
