@@ -1635,6 +1635,12 @@ function ChatPanel({ chatWithUser }) {
   const wsRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const lastSentMessageRef = useRef("");
+  const messagesContainerRef = useRef(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const skipScrollRef = useRef(false);
+  const prevScrollHeightRef = useRef(0);
 
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
@@ -1794,6 +1800,7 @@ function ChatPanel({ chatWithUser }) {
         `/api/chat/history/${conversationToOpen.user_id}`
       );
       setMessages(response.data);
+      setHasMoreMessages(response.data.length === 50);
     } catch (err) {
       toast.error("Could not load messages");
     } finally {
@@ -1806,6 +1813,56 @@ function ChatPanel({ chatWithUser }) {
       openConversation(chatWithUser);
     }
   }, [chatWithUser]);
+
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (!hasMoreMessages || loadingOlder || messages.length === 0 || !selectedConversation) return;
+    setLoadingOlder(true);
+    const before = messages[0].created_at;
+    prevScrollHeightRef.current = messagesContainerRef.current?.scrollHeight ?? 0;
+    try {
+      const response = await api.get(`/api/chat/history/${selectedConversation.user_id}`, {
+        params: { before },
+      });
+      if (response.data.length === 0) {
+        setHasMoreMessages(false);
+        return;
+      }
+      skipScrollRef.current = true;
+      setMessages((current) => [...response.data, ...current]);
+      setHasMoreMessages(response.data.length === 50);
+    } catch {
+      toast.error("Could not load older messages");
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
+
+  const handleMessagesScroll = () => {
+    if (!messagesContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100);
+    if (scrollTop < 10 && hasMoreMessages && !loadingOlder) {
+      loadOlderMessages();
+    }
+  };
+
+  useEffect(() => {
+    if (skipScrollRef.current) {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop =
+          messagesContainerRef.current.scrollHeight - prevScrollHeightRef.current;
+      }
+      skipScrollRef.current = false;
+    } else {
+      scrollToBottom();
+    }
+  }, [messages]);
 
   const fetchAvailableChatUsers = async () => {
     setShowNewChatSelector((current) => !current);
@@ -1994,23 +2051,28 @@ function ChatPanel({ chatWithUser }) {
         </div>
       </aside>
 
-      <section className="flex flex-1 flex-col">
+      <section className="relative flex flex-1 flex-col">
         {!selectedConversation ? (
           <div className="flex flex-1 items-center justify-center text-gray-500">
             Select a conversation to start chatting
           </div>
         ) : (
           <>
-            <div className="border-b border-gray-200 p-5">
-              <div className="font-bold text-gray-900">
-                {selectedConversation.full_name}
+            <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-5 py-4">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                {selectedConversation.full_name.charAt(0).toUpperCase()}
               </div>
-              <div className="text-sm text-gray-500">
-                {selectedConversation.department || "No department"}
+              <div>
+                <div className="font-bold text-gray-900">
+                  {selectedConversation.full_name}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {selectedConversation.department || "No department"}
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-5">
+            <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-5">
               {loadingMessages ? (
                 <div className="text-center text-gray-500">Loading messages...</div>
               ) : messages.length === 0 ? (
@@ -2018,7 +2080,23 @@ function ChatPanel({ chatWithUser }) {
                   Start a conversation with {selectedConversation.full_name}
                 </div>
               ) : (
-                messages.map((message) => {
+                <>
+                  {hasMoreMessages && (
+                    <div className="flex justify-center py-2">
+                      {loadingOlder ? (
+                        <span className="text-xs text-gray-400">Loading older messages...</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={loadOlderMessages}
+                          className="rounded-full bg-gray-200 px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-300"
+                        >
+                          Load older messages
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {messages.map((message) => {
                   const sentByMe = message.sender_id === currentUserId;
 
                   return (
@@ -2051,9 +2129,21 @@ function ChatPanel({ chatWithUser }) {
                       </div>
                     </div>
                   );
-                })
+                  })}
+                </>
               )}
             </div>
+
+            {showScrollButton && (
+              <button
+                type="button"
+                onClick={scrollToBottom}
+                title="Scroll to latest message"
+                className="absolute bottom-24 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-lg text-white shadow-lg hover:bg-blue-800"
+              >
+                ↓
+              </button>
+            )}
 
             <div className="border-t border-gray-200 bg-white p-4">
               <div className="flex gap-3">

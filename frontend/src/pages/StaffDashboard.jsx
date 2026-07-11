@@ -108,6 +108,12 @@ function StaffDashboard() {
   const wsRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const lastSentMessageRef = useRef("");
+  const chatMessagesContainerRef = useRef(null);
+  const [showChatScrollButton, setShowChatScrollButton] = useState(false);
+  const [hasMoreChatMessages, setHasMoreChatMessages] = useState(false);
+  const [loadingOlderChat, setLoadingOlderChat] = useState(false);
+  const skipChatScrollRef = useRef(false);
+  const prevChatScrollHeightRef = useRef(0);
 
   const getDateInputValue = (date) => {
     const timezoneOffset = date.getTimezoneOffset() * 60000;
@@ -463,6 +469,56 @@ function StaffDashboard() {
     };
   }, [currentUserId]);
 
+  const scrollChatToBottom = () => {
+    if (chatMessagesContainerRef.current) {
+      chatMessagesContainerRef.current.scrollTop = chatMessagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  const loadOlderChatMessages = async () => {
+    if (!hasMoreChatMessages || loadingOlderChat || chatMessages.length === 0 || !selectedConversation) return;
+    setLoadingOlderChat(true);
+    const before = chatMessages[0].created_at;
+    prevChatScrollHeightRef.current = chatMessagesContainerRef.current?.scrollHeight ?? 0;
+    try {
+      const response = await api.get(`/api/chat/history/${selectedConversation.user_id}`, {
+        params: { before },
+      });
+      if (response.data.length === 0) {
+        setHasMoreChatMessages(false);
+        return;
+      }
+      skipChatScrollRef.current = true;
+      setChatMessages((current) => [...response.data, ...current]);
+      setHasMoreChatMessages(response.data.length === 50);
+    } catch {
+      toast.error("Could not load older messages");
+    } finally {
+      setLoadingOlderChat(false);
+    }
+  };
+
+  const handleChatScroll = () => {
+    if (!chatMessagesContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatMessagesContainerRef.current;
+    setShowChatScrollButton(scrollHeight - scrollTop - clientHeight > 100);
+    if (scrollTop < 10 && hasMoreChatMessages && !loadingOlderChat) {
+      loadOlderChatMessages();
+    }
+  };
+
+  useEffect(() => {
+    if (skipChatScrollRef.current) {
+      if (chatMessagesContainerRef.current) {
+        chatMessagesContainerRef.current.scrollTop =
+          chatMessagesContainerRef.current.scrollHeight - prevChatScrollHeightRef.current;
+      }
+      skipChatScrollRef.current = false;
+    } else {
+      scrollChatToBottom();
+    }
+  }, [chatMessages]);
+
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("user");
@@ -641,8 +697,8 @@ function StaffDashboard() {
       const response = await api.get(
         `/api/chat/history/${conversationToOpen.user_id}`
       );
-      console.log("Chat history response:", response.data);
       setChatMessages(response.data);
+      setHasMoreChatMessages(response.data.length === 50);
     } catch (error) {
       toast.error("Could not load chat");
     } finally {
@@ -1849,7 +1905,7 @@ function StaffDashboard() {
 
       {selectedConversation && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4">
-          <div className="flex h-[80vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl">
+          <div className="relative flex h-[80vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 p-5">
               <div>
                 <div className="font-bold text-gray-900">
@@ -1868,7 +1924,7 @@ function StaffDashboard() {
               </button>
             </div>
 
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-5">
+            <div ref={chatMessagesContainerRef} onScroll={handleChatScroll} className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-5">
               {loadingMessages ? (
                 <div className="text-center text-gray-500">Loading messages...</div>
               ) : chatMessages.length === 0 ? (
@@ -1876,9 +1932,23 @@ function StaffDashboard() {
                   Start a conversation with {selectedConversation.full_name}
                 </div>
               ) : (
-                chatMessages.map((message) => {
-                  console.log("Message timestamp:", message.created_at);
-                  console.log("Parsed:", new Date(message.created_at));
+                <>
+                  {hasMoreChatMessages && (
+                    <div className="flex justify-center py-2">
+                      {loadingOlderChat ? (
+                        <span className="text-xs text-gray-400">Loading older messages...</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={loadOlderChatMessages}
+                          className="rounded-full bg-gray-200 px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-300"
+                        >
+                          Load older messages
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {chatMessages.map((message) => {
                   const sentByMe = message.sender_id === currentUserId;
                   return (
                     <div
@@ -1910,9 +1980,21 @@ function StaffDashboard() {
                       </div>
                     </div>
                   );
-                })
+                  })}
+                </>
               )}
             </div>
+
+            {showChatScrollButton && (
+              <button
+                type="button"
+                onClick={scrollChatToBottom}
+                title="Scroll to latest message"
+                className="absolute bottom-24 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-lg text-white shadow-lg hover:bg-blue-800"
+              >
+                ↓
+              </button>
+            )}
 
             <div className="border-t border-gray-200 p-4">
               <div className="flex gap-3">
