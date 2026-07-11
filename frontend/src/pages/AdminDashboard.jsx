@@ -266,7 +266,7 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                     <div className="mt-5 flex gap-3">
                       <button
                         type="button"
-                        onClick={() => openProfile(staff)}
+                        onClick={() => openProfile(staff.user_id)}
                         className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
                       >
                         View Profile
@@ -371,11 +371,10 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
   );
 }
 
-function StaffProfileModal({ staff, onClose }) {
+function StaffProfileModal({ userId, onClose }) {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
-  const userId = staff?.user_id || staff?.id;
   const currentUser = useMemo(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -425,7 +424,7 @@ function StaffProfileModal({ staff, onClose }) {
       link.href = url;
       link.setAttribute(
         "download",
-        `salary_slip_${staff.employee_id || userId}_${currentMonth}_${currentYear}.pdf`
+        `salary_slip_${summary?.employee_id || userId}_${currentMonth}_${currentYear}.pdf`
       );
       document.body.appendChild(link);
       link.click();
@@ -445,9 +444,6 @@ function StaffProfileModal({ staff, onClose }) {
   const recordsByDate = new Map(
     (summary?.attendance_records || []).map((record) => [record.date, record])
   );
-  const profile = summary || staff;
-  const workType = profile?.work_type || staff?.work_type || staff?.today_work_mode;
-  const formattedJoiningDate = formatDate(profile?.joining_date);
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const leadingBlankDays = (new Date(currentYear, currentMonth - 1, 1).getDay() + 6) % 7;
   const calendarDays = [
@@ -494,10 +490,10 @@ function StaffProfileModal({ staff, onClose }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">
-              {staff.full_name}
+              {summary?.full_name || "Profile"}
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              {staff.employee_id || "N/A"} · {staff.department || "No department"}
+              {summary?.employee_id || "N/A"} · {summary?.department || "No department"}
             </p>
           </div>
           <button
@@ -514,97 +510,68 @@ function StaffProfileModal({ staff, onClose }) {
         ) : (
           <>
             <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-5">
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-4 text-sm md:grid-cols-2">
                 <div>
-                  <h4 className="text-2xl font-bold text-gray-900">
-                    {profile?.full_name || staff.full_name}
-                  </h4>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {profile?.employee_id || staff.employee_id || "N/A"}
-                  </p>
-                  <div className="mt-5 space-y-3 text-sm">
-                    <div>
-                      <span className="text-gray-500">Department</span>
-                      <div className="font-semibold text-gray-900">
-                        {profile?.department || staff.department || "N/A"}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Job Title</span>
-                      <div className="font-semibold text-gray-900">
-                        {profile?.job_title || staff.job_title || "N/A"}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Work Type</span>
-                      <div className="mt-1">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            workType === "wfh"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-green-100 text-green-700"
-                          }`}
-                        >
-                          {workType === "wfh" ? "WFH" : "Office"}
-                        </span>
-                      </div>
-                    </div>
+                  <span className="text-gray-500">Employee ID</span>
+                  <div className="font-semibold text-gray-900">{summary?.employee_id || "N/A"}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500">Department</span>
+                  <div className="font-semibold text-gray-900">{summary?.department || "N/A"}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500">Job Title</span>
+                  <div className="font-semibold text-gray-900">{summary?.job_title || "N/A"}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500">Work Type</span>
+                  <div className="mt-1">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        summary?.work_type === "wfh"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {summary?.work_type === "wfh" ? "WFH" : "Office"}
+                    </span>
                   </div>
                 </div>
-
-                <div className="space-y-3 text-sm">
+                <div>
+                  <span className="text-gray-500">Email</span>
                   <div>
-                    <span className="text-gray-500">Email</span>
-                    <div>
-                      {profile?.email ? (
-                        <a
-                          href={`mailto:${profile.email}`}
-                          className="font-semibold text-blue-700 hover:text-blue-800"
-                        >
-                          {profile.email}
-                        </a>
-                      ) : (
-                        <span className="font-semibold text-gray-900">N/A</span>
-                      )}
-                    </div>
+                    {summary?.email ? (
+                      <a
+                        href={`mailto:${summary.email}`}
+                        className="font-semibold text-blue-700 hover:text-blue-800"
+                      >
+                        {summary.email}
+                      </a>
+                    ) : (
+                      <span className="font-semibold text-gray-900">N/A</span>
+                    )}
                   </div>
-                  <div>
-                    <span className="text-gray-500">Phone</span>
-                    <div className="font-semibold text-gray-900">
-                      {profile?.phone || "N/A"}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Joining Date</span>
-                    <div className="font-semibold text-gray-900">
-                      {formattedJoiningDate}
-                    </div>
-                  </div>
-                  {currentUser?.role === "super_admin" && (
-                    <div>
-                      <span className="text-gray-500">Base Salary</span>
-                      <div className="font-semibold text-gray-900">
-                        {profile?.base_salary != null ? profile.base_salary : "N/A"}
-                      </div>
-                    </div>
-                  )}
                 </div>
+                <div>
+                  <span className="text-gray-500">Phone</span>
+                  <div className="font-semibold text-gray-900">{summary?.phone || "N/A"}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500">Joining Date</span>
+                  <div className="font-semibold text-gray-900">{formatDate(summary?.joining_date)}</div>
+                </div>
+                {currentUser?.role === "super_admin" && (
+                  <div>
+                    <span className="text-gray-500">Base Salary</span>
+                    <div className="font-semibold text-gray-900">
+                      {summary?.base_salary != null ? summary.base_salary : "N/A"}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-              <div className="rounded-xl bg-gray-50 p-4">
-                <div className="text-gray-500">Job Title</div>
-                <div className="mt-1 font-bold text-gray-900">
-                  {staff.job_title || "N/A"}
-                </div>
-              </div>
-              <div className="rounded-xl bg-gray-50 p-4">
-                <div className="text-gray-500">Work Type</div>
-                <div className="mt-1 font-bold text-gray-900">
-                  {(staff.work_type || staff.today_work_mode || "N/A").toUpperCase()}
-                </div>
-              </div>
+            <div className="mt-6 grid grid-cols-2 gap-4 text-sm md:grid-cols-5">
               <div className="rounded-xl bg-green-50 p-4">
                 <div className="text-green-700">Days Present</div>
                 <div className="mt-1 text-2xl font-bold text-green-900">
@@ -2686,7 +2653,7 @@ function StaffManagementPanel({ openProfile }) {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => openProfile(user)}
+                        onClick={() => openProfile(user.id || user.user_id)}
                         className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
                       >
                         View Profile
@@ -5092,7 +5059,7 @@ function AdminDashboard() {
 
       {profileUser && (
         <StaffProfileModal
-          staff={profileUser}
+          userId={profileUser}
           onClose={() => setProfileUser(null)}
         />
       )}
