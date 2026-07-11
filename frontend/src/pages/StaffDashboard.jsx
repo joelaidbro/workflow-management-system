@@ -1088,7 +1088,7 @@ function StaffDashboard() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-5 gap-4">
                 <div className="rounded-xl bg-gray-50 p-4">
                   <div className="text-sm text-gray-500">Login time</div>
                   <div className="mt-1 font-bold text-gray-900">
@@ -1105,6 +1105,12 @@ function StaffDashboard() {
                   <div className="text-sm text-gray-500">Work mode</div>
                   <div className="mt-1 font-bold text-gray-900">
                     {attendance.work_mode?.toUpperCase() || "N/A"}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-orange-50 p-4">
+                  <div className="text-sm text-orange-600">Break Duration</div>
+                  <div className="mt-1 font-bold text-orange-900">
+                    {minutesToHours(attendance.break_minutes || 0)}
                   </div>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-4">
