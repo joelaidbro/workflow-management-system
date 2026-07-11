@@ -331,6 +331,30 @@ def acknowledge_my_alert(
     return {"acknowledged": True}
 
 
+@router.get("/alerts/unread-replies-count")
+def get_unread_replies_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role not in ALLOWED_SENDER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+    count = (
+        db.query(AlertRecipient)
+        .join(Alert, Alert.id == AlertRecipient.alert_id)
+        .filter(
+            Alert.company_id == current_user.company_id,
+            AlertRecipient.status == "acknowledged",
+            AlertRecipient.reply.isnot(None),
+            AlertRecipient.reply_read_by_admin.is_(False),
+        )
+        .count()
+    )
+    return {"count": count}
+
+
 @router.get("/alerts/sent")
 def get_sent_alerts(
     current_user: User = Depends(get_current_user),
@@ -436,6 +460,11 @@ def get_delivery_report(
         for alert_recipient, recipient in recipient_rows
         if alert_recipient.status == "pending"
     )
+
+    for alert_recipient, _ in recipient_rows:
+        if alert_recipient.reply is not None and not alert_recipient.reply_read_by_admin:
+            alert_recipient.reply_read_by_admin = True
+    db.commit()
 
     return {
         "alert_id": str(alert.id),

@@ -51,3 +51,29 @@ export const playMessageSound = () => {
     // Silent fail
   }
 };
+
+export const playActionSound = () => {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    // Two-tone ascending sound — more attention-grabbing than message ping, not alarming
+    [
+      { freq: 520, delay: 0 },
+      { freq: 720, delay: 0.18 },
+    ].forEach(({ freq, delay }) => {
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.frequency.value = freq;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.25, ctx.currentTime + delay);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2);
+      oscillator.start(ctx.currentTime + delay);
+      oscillator.stop(ctx.currentTime + delay + 0.2);
+    });
+  } catch (e) {
+    // Silent fail
+  }
+};

@@ -393,3 +393,54 @@ def get_leave_balance(
         "year": year,
         "balances": balances,
     }
+
+
+@router.get("/leave/pending-count")
+def get_leave_pending_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_admin(current_user)
+    count = (
+        db.query(LeaveRequest)
+        .join(User, User.id == LeaveRequest.user_id)
+        .filter(
+            LeaveRequest.company_id == current_user.company_id,
+            LeaveRequest.status == "pending",
+            User.role == "staff",
+        )
+        .count()
+    )
+    return {"count": count}
+
+
+@router.get("/leave/decisions-count")
+def get_leave_decisions_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_staff(current_user)
+    count = (
+        db.query(LeaveRequest)
+        .filter(
+            LeaveRequest.user_id == current_user.id,
+            LeaveRequest.status != "pending",
+            LeaveRequest.is_read_by_staff.is_(False),
+        )
+        .count()
+    )
+    return {"count": count}
+
+
+@router.patch("/leave/mark-read")
+def mark_leave_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_staff(current_user)
+    db.query(LeaveRequest).filter(
+        LeaveRequest.user_id == current_user.id,
+        LeaveRequest.is_read_by_staff.is_(False),
+    ).update({"is_read_by_staff": True})
+    db.commit()
+    return {"ok": True}

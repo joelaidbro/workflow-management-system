@@ -890,6 +890,57 @@ def get_salary_calculation(
     }
 
 
+@router.get("/attendance/reports/unread-count")
+def get_reports_unread_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_admin(current_user)
+    count = (
+        db.query(DailyReport)
+        .join(User, User.id == DailyReport.user_id)
+        .filter(
+            DailyReport.company_id == current_user.company_id,
+            DailyReport.is_read_by_admin.is_(False),
+            User.role == "staff",
+        )
+        .count()
+    )
+    return {"count": count}
+
+
+@router.get("/attendance/reports/reply-count")
+def get_reports_reply_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_staff(current_user)
+    count = (
+        db.query(DailyReport)
+        .filter(
+            DailyReport.user_id == current_user.id,
+            DailyReport.admin_reply.isnot(None),
+            DailyReport.is_read_by_staff.is_(False),
+        )
+        .count()
+    )
+    return {"count": count}
+
+
+@router.patch("/attendance/reports/mark-read")
+def mark_reports_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_staff(current_user)
+    db.query(DailyReport).filter(
+        DailyReport.user_id == current_user.id,
+        DailyReport.is_read_by_staff.is_(False),
+    ).update({"is_read_by_staff": True})
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/attendance/salary/{user_id}/approve")
 def approve_salary(
     user_id: str,

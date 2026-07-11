@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import api from "../api.js";
-import { playMessageSound } from "../utils/sounds";
+import { playMessageSound, playActionSound } from "../utils/sounds";
 import {
   formatDate,
   formatDateTime,
@@ -4873,6 +4873,12 @@ function AdminDashboard() {
   const [profileUser, setProfileUser] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [unreadCount, setUnreadCount] = useState(0);
+  const [reportUnreadCount, setReportUnreadCount] = useState(0);
+  const [leavePendingCount, setLeavePendingCount] = useState(0);
+  const [alertReplyCount, setAlertReplyCount] = useState(0);
+  const prevReportCountRef = useRef(null);
+  const prevLeaveCountRef = useRef(null);
+  const prevAlertReplyCountRef = useRef(null);
 
   const user = useMemo(() => {
     const storedUser = localStorage.getItem("user");
@@ -4892,6 +4898,39 @@ function AdminDashboard() {
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const [reportRes, leaveRes, alertRes] = await Promise.all([
+          api.get("/api/attendance/reports/unread-count"),
+          api.get("/api/leave/pending-count"),
+          api.get("/api/alerts/unread-replies-count"),
+        ]);
+        const newReportCount = reportRes.data.count;
+        const newLeaveCount = leaveRes.data.count;
+        const newAlertCount = alertRes.data.count;
+        if (prevReportCountRef.current !== null && newReportCount > prevReportCountRef.current) {
+          playActionSound();
+        } else if (prevLeaveCountRef.current !== null && newLeaveCount > prevLeaveCountRef.current) {
+          playActionSound();
+        } else if (prevAlertReplyCountRef.current !== null && newAlertCount > prevAlertReplyCountRef.current) {
+          playActionSound();
+        }
+        prevReportCountRef.current = newReportCount;
+        prevLeaveCountRef.current = newLeaveCount;
+        prevAlertReplyCountRef.current = newAlertCount;
+        setReportUnreadCount(newReportCount);
+        setLeavePendingCount(newLeaveCount);
+        setAlertReplyCount(newAlertCount);
+      } catch {
+        // Silent fail — notification failures should never break the main UI
+      }
+    };
+    poll();
+    const notifInterval = setInterval(poll, 30000);
+    return () => clearInterval(notifInterval);
   }, []);
 
   useEffect(() => {
@@ -4977,36 +5016,45 @@ function AdminDashboard() {
 
         <nav className="flex-1 px-4 py-6">
           <div className="space-y-2">
-            {visibleNavItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  if (item.id === "chat") {
-                    setUnreadCount(0);
-                  }
-                  setActiveSection(item.id);
-                }}
-                className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
-                  activeSection === item.id
-                    ? "bg-blue-700 text-white"
-                    : "text-blue-100 hover:bg-blue-800"
-                }`}
-              >
-                {item.id === "chat" ? (
-                  <div className="relative inline-block">
-                    Chat
-                    {unreadCount > 0 && (
+            {visibleNavItems.map((item) => {
+              const badgeCounts = {
+                chat: unreadCount,
+                reports: reportUnreadCount,
+                leave: leavePendingCount,
+                alerts: alertReplyCount,
+                tasks: 0,
+              };
+              const badge = badgeCounts[item.id] ?? 0;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    if (item.id === "chat") setUnreadCount(0);
+                    else if (item.id === "reports") setReportUnreadCount(0);
+                    else if (item.id === "leave") setLeavePendingCount(0);
+                    else if (item.id === "alerts") setAlertReplyCount(0);
+                    setActiveSection(item.id);
+                  }}
+                  className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
+                    activeSection === item.id
+                      ? "bg-blue-700 text-white"
+                      : "text-blue-100 hover:bg-blue-800"
+                  }`}
+                >
+                  {badge > 0 ? (
+                    <div className="relative inline-block">
+                      {item.label}
                       <span className="absolute -top-1 -right-6 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                        {unreadCount > 99 ? "99+" : unreadCount}
+                        {badge > 99 ? "99+" : badge}
                       </span>
-                    )}
-                  </div>
-                ) : (
-                  item.label
-                )}
-              </button>
-            ))}
+                    </div>
+                  ) : (
+                    item.label
+                  )}
+                </button>
+              );
+            })}
             {user?.role === "super_admin" && (
               <button
                 type="button"

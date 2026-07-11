@@ -216,6 +216,7 @@ class AlertRecipient(Base):
     status = Column(String(20), nullable=False, default="pending")
     acknowledged_at = Column(DateTime, nullable=True)
     reply = Column(Text, nullable=True)
+    reply_read_by_admin = Column(Boolean, default=False, nullable=False)
 
     alert = relationship("Alert", back_populates="recipients")
     recipient = relationship("User", back_populates="alert_recipients")
@@ -260,6 +261,7 @@ class DailyReport(Base):
     admin_reply_at = Column(DateTime, nullable=True)
     replied_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     is_read_by_admin = Column(Boolean, default=False, nullable=False)
+    is_read_by_staff = Column(Boolean, default=False, nullable=False)
 
     user = relationship(
         "User",
@@ -339,6 +341,7 @@ class LeaveRequest(Base):
     reviewed_at = Column(DateTime, nullable=True)
     admin_comment = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    is_read_by_staff = Column(Boolean, default=False, nullable=False)
 
     user = relationship(
         "User",

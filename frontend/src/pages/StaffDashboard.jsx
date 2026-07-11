@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import api from "../api.js";
-import { playMessageSound } from "../utils/sounds";
+import { playMessageSound, playActionSound } from "../utils/sounds";
 import {
   formatDate,
   formatDateTime,
@@ -68,20 +68,42 @@ function StaffDashboard() {
   }, []);
   const currentUserId = user?.user_id || user?.id;
   const [unreadCount, setUnreadCount] = useState(0);
+  const [reportReplyCount, setReportReplyCount] = useState(0);
+  const [leaveDecisionCount, setLeaveDecisionCount] = useState(0);
+  const prevMsgCountRef = useRef(null);
+  const prevReportReplyCountRef = useRef(null);
+  const prevLeaveDecisionCountRef = useRef(null);
   const [activeSection, setActiveSection] = useState("dashboard");
 
   useEffect(() => {
-    const fetchUnreadCount = async () => {
+    const poll = async () => {
       try {
-        const response = await api.get("/api/chat/unread-count");
-        setUnreadCount(response.data.unread_count);
-      } catch (err) {
-        console.error("Could not load unread count", err);
+        const [msgRes, reportRes, leaveRes] = await Promise.all([
+          api.get("/api/chat/unread-count"),
+          api.get("/api/attendance/reports/reply-count"),
+          api.get("/api/leave/decisions-count"),
+        ]);
+        const newMsgCount = msgRes.data.unread_count;
+        const newReportCount = reportRes.data.count;
+        const newLeaveCount = leaveRes.data.count;
+        if (prevMsgCountRef.current !== null && newMsgCount > prevMsgCountRef.current) {
+          playMessageSound();
+        }
+        if (prevLeaveDecisionCountRef.current !== null && newLeaveCount > prevLeaveDecisionCountRef.current) {
+          playActionSound();
+        }
+        prevMsgCountRef.current = newMsgCount;
+        prevReportReplyCountRef.current = newReportCount;
+        prevLeaveDecisionCountRef.current = newLeaveCount;
+        setUnreadCount(newMsgCount);
+        setReportReplyCount(newReportCount);
+        setLeaveDecisionCount(newLeaveCount);
+      } catch {
+        // Silent fail
       }
     };
-
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    poll();
+    const interval = setInterval(poll, 30000);
     return () => clearInterval(interval);
   }, []);
   const [attendance, setAttendance] = useState(null);
@@ -964,8 +986,14 @@ function StaffDashboard() {
               key={item.id}
               type="button"
               onClick={() => {
-                if (item.id === "messages") {
-                  setUnreadCount(0);
+                if (item.id === "messages") setUnreadCount(0);
+                if (item.id === "reports") {
+                  setReportReplyCount(0);
+                  api.patch("/api/attendance/reports/mark-read").catch(() => {});
+                }
+                if (item.id === "leave") {
+                  setLeaveDecisionCount(0);
+                  api.patch("/api/leave/mark-read").catch(() => {});
                 }
                 setActiveSection(item.id);
               }}
@@ -984,6 +1012,18 @@ function StaffDashboard() {
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
+                </div>
+              ) : item.id === "reports" && reportReplyCount > 0 ? (
+                <div className="relative inline-block">
+                  <span>Reports</span>
+                  <span className="absolute -top-1 -right-6 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                    {reportReplyCount > 99 ? "99+" : reportReplyCount}
+                  </span>
+                </div>
+              ) : item.id === "leave" && leaveDecisionCount > 0 ? (
+                <div className="relative inline-block">
+                  <span>Leave Requests</span>
+                  <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-red-500" />
                 </div>
               ) : (
                 <span>{item.label}</span>
