@@ -890,6 +890,26 @@ def get_salary_calculation(
     }
 
 
+@router.get("/attendance/reports/unread-dates")
+def get_reports_unread_dates(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_admin(current_user)
+    rows = (
+        db.query(DailyReport.report_date)
+        .join(User, User.id == DailyReport.user_id)
+        .filter(
+            DailyReport.company_id == current_user.company_id,
+            DailyReport.is_read_by_admin.is_(False),
+            User.role == "staff",
+        )
+        .distinct()
+        .all()
+    )
+    return {"dates": sorted([row.report_date.isoformat() for row in rows], reverse=True)}
+
+
 @router.get("/attendance/reports/unread-count")
 def get_reports_unread_count(
     current_user: User = Depends(get_current_user),

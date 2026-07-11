@@ -390,6 +390,10 @@ def get_sent_alerts(
             if alert_recipient.status == "pending"
         )
 
+        has_unread_replies = any(
+            r.reply is not None and not r.reply_read_by_admin
+            for r in recipient_rows
+        )
         response_data.append(
             {
                 "id": str(alert.id),
@@ -403,6 +407,7 @@ def get_sent_alerts(
                 "total_recipients": len(recipient_rows),
                 "acknowledged_count": acknowledged_count,
                 "pending_count": pending_count,
+                "has_unread_replies": has_unread_replies,
             }
         )
 

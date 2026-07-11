@@ -698,6 +698,13 @@ function ReportsPanel() {
   const [replyErrors, setReplyErrors] = useState({});
   const [submittingReplyId, setSubmittingReplyId] = useState(null);
   const [downloadingTeamReport, setDownloadingTeamReport] = useState(false);
+  const [unreadDates, setUnreadDates] = useState([]);
+
+  useEffect(() => {
+    api.get("/api/attendance/reports/unread-dates")
+      .then((res) => setUnreadDates(res.data.dates))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -716,6 +723,7 @@ function ReportsPanel() {
 
         if (isMounted) {
           setReports(response.data);
+          setUnreadDates((prev) => prev.filter((d) => d !== selectedDate));
         }
       } catch (err) {
         if (isMounted) {
@@ -831,6 +839,25 @@ function ReportsPanel() {
           >
             Unread Only
           </button>
+          {unreadDates.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-2">
+              {unreadDates.map((date) => (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => setSelectedDate(date)}
+                  className={`relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                    selectedDate === date
+                      ? "border-blue-700 bg-blue-700 text-white"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                  }`}
+                >
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                  {date}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <button
           type="button"
@@ -1237,6 +1264,9 @@ function AlertsPanel() {
     try {
       const response = await api.get(`/api/alerts/delivery-report/${alertId}`);
       setDeliveryReport(response.data);
+      setSentAlerts((prev) =>
+        prev.map((a) => (a.id === alertId ? { ...a, has_unread_replies: false } : a))
+      );
     } catch (err) {
       toast.error("Could not load delivery report");
     } finally {
@@ -1390,7 +1420,14 @@ function AlertsPanel() {
                   : 0;
 
               return (
-                <div key={alert.id} className="rounded-xl border border-gray-200 p-4">
+                <div
+                  key={alert.id}
+                  className={`rounded-xl border p-4 ${
+                    alert.has_unread_replies
+                      ? "border-red-300 bg-red-50/40"
+                      : "border-gray-200"
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -1403,6 +1440,12 @@ function AlertsPanel() {
                         >
                           {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
                         </span>
+                        {alert.has_unread_replies && (
+                          <span className="flex items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                            New replies
+                          </span>
+                        )}
                         <span className="text-xs text-gray-500">
                           {formatDateTime(alert.created_at)}
                         </span>
