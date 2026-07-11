@@ -107,7 +107,7 @@ def get_staff_for_attendance(user_id: str, current_user: User, db: Session):
             User.id == user_uuid,
             User.company_id == current_user.company_id,
             User.is_active.is_(True),
-            User.role == "staff",
+            User.role.in_(["staff", "admin"]),
         )
         .first()
     )
