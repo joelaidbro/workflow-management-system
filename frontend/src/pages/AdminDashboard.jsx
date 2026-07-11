@@ -449,40 +449,44 @@ function StaffProfileModal({ staff, onClose }) {
   const workType = profile?.work_type || staff?.work_type || staff?.today_work_mode;
   const formattedJoiningDate = formatDate(profile?.joining_date);
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-  const calendarDays = Array.from({ length: daysInMonth }, (_, index) => {
-    const day = index + 1;
-    const date = new Date(currentYear, currentMonth - 1, day);
-    const dateKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(
-      day
-    ).padStart(2, "0")}`;
-    const record = recordsByDate.get(dateKey);
-    const defaultWorkingDays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-    const workingDays = summary?.working_days || defaultWorkingDays;
-    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
-    let dotClass = "bg-red-500";
+  const leadingBlankDays = (new Date(currentYear, currentMonth - 1, 1).getDay() + 6) % 7;
+  const calendarDays = [
+    ...Array.from({ length: leadingBlankDays }, (_, index) => ({ blank: true, id: `blank-${index}` })),
+    ...Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      const date = new Date(currentYear, currentMonth - 1, day);
+      const dateKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}`;
+      const record = recordsByDate.get(dateKey);
+      const defaultWorkingDays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+      const workingDays = summary?.working_days || defaultWorkingDays;
+      const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
+      let dotClass = "bg-red-500";
 
-    if (isWeekend && !record) {
-      dotClass = "bg-gray-400";
-    } else if (record?.work_mode === "leave") {
-      dotClass = "bg-blue-500";
-    } else if (record?.is_present) {
-      dotClass = "bg-green-500";
-    }
+      if (isWeekend && !record) {
+        dotClass = "bg-gray-400";
+      } else if (record?.work_mode === "leave") {
+        dotClass = "bg-blue-500";
+      } else if (record?.is_present) {
+        dotClass = "bg-green-500";
+      }
 
-    return {
-      day,
-      date: dateKey,
-      dotClass,
-      record,
-      work_mode: record?.work_mode || (isWeekend ? "weekend" : "office"),
-      working_minutes: record?.working_minutes || 0,
-      break_minutes: record?.break_minutes || 0,
-      idle_minutes: record?.idle_minutes || 0,
-      login_time: record?.login_time || null,
-      logout_time: record?.logout_time || null,
-    };
-  });
+      return {
+        day,
+        date: dateKey,
+        dotClass,
+        record,
+        work_mode: record?.work_mode || (isWeekend ? "weekend" : "office"),
+        working_minutes: record?.working_minutes || 0,
+        break_minutes: record?.break_minutes || 0,
+        idle_minutes: record?.idle_minutes || 0,
+        login_time: record?.login_time || null,
+        logout_time: record?.logout_time || null,
+      };
+    }),
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -643,30 +647,39 @@ function StaffProfileModal({ staff, onClose }) {
                   <span>Gray weekend</span>
                 </div>
               </div>
-              <div className="grid grid-cols-7 gap-2 rounded-xl bg-gray-50 p-4">
-                {calendarDays.map((item) => (
-                  <div
-                    key={item.day}
-                    className="flex flex-col items-center gap-1 rounded-lg bg-white p-2 text-xs text-gray-600"
-                  >
-                    <span>{item.day}</span>
-                    <span
-                      className={`h-3 w-3 cursor-pointer rounded-full ${item.dotClass}`}
-                      onMouseEnter={(event) => {
-                        const rect = event.currentTarget.getBoundingClientRect();
-                        setTooltip({
-                          visible: true,
-                          day: item,
-                          x: rect.left,
-                          y: rect.top,
-                        });
-                      }}
-                      onMouseLeave={() =>
-                        setTooltip({ visible: false, day: null, x: 0, y: 0 })
-                      }
-                    />
-                  </div>
+              <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-gray-500">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                  <div key={day}>{day}</div>
                 ))}
+              </div>
+              <div className="mt-2 grid grid-cols-7 gap-2 rounded-xl bg-gray-50 p-4">
+                {calendarDays.map((item) =>
+                  item.blank ? (
+                    <div key={item.id} className="h-12" />
+                  ) : (
+                    <div
+                      key={item.day}
+                      className="flex flex-col items-center gap-1 rounded-lg bg-white p-2 text-xs text-gray-600"
+                    >
+                      <span>{item.day}</span>
+                      <span
+                        className={`h-3 w-3 cursor-pointer rounded-full ${item.dotClass}`}
+                        onMouseEnter={(event) => {
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          setTooltip({
+                            visible: true,
+                            day: item,
+                            x: rect.left,
+                            y: rect.top,
+                          });
+                        }}
+                        onMouseLeave={() =>
+                          setTooltip({ visible: false, day: null, x: 0, y: 0 })
+                        }
+                      />
+                    </div>
+                  )
+                )}
               </div>
               {tooltip.visible && tooltip.day && (
                 <div
