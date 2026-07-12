@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 from datetime import datetime, time, timedelta
@@ -101,11 +102,15 @@ async def upload_screenshot(
     full_path = os.path.join(SCREENSHOTS_BASE_PATH, relative_path)
     if not Path(full_path).resolve().is_relative_to(Path(SCREENSHOTS_BASE_PATH).resolve()):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
     contents = await file.read()
-    with open(full_path, "wb") as output_file:
-        output_file.write(contents)
+
+    def _save_file(path, data):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(data)
+
+    await asyncio.to_thread(_save_file, full_path, contents)
 
     file_size_kb = round(len(contents) / 1024)
     screenshot = Screenshot(

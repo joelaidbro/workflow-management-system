@@ -1,5 +1,6 @@
 import re
 import uuid
+from collections import defaultdict
 from io import BytesIO
 from datetime import date as date_type
 from datetime import datetime
@@ -709,28 +710,63 @@ def export_team_attendance_excel(
         cell.fill = header_fill
         cell.font = header_font
 
-    for staff in staff_members:
-        summary = build_attendance_summary(staff, month, year, db)
-        calculated_salary = calculate_monthly_salary(staff, summary, db)
-        salary_record = (
-            db.query(SalaryRecord)
-            .filter(
-                SalaryRecord.user_id == staff.id,
-                SalaryRecord.month == month,
-                SalaryRecord.year == year,
-            )
-            .first()
+    staff_ids = [s.id for s in staff_members]
+    start_date, end_date = get_month_range(month, year)
+
+    all_attendance = (
+        db.query(Attendance)
+        .filter(
+            Attendance.user_id.in_(staff_ids),
+            Attendance.date >= start_date,
+            Attendance.date < end_date,
         )
+        .all()
+    )
+    attendance_by_user = defaultdict(list)
+    for rec in all_attendance:
+        attendance_by_user[rec.user_id].append(rec)
+
+    all_salary_records = (
+        db.query(SalaryRecord)
+        .filter(
+            SalaryRecord.user_id.in_(staff_ids),
+            SalaryRecord.month == month,
+            SalaryRecord.year == year,
+        )
+        .all()
+    )
+    salary_by_user = {str(r.user_id): r for r in all_salary_records}
+
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    company_config = company.config if company and company.config else {}
+    configured_days = company_config.get("working_days_per_month")
+
+    for staff in staff_members:
+        records = attendance_by_user[staff.id]
+        days_present = sum(1 for r in records if r.is_present)
+        days_absent = sum(1 for r in records if r.logged_in) - days_present
+        total_working_minutes = sum(r.working_minutes or 0 for r in records)
+        total_break_minutes = sum(r.break_minutes or 0 for r in records)
+
+        total_days = configured_days or (days_present + days_absent)
+        base_salary = Decimal(staff.base_salary or 0)
+        if total_days:
+            calculated_salary = (base_salary / Decimal(total_days)) * Decimal(days_present)
+        else:
+            calculated_salary = Decimal("0")
+        calculated_salary = calculated_salary.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        salary_record = salary_by_user.get(str(staff.id))
 
         worksheet.append(
             [
                 staff.full_name,
                 staff.employee_id,
                 staff.department,
-                summary["days_present"],
-                summary["days_absent"],
-                round(summary["total_working_minutes"] / 60, 1),
-                round(summary["total_break_minutes"] / 60, 1),
+                days_present,
+                days_absent,
+                round(total_working_minutes / 60, 1),
+                round(total_break_minutes / 60, 1),
                 float(staff.base_salary or 0),
                 float(calculated_salary),
                 "Yes" if salary_record and salary_record.is_approved else "No",

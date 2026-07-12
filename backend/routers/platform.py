@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, hash_password
@@ -98,42 +98,42 @@ def list_companies(
     db: Session = Depends(get_db),
 ):
     companies = db.query(Company).order_by(Company.created_at.desc()).all()
+    company_ids = [c.id for c in companies]
+
+    counts_rows = (
+        db.query(
+            User.company_id,
+            func.count(case((User.role == "staff", 1))).label("staff_count"),
+            func.count(case((User.role.in_(["admin", "super_admin"]), 1))).label("admin_count"),
+        )
+        .filter(User.is_active.is_(True), User.company_id.in_(company_ids))
+        .group_by(User.company_id)
+        .all()
+    )
+    counts_by_company = {str(row.company_id): row for row in counts_rows}
+
+    last_active_rows = (
+        db.query(
+            User.company_id,
+            func.max(CurrentStatus.updated_at).label("last_active"),
+        )
+        .join(User, User.id == CurrentStatus.user_id)
+        .filter(User.company_id.in_(company_ids))
+        .group_by(User.company_id)
+        .all()
+    )
+    last_active_by_company = {str(row.company_id): row.last_active for row in last_active_rows}
+
     response = []
-
     for company in companies:
-        staff_count = (
-            db.query(User)
-            .filter(
-                User.company_id == company.id,
-                User.is_active.is_(True),
-                User.role == "staff",
-            )
-            .count()
-        )
-        admin_count = (
-            db.query(User)
-            .filter(
-                User.company_id == company.id,
-                User.is_active.is_(True),
-                User.role.in_(["admin", "super_admin"]),
-            )
-            .count()
-        )
-        last_active = (
-            db.query(func.max(CurrentStatus.updated_at))
-            .join(User, User.id == CurrentStatus.user_id)
-            .filter(User.company_id == company.id)
-            .scalar()
-        )
-
-        response.append(
-            {
-                **format_company(company),
-                "staff_count": staff_count,
-                "admin_count": admin_count,
-                "last_active": last_active,
-            }
-        )
+        cid = str(company.id)
+        counts = counts_by_company.get(cid)
+        response.append({
+            **format_company(company),
+            "staff_count": counts.staff_count if counts else 0,
+            "admin_count": counts.admin_count if counts else 0,
+            "last_active": last_active_by_company.get(cid),
+        })
 
     return response
 
@@ -189,9 +189,7 @@ def update_company(
     if company_data.is_active is not None:
         company.is_active = company_data.is_active
         if company_data.is_active is False:
-            users = db.query(User).filter(User.company_id == company.id).all()
-            for user in users:
-                user.is_active = False
+            db.query(User).filter(User.company_id == company.id).update({"is_active": False})
 
     db.commit()
     db.refresh(company)

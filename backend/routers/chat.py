@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from auth import decode_jwt, get_current_user
@@ -218,6 +218,7 @@ def get_conversations(
             ),
         )
         .order_by(Message.created_at.desc())
+        .limit(500)
         .all()
     )
 
@@ -236,18 +237,21 @@ def get_conversations(
                 "last_message": message,
             }
 
+    unread_rows = (
+        db.query(Message.sender_id, func.count(Message.id).label("cnt"))
+        .filter(
+            Message.company_id == current_user.company_id,
+            Message.recipient_id == current_user.id,
+            Message.is_read.is_(False),
+        )
+        .group_by(Message.sender_id)
+        .all()
+    )
+    unread_by_sender = {row.sender_id: row.cnt for row in unread_rows}
+
     conversations = []
     for other_user_id, conversation in conversation_messages.items():
-        unread_count = (
-            db.query(Message)
-            .filter(
-                Message.company_id == current_user.company_id,
-                Message.sender_id == other_user_id,
-                Message.recipient_id == current_user.id,
-                Message.is_read.is_(False),
-            )
-            .count()
-        )
+        unread_count = unread_by_sender.get(other_user_id, 0)
         other_user = conversation["user"]
         last_message = conversation["last_message"]
 

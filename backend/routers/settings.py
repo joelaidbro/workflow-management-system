@@ -1,3 +1,4 @@
+import asyncio
 import io
 import os
 from copy import deepcopy
@@ -199,18 +200,22 @@ async def upload_logo(
 
     company = get_current_company(current_user, db)
 
-    try:
-        img = Image.open(io.BytesIO(contents))
+    logo_filename = f"{company.id}.png"
+    logo_path = os.path.join(LOGOS_DIR, logo_filename)
+
+    def _process_and_save(data, save_path):
+        img = Image.open(io.BytesIO(data))
         img.thumbnail((400, 400))
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        img.save(save_path, "PNG")
+
+    try:
+        await asyncio.to_thread(_process_and_save, contents, logo_path)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid image file",
         )
-
-    os.makedirs(LOGOS_DIR, exist_ok=True)
-    logo_filename = f"{company.id}.png"
-    img.save(os.path.join(LOGOS_DIR, logo_filename), "PNG")
 
     company.logo_path = logo_filename
     db.commit()

@@ -1,5 +1,6 @@
 import re
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -377,14 +378,20 @@ def get_sent_alerts(
         query = query.filter(Alert.sender_id == current_user.id)
 
     alerts = query.order_by(Alert.created_at.desc()).limit(20).all()
-    response_data = []
+    alert_ids = [a.id for a in alerts]
 
+    all_recipients = (
+        db.query(AlertRecipient)
+        .filter(AlertRecipient.alert_id.in_(alert_ids))
+        .all()
+    )
+    recipients_by_alert = defaultdict(list)
+    for r in all_recipients:
+        recipients_by_alert[r.alert_id].append(r)
+
+    response_data = []
     for alert in alerts:
-        recipient_rows = (
-            db.query(AlertRecipient)
-            .filter(AlertRecipient.alert_id == alert.id)
-            .all()
-        )
+        recipient_rows = recipients_by_alert[alert.id]
         acknowledged_count = sum(
             1
             for alert_recipient in recipient_rows
@@ -395,7 +402,6 @@ def get_sent_alerts(
             for alert_recipient in recipient_rows
             if alert_recipient.status == "pending"
         )
-
         has_unread_replies = any(
             r.reply is not None and not r.reply_read_by_admin
             for r in recipient_rows

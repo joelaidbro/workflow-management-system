@@ -438,48 +438,50 @@ function StaffProfileModal({ userId, onClose }) {
     }
   };
 
-  const recordsByDate = new Map(
-    (summary?.attendance_records || []).map((record) => [record.date, record])
-  );
-  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-  const leadingBlankDays = (new Date(currentYear, currentMonth - 1, 1).getDay() + 6) % 7;
-  const calendarDays = [
-    ...Array.from({ length: leadingBlankDays }, (_, index) => ({ blank: true, id: `blank-${index}` })),
-    ...Array.from({ length: daysInMonth }, (_, index) => {
-      const day = index + 1;
-      const date = new Date(currentYear, currentMonth - 1, day);
-      const dateKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(
-        day
-      ).padStart(2, "0")}`;
-      const record = recordsByDate.get(dateKey);
-      const defaultWorkingDays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-      const workingDays = summary?.working_days || defaultWorkingDays;
-      const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-      const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
-      let dotClass = "bg-red-500";
+  const calendarDays = useMemo(() => {
+    const recordsByDate = new Map(
+      (summary?.attendance_records || []).map((record) => [record.date, record])
+    );
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const leadingBlankDays = (new Date(currentYear, currentMonth - 1, 1).getDay() + 6) % 7;
+    return [
+      ...Array.from({ length: leadingBlankDays }, (_, index) => ({ blank: true, id: `blank-${index}` })),
+      ...Array.from({ length: daysInMonth }, (_, index) => {
+        const day = index + 1;
+        const date = new Date(currentYear, currentMonth - 1, day);
+        const dateKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
+        const record = recordsByDate.get(dateKey);
+        const defaultWorkingDays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+        const workingDays = summary?.working_days || defaultWorkingDays;
+        const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+        const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
+        let dotClass = "bg-red-500";
 
-      if (isWeekend && !record) {
-        dotClass = "bg-gray-400";
-      } else if (record?.work_mode === "leave") {
-        dotClass = "bg-blue-500";
-      } else if (record?.is_present) {
-        dotClass = "bg-green-500";
-      }
+        if (isWeekend && !record) {
+          dotClass = "bg-gray-400";
+        } else if (record?.work_mode === "leave") {
+          dotClass = "bg-blue-500";
+        } else if (record?.is_present) {
+          dotClass = "bg-green-500";
+        }
 
-      return {
-        day,
-        date: dateKey,
-        dotClass,
-        record,
-        work_mode: record?.work_mode || (isWeekend ? "weekend" : "office"),
-        working_minutes: record?.working_minutes || 0,
-        break_minutes: record?.break_minutes || 0,
-        idle_minutes: record?.idle_minutes || 0,
-        login_time: record?.login_time || null,
-        logout_time: record?.logout_time || null,
-      };
-    }),
-  ];
+        return {
+          day,
+          date: dateKey,
+          dotClass,
+          record,
+          work_mode: record?.work_mode || (isWeekend ? "weekend" : "office"),
+          working_minutes: record?.working_minutes || 0,
+          break_minutes: record?.break_minutes || 0,
+          idle_minutes: record?.idle_minutes || 0,
+          login_time: record?.login_time || null,
+          logout_time: record?.logout_time || null,
+        };
+      }),
+    ];
+  }, [currentYear, currentMonth, summary]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -1689,10 +1691,16 @@ function ChatPanel({ chatWithUser }) {
 
     const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
     const wsUrl = apiUrl.replace("https://", "wss://").replace("http://", "ws://");
+    let reconnectDelay = 3000;
+    let reconnectTimeout = null;
+    let destroyed = false;
+
+    function connect() {
     const ws = new WebSocket(`${wsUrl}/api/chat/ws/${currentUserId}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      reconnectDelay = 3000;
       ws.send(JSON.stringify({ token }));
     };
 
@@ -1700,10 +1708,25 @@ function ChatPanel({ chatWithUser }) {
 
     ws.onclose = () => {
       wsRef.current = null;
+      if (!destroyed) {
+        reconnectTimeout = setTimeout(() => {
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+          connect();
+        }, reconnectDelay);
+      }
     };
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (data.type === "error") {
+        toast.error(data.message || "Message failed to send");
+        return;
+      }
 
       if (data.type === "message_sent") {
         const activeConversation = selectedConversationRef.current;
@@ -1766,9 +1789,17 @@ function ChatPanel({ chatWithUser }) {
       }
     };
 
+    }
+
+    connect();
+
     return () => {
-      ws.close();
-      wsRef.current = null;
+      destroyed = true;
+      clearTimeout(reconnectTimeout);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, [currentUserId]);
 

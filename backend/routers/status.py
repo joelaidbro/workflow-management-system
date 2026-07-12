@@ -75,21 +75,24 @@ def calculate_status(current_status):
     return status_value
 
 
-def _compute_live_working_minutes(user_id, login_time, db) -> int:
+def _compute_live_working_minutes(user_id, login_time, db=None, prefetched_logs=None) -> int:
     """Compute net working minutes from login_time to now, deducting offline gaps."""
     if not login_time:
         return 0
     now = datetime.utcnow()
-    logs = (
-        db.query(ActivityLog)
-        .filter(
-            ActivityLog.user_id == user_id,
-            ActivityLog.timestamp >= login_time,
-            ActivityLog.timestamp <= now,
+    if prefetched_logs is not None:
+        logs = prefetched_logs
+    else:
+        logs = (
+            db.query(ActivityLog)
+            .filter(
+                ActivityLog.user_id == user_id,
+                ActivityLog.timestamp >= login_time,
+                ActivityLog.timestamp <= now,
+            )
+            .order_by(ActivityLog.timestamp.asc())
+            .all()
         )
-        .order_by(ActivityLog.timestamp.asc())
-        .all()
-    )
     offline_minutes = 0
     offline_start = None
     for log in logs:
@@ -104,10 +107,10 @@ def _compute_live_working_minutes(user_id, login_time, db) -> int:
     return max(0, total_elapsed - offline_minutes)
 
 
-def format_status_response(user, current_status, attendance=None, db=None):
-    if db and attendance and attendance.login_time and not attendance.logout_time:
+def format_status_response(user, current_status, attendance=None, db=None, prefetched_logs=None):
+    if attendance and attendance.login_time and not attendance.logout_time:
         working_minutes_so_far = _compute_live_working_minutes(
-            user.id, attendance.login_time, db
+            user.id, attendance.login_time, db=db, prefetched_logs=prefetched_logs
         )
     elif attendance and attendance.logout_time:
         working_minutes_so_far = attendance.working_minutes or 0
@@ -166,8 +169,36 @@ def get_team_status(
         query = query.filter(User.role == "staff")
 
     users_with_status = query.all()
+
+    from collections import defaultdict
+    active_rows = [
+        (user, attendance)
+        for user, current_status, attendance in users_with_status
+        if attendance and attendance.login_time and not attendance.logout_time
+    ]
+    logs_by_user = defaultdict(list)
+    if active_rows:
+        min_login = min(a.login_time for _, a in active_rows)
+        active_ids = [u.id for u, _ in active_rows]
+        now = datetime.utcnow()
+        batch_logs = (
+            db.query(ActivityLog)
+            .filter(
+                ActivityLog.user_id.in_(active_ids),
+                ActivityLog.timestamp >= min_login,
+                ActivityLog.timestamp <= now,
+            )
+            .order_by(ActivityLog.timestamp.asc())
+            .all()
+        )
+        for log in batch_logs:
+            logs_by_user[log.user_id].append(log)
+
     return [
-        format_status_response(user, current_status, attendance, db)
+        format_status_response(
+            user, current_status, attendance, db,
+            prefetched_logs=logs_by_user.get(user.id) if (attendance and attendance.login_time and not attendance.logout_time) else None,
+        )
         for user, current_status, attendance in users_with_status
     ]
 
@@ -437,34 +468,42 @@ def set_team_meeting(
     now = datetime.utcnow()
     status_value = "meeting" if action == "start" else "active"
 
-    for user_id in user_ids:
+    parsed_ids = []
+    for uid in user_ids:
         try:
-            parsed_user_id = uuid.UUID(str(user_id))
+            parsed_ids.append(uuid.UUID(str(uid)))
         except ValueError:
             skipped += 1
-            continue
 
-        user = (
-            db.query(User)
-            .filter(
-                User.id == parsed_user_id,
-                User.company_id == current_user.company_id,
-                User.is_active.is_(True),
-            )
-            .first()
+    users = (
+        db.query(User)
+        .filter(
+            User.id.in_(parsed_ids),
+            User.company_id == current_user.company_id,
+            User.is_active.is_(True),
         )
-        if not user:
+        .all()
+    )
+    skipped += len(parsed_ids) - len(users)
+
+    valid_user_ids = [u.id for u in users]
+    users_by_id = {u.id: u for u in users}
+
+    statuses = (
+        db.query(CurrentStatus)
+        .filter(CurrentStatus.user_id.in_(valid_user_ids))
+        .all()
+    )
+    status_by_user = {cs.user_id: cs for cs in statuses}
+
+    for uid in valid_user_ids:
+        cs = status_by_user.get(uid)
+        if not cs:
             skipped += 1
             continue
-
-        current_status = get_user_current_status(user.id, db)
-        if not current_status:
-            skipped += 1
-            continue
-
-        current_status.status = status_value
-        current_status.updated_at = now
-        write_activity_log(user, status_value, now, db)
+        cs.status = status_value
+        cs.updated_at = now
+        write_activity_log(users_by_id[uid], status_value, now, db)
         updated += 1
 
     db.commit()

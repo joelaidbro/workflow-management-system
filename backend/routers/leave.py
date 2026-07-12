@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from datetime import date as date_type
 from datetime import datetime, timedelta
 
@@ -376,23 +377,26 @@ def get_leave_balance(
     year_end = date_type(year, 12, 31)
     balances = []
 
+    all_approved = (
+        db.query(LeaveRequest)
+        .filter(
+            LeaveRequest.user_id == user.id,
+            LeaveRequest.status == "approved",
+            LeaveRequest.start_date <= year_end,
+            LeaveRequest.end_date >= year_start,
+        )
+        .all()
+    )
+    requests_by_type = defaultdict(list)
+    for req in all_approved:
+        requests_by_type[req.leave_type].append(req)
+
     for leave_type in leave_types:
         leave_type_name = leave_type.get("name")
         annual_limit = leave_type.get("annual_limit", 0)
-        approved_requests = (
-            db.query(LeaveRequest)
-            .filter(
-                LeaveRequest.user_id == user.id,
-                LeaveRequest.leave_type == leave_type_name,
-                LeaveRequest.status == "approved",
-                LeaveRequest.start_date <= year_end,
-                LeaveRequest.end_date >= year_start,
-            )
-            .all()
-        )
 
         used_days = 0
-        for leave_request in approved_requests:
+        for leave_request in requests_by_type[leave_type_name]:
             counted_start = max(leave_request.start_date, year_start)
             counted_end = min(leave_request.end_date, year_end)
             used_days += calculate_total_days(counted_start, counted_end, working_day_numbers)

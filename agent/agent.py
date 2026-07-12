@@ -53,6 +53,7 @@ logging.basicConfig(
 
 config = {}
 last_activity_at = time.time()
+http_session = requests.Session()
 
 state_lock = threading.Lock()
 agent_state = "standby"
@@ -182,7 +183,7 @@ def get_current_status() -> str:
 def verify_agent_startup() -> tuple[bool, str]:
     global idle_threshold_seconds, screenshot_enabled, screenshot_interval_seconds, monitoring_enabled
     try:
-        response = requests.post(
+        response = http_session.post(
             f"{config['server_url']}/api/agent/verify",
             json={
                 "staff_id": config["staff_id"],
@@ -358,7 +359,7 @@ def normalize_server_status(status: str | None, active_session: bool) -> str:
 def poll_session_status() -> None:
     global idle_threshold_seconds, screenshot_enabled, screenshot_interval_seconds, monitoring_enabled
     try:
-        response = requests.get(
+        response = http_session.get(
             f"{config['server_url']}/api/agent/session-status",
             params={
                 "machine_token": config["machine_token"],
@@ -417,7 +418,7 @@ def send_heartbeat() -> None:
         else:
             heartbeat_status = get_current_status()
 
-        response = requests.post(
+        response = http_session.post(
             f"{config['server_url']}/api/agent/heartbeat",
             json={
                 "staff_id": config["staff_id"],
@@ -453,7 +454,7 @@ def process_alert_queue() -> None:
 
 def check_alerts() -> None:
     try:
-        response = requests.get(
+        response = http_session.get(
             f"{config['server_url']}/api/alerts/pending",
             params={
                 "staff_id": config["staff_id"],
@@ -688,7 +689,7 @@ def show_alert_popup(alert: dict) -> None:
 
 def acknowledge_alert(alert_recipient_id: str, reply: str | None = None) -> None:
     try:
-        response = requests.post(
+        response = http_session.post(
             f"{config['server_url']}/api/alerts/acknowledge",
             params={
                 "staff_id": config["staff_id"],
@@ -720,7 +721,7 @@ def capture_and_upload_screenshot() -> None:
         img_buffer.seek(0)
 
         captured_at = datetime.utcnow().isoformat() + "Z"
-        response = requests.post(
+        response = http_session.post(
             f"{config['server_url']}/api/screenshots/upload",
             data={
                 "machine_token": config["machine_token"],

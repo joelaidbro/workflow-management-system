@@ -389,10 +389,16 @@ function StaffDashboard() {
 
     const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
     const wsUrl = apiUrl.replace("https://", "wss://").replace("http://", "ws://");
+    let reconnectDelay = 3000;
+    let reconnectTimeout = null;
+    let destroyed = false;
+
+    function connect() {
     const ws = new WebSocket(`${wsUrl}/api/chat/ws/${currentUserId}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      reconnectDelay = 3000;
       ws.send(JSON.stringify({ token }));
     };
 
@@ -400,10 +406,25 @@ function StaffDashboard() {
 
     ws.onclose = () => {
       wsRef.current = null;
+      if (!destroyed) {
+        reconnectTimeout = setTimeout(() => {
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+          connect();
+        }, reconnectDelay);
+      }
     };
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (data.type === "error") {
+        toast.error(data.message || "Message failed to send");
+        return;
+      }
       if (data.type === "message_sent") {
         const activeConversation = selectedConversationRef.current;
         if (activeConversation) {
@@ -468,9 +489,17 @@ function StaffDashboard() {
       }
     };
 
+    }
+
+    connect();
+
     return () => {
-      ws.close();
-      wsRef.current = null;
+      destroyed = true;
+      clearTimeout(reconnectTimeout);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, [currentUserId]);
 
@@ -853,58 +882,60 @@ function StaffDashboard() {
     { id: "tasks", label: "My Tasks", icon: "✅" },
     { id: "profile", label: "Profile", icon: "👤" },
   ];
-  const selectedMonthNumber = selectedMonth.getMonth() + 1;
-  const selectedYear = selectedMonth.getFullYear();
-  const recordsByDate = new Map(
-    (attendanceSummary?.attendance_records || []).map((record) => [record.date, record])
-  );
-  const daysInMonth = new Date(selectedYear, selectedMonthNumber, 0).getDate();
-  const leadingBlankDays =
-    (new Date(selectedYear, selectedMonthNumber - 1, 1).getDay() + 6) % 7;
-  const calendarDays = [
-    ...Array.from({ length: leadingBlankDays }, (_, index) => ({
-      blank: true,
-      id: `blank-${index}`,
-    })),
-    ...Array.from({ length: daysInMonth }, (_, index) => {
-      const day = index + 1;
-      const date = new Date(selectedYear, selectedMonthNumber - 1, day);
-      const dateKey = `${selectedYear}-${String(selectedMonthNumber).padStart(
-        2,
-        "0"
-      )}-${String(day).padStart(2, "0")}`;
-      const record = recordsByDate.get(dateKey);
-      const defaultWorkingDays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-      const workingDays = attendanceSummary?.working_days || defaultWorkingDays;
-      const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-      const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
-      const isFuture = date > new Date();
-      let dotClass = "bg-white border border-gray-300";
+  const calendarDays = useMemo(() => {
+    const selectedMonthNumber = selectedMonth.getMonth() + 1;
+    const selectedYear = selectedMonth.getFullYear();
+    const recordsByDate = new Map(
+      (attendanceSummary?.attendance_records || []).map((record) => [record.date, record])
+    );
+    const daysInMonth = new Date(selectedYear, selectedMonthNumber, 0).getDate();
+    const leadingBlankDays =
+      (new Date(selectedYear, selectedMonthNumber - 1, 1).getDay() + 6) % 7;
+    return [
+      ...Array.from({ length: leadingBlankDays }, (_, index) => ({
+        blank: true,
+        id: `blank-${index}`,
+      })),
+      ...Array.from({ length: daysInMonth }, (_, index) => {
+        const day = index + 1;
+        const date = new Date(selectedYear, selectedMonthNumber - 1, day);
+        const dateKey = `${selectedYear}-${String(selectedMonthNumber).padStart(
+          2,
+          "0"
+        )}-${String(day).padStart(2, "0")}`;
+        const record = recordsByDate.get(dateKey);
+        const defaultWorkingDays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+        const workingDays = attendanceSummary?.working_days || defaultWorkingDays;
+        const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+        const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
+        const isFuture = date > new Date();
+        let dotClass = "bg-white border border-gray-300";
 
-      if (isWeekend || isFuture) {
-        dotClass = "bg-gray-300";
-      } else if (record?.work_mode === "leave") {
-        dotClass = "bg-blue-500";
-      } else if (record?.is_present) {
-        dotClass = "bg-green-500";
-      } else if (record) {
-        dotClass = "bg-red-500";
-      }
+        if (isWeekend || isFuture) {
+          dotClass = "bg-gray-300";
+        } else if (record?.work_mode === "leave") {
+          dotClass = "bg-blue-500";
+        } else if (record?.is_present) {
+          dotClass = "bg-green-500";
+        } else if (record) {
+          dotClass = "bg-red-500";
+        }
 
-      return {
-        id: dateKey,
-        date: dateKey,
-        day,
-        dotClass,
-        work_mode: record?.work_mode || "office",
-        working_minutes: record?.working_minutes || 0,
-        break_minutes: record?.break_minutes || 0,
-        idle_minutes: record?.idle_minutes || 0,
-        login_time: record?.login_time || null,
-        logout_time: record?.logout_time || null,
-      };
-    }),
-  ];
+        return {
+          id: dateKey,
+          date: dateKey,
+          day,
+          dotClass,
+          work_mode: record?.work_mode || "office",
+          working_minutes: record?.working_minutes || 0,
+          break_minutes: record?.break_minutes || 0,
+          idle_minutes: record?.idle_minutes || 0,
+          login_time: record?.login_time || null,
+          logout_time: record?.logout_time || null,
+        };
+      }),
+    ];
+  }, [selectedMonth, attendanceSummary]);
   const profile = attendanceSummary || profileDetails || user;
 
   const changeSelectedMonth = (offset) => {
