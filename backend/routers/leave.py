@@ -15,6 +15,11 @@ router = APIRouter()
 VALID_LEAVE_STATUSES = {"pending", "approved", "rejected"}
 VALID_REVIEW_DECISIONS = {"approved", "rejected"}
 
+DAY_NAME_TO_WEEKDAY = {
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+    "friday": 4, "saturday": 5, "sunday": 6,
+}
+
 
 class LeaveRequestBody(BaseModel):
     leave_type: str
@@ -54,8 +59,14 @@ def get_leave_types(company_id, db: Session):
     return leave_types if isinstance(leave_types, list) else []
 
 
-def calculate_total_days(start_date: date_type, end_date: date_type) -> int:
-    return (end_date - start_date).days + 1
+def calculate_total_days(start_date: date_type, end_date: date_type, working_day_numbers: set | None = None) -> int:
+    total = 0
+    current = start_date
+    while current <= end_date:
+        if working_day_numbers is None or current.weekday() in working_day_numbers:
+            total += 1
+        current += timedelta(days=1)
+    return total
 
 
 def format_utc_datetime(value):
@@ -300,32 +311,36 @@ def review_leave_request(
     total_days_affected = 0
 
     if review_data.decision == "approved":
+        company_config = get_company_config(leave_request.company_id, db)
+        raw_days = company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
+        working_day_numbers = {DAY_NAME_TO_WEEKDAY[d] for d in raw_days if d in DAY_NAME_TO_WEEKDAY}
+
         current_date = leave_request.start_date
         while current_date <= leave_request.end_date:
-            attendance = (
-                db.query(Attendance)
-                .filter(
-                    Attendance.user_id == leave_request.user_id,
-                    Attendance.date == current_date,
-                )
-                .first()
-            )
-            if attendance:
-                attendance.is_present = True
-            else:
-                db.add(
-                    Attendance(
-                        company_id=leave_request.company_id,
-                        user_id=leave_request.user_id,
-                        date=current_date,
-                        logged_in=False,
-                        report_submitted=False,
-                        is_present=True,
-                        work_mode="leave",
+            if current_date.weekday() in working_day_numbers:
+                attendance = (
+                    db.query(Attendance)
+                    .filter(
+                        Attendance.user_id == leave_request.user_id,
+                        Attendance.date == current_date,
                     )
+                    .first()
                 )
-
-            total_days_affected += 1
+                if attendance:
+                    attendance.is_present = True
+                else:
+                    db.add(
+                        Attendance(
+                            company_id=leave_request.company_id,
+                            user_id=leave_request.user_id,
+                            date=current_date,
+                            logged_in=False,
+                            report_submitted=False,
+                            is_present=True,
+                            work_mode="leave",
+                        )
+                    )
+                total_days_affected += 1
             current_date += timedelta(days=1)
 
     db.commit()
@@ -353,6 +368,10 @@ def get_leave_balance(
             "balances": [],
         }
 
+    company_config = get_company_config(current_user.company_id, db)
+    raw_days = company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
+    working_day_numbers = {DAY_NAME_TO_WEEKDAY[d] for d in raw_days if d in DAY_NAME_TO_WEEKDAY}
+
     year_start = date_type(year, 1, 1)
     year_end = date_type(year, 12, 31)
     balances = []
@@ -376,7 +395,7 @@ def get_leave_balance(
         for leave_request in approved_requests:
             counted_start = max(leave_request.start_date, year_start)
             counted_end = min(leave_request.end_date, year_end)
-            used_days += calculate_total_days(counted_start, counted_end)
+            used_days += calculate_total_days(counted_start, counted_end, working_day_numbers)
 
         balances.append(
             {

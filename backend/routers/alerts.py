@@ -228,6 +228,9 @@ def acknowledge_alert(
             detail="Forbidden",
         )
 
+    if alert_recipient.status == "acknowledged":
+        return {"acknowledged": True}
+
     alert_recipient.status = "acknowledged"
     alert_recipient.acknowledged_at = datetime.utcnow()
     alert_recipient.reply = acknowledge_data.reply
@@ -322,6 +325,9 @@ def acknowledge_my_alert(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Alert not found",
         )
+
+    if alert_recipient.status == "acknowledged":
+        return {"acknowledged": True}
 
     alert_recipient.status = "acknowledged"
     alert_recipient.acknowledged_at = datetime.utcnow()

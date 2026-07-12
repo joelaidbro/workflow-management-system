@@ -342,6 +342,12 @@ def end_day(
             detail="Cannot end workday while on break. Please end your break first.",
         )
 
+    if current_status and current_status.status == "meeting":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot end workday while in a meeting. Please end your meeting first.",
+        )
+
     now = datetime.utcnow()
     today = now.date()
     attendance = (
@@ -363,6 +369,12 @@ def end_day(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Day already ended",
+        )
+
+    if not attendance.logged_in:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Day not started — please use start-day first",
         )
 
     # Reconstruct offline periods from the activity log so powered-off gaps are
@@ -461,8 +473,14 @@ def get_today_attendance(
         and (now - machine_token_row.last_seen_at).total_seconds() < 20
     )
 
+    current_status_row = (
+        db.query(CurrentStatus)
+        .filter(CurrentStatus.user_id == current_user.id)
+        .first()
+    )
+
     if not attendance:
-        return {"started": False, "agent_connected": agent_connected}
+        return {"started": False, "agent_connected": agent_connected, "current_status": None, "break_started_at": None}
 
     # Live working minutes: subtract offline gaps for an active session; use the
     # stored value once the day is closed.
@@ -492,6 +510,8 @@ def get_today_attendance(
         "idle_minutes": attendance.idle_minutes,
         "offline_minutes": attendance.offline_minutes,
         "agent_connected": agent_connected,
+        "current_status": current_status_row.status if current_status_row else None,
+        "break_started_at": format_utc_datetime(current_status_row.break_started_at) if current_status_row else None,
     }
 
 

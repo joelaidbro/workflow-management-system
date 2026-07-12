@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, hash_password
 from database import get_db
-from models import MachineToken, Session as UserSession, User
+from models import ActivityLog, CurrentStatus, MachineToken, Session as UserSession, User
 
 router = APIRouter()
 
@@ -347,6 +347,21 @@ def generate_agent_token(
     )
 
     if existing_token:
+        if existing_token.session_active:
+            now = datetime.utcnow()
+            cs = db.query(CurrentStatus).filter(CurrentStatus.user_id == user.id).first()
+            if cs and cs.status != "offline":
+                db.add(ActivityLog(
+                    company_id=user.company_id,
+                    user_id=user.id,
+                    status="offline",
+                    timestamp=now,
+                    machine_id=cs.machine_id,
+                ))
+                cs.status = "offline"
+                cs.updated_at = now
+            existing_token.session_active = False
+
         existing_token.token = new_token
         existing_token.is_active = True
         existing_token.created_at = datetime.utcnow()

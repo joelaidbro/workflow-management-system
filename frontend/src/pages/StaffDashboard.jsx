@@ -280,18 +280,14 @@ function StaffDashboard() {
         if (response.data?.work_mode) {
           setWorkMode(response.data.work_mode);
         }
-        setCurrentStatus((previousStatus) => {
-          if (!response.data?.started) {
-            return "not_started";
-          }
-          if (response.data.logout_time) {
-            return "ended";
-          }
-          if (previousStatus === "break" || previousStatus === "meeting") {
-            return previousStatus;
-          }
-          return "active";
+        setCurrentStatus(() => {
+          if (!response.data?.started) return "not_started";
+          if (response.data.logout_time) return "ended";
+          return response.data.current_status || "active";
         });
+        if (response.data?.break_started_at) {
+          setBreakStartedAt(response.data.break_started_at);
+        }
       } catch (error) {
         toast.error("Could not load today's attendance");
       } finally {
@@ -1696,7 +1692,7 @@ function StaffDashboard() {
                               : "Acknowledge"}
                           </button>
                         )}
-                        {replyAlertId !== alert.alert_recipient_id && (
+                        {replyAlertId !== alert.alert_recipient_id && !alert.reply && (
                           <button
                             type="button"
                             onClick={() => {

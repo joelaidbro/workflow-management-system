@@ -255,6 +255,28 @@ def start_break(
             detail="Already on break",
         )
 
+    today_attendance = (
+        db.query(Attendance)
+        .filter(
+            Attendance.user_id == current_user.id,
+            Attendance.date == datetime.utcnow().date(),
+            Attendance.logged_in == True,
+            Attendance.logout_time == None,
+        )
+        .first()
+    )
+    if not today_attendance:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please start your work day first",
+        )
+
+    if current_status.status == "meeting":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot start a break while in a meeting. Please end your meeting first.",
+        )
+
     now = datetime.utcnow()
     current_status.status = "break"
     current_status.break_started_at = now
@@ -326,6 +348,28 @@ def start_meeting(
             detail="Already in a meeting",
         )
 
+    today_attendance = (
+        db.query(Attendance)
+        .filter(
+            Attendance.user_id == current_user.id,
+            Attendance.date == datetime.utcnow().date(),
+            Attendance.logged_in == True,
+            Attendance.logout_time == None,
+        )
+        .first()
+    )
+    if not today_attendance:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please start your work day first",
+        )
+
+    if current_status.status == "break":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot start a meeting while on a break. Please end your break first.",
+        )
+
     now = datetime.utcnow()
     current_status.status = "meeting"
     current_status.updated_at = now
@@ -350,12 +394,26 @@ def end_meeting(
         )
 
     now = datetime.utcnow()
+    meeting_started_at = current_status.updated_at or now
+    meeting_duration_minutes = round((now - meeting_started_at).total_seconds() / 60)
+
+    attendance = (
+        db.query(Attendance)
+        .filter(
+            Attendance.user_id == current_user.id,
+            Attendance.date == now.date(),
+        )
+        .first()
+    )
+    if attendance:
+        attendance.meeting_minutes = (attendance.meeting_minutes or 0) + meeting_duration_minutes
+
     current_status.status = "active"
     current_status.updated_at = now
     write_activity_log(current_user, "active", now, db)
     db.commit()
 
-    return {"status": "active"}
+    return {"status": "active", "meeting_duration_minutes": meeting_duration_minutes}
 
 
 @router.post("/status/meeting/set-team")
