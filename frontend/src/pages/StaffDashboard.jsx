@@ -317,7 +317,6 @@ function StaffDashboard() {
     const fetchConversations = async () => {
       try {
         const response = await api.get("/api/chat/conversations");
-        console.log("Conversations response:", response.data);
         setConversations(response.data);
       } catch (error) {
         toast.error("Could not load messages");
@@ -398,29 +397,17 @@ function StaffDashboard() {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("WebSocket connected successfully");
       ws.send(JSON.stringify({ token }));
-      console.log("Auth token sent");
     };
 
-    ws.onerror = (error) => {
-      console.log("WebSocket error:", error);
-    };
+    ws.onerror = () => {};
 
-    ws.onclose = (event) => {
-      console.log(
-        "WebSocket closed. Code:",
-        event.code,
-        "Reason:",
-        event.reason
-      );
+    ws.onclose = () => {
       wsRef.current = null;
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log("Raw websocket data:", data);
-      console.log("WebSocket message received:", data);
       if (data.type === "message_sent") {
         const activeConversation = selectedConversationRef.current;
         if (activeConversation) {
@@ -729,17 +716,12 @@ function StaffDashboard() {
   };
 
   const handleSendMessage = () => {
-    console.log("Send attempted. Input:", chatInput);
-    console.log("WebSocket state:", wsRef.current?.readyState);
-    console.log("Selected conversation:", selectedConversation);
-
     const content = chatInput.trim();
     if (!content || !selectedConversation) {
       return;
     }
 
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      console.log("WebSocket not connected. State:", wsRef.current?.readyState);
       return;
     }
 
@@ -753,7 +735,6 @@ function StaffDashboard() {
     };
 
     setChatMessages((current) => [...current, optimisticMessage]);
-    console.log("Optimistic message added:", optimisticMessage);
     lastSentMessageRef.current = content;
     wsRef.current.send(
       JSON.stringify({
@@ -761,7 +742,6 @@ function StaffDashboard() {
         content,
       })
     );
-    console.log("WebSocket send completed");
     setChatInput("");
   };
 

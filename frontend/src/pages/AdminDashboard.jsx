@@ -67,9 +67,6 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
     const fetchTeamStatus = async () => {
       try {
         const response = await api.get("/api/status/team");
-        console.log("TEAM STATUS DATA");
-        console.log(response.data);
-        console.log(JSON.stringify(response.data, null, 2));
         if (isMounted) {
           setStaffList(response.data);
           setError("");
@@ -1686,9 +1683,6 @@ function ChatPanel({ chatWithUser }) {
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
-    console.log("token:", token);
-    console.log("currentUserId:", currentUserId);
-    console.log("Will initialize websocket?", !!token && !!currentUserId);
     if (!token || !currentUserId) {
       return;
     }
@@ -1699,33 +1693,17 @@ function ChatPanel({ chatWithUser }) {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("WebSocket connected successfully");
-      console.log("OPEN READY STATE:", ws.readyState);
-      console.log("wsRef.current === ws ?", wsRef.current === ws);
       ws.send(JSON.stringify({ token }));
-      console.log("Auth token sent");
     };
 
-    ws.onerror = (error) => {
-      console.log("WebSocket error:", error);
-    };
+    ws.onerror = () => {};
 
-    ws.onclose = (event) => {
-      console.log(
-        "WebSocket closed. Code:",
-        event.code,
-        "Reason:",
-        event.reason
-      );
-      console.log("CLOSED", event.code);
-      console.log("wsRef.current before null:", wsRef.current);
+    ws.onclose = () => {
       wsRef.current = null;
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log("Raw websocket data:", data);
-      console.log("WebSocket message received:", data);
 
       if (data.type === "message_sent") {
         const activeConversation = selectedConversationRef.current;
@@ -1917,17 +1895,12 @@ function ChatPanel({ chatWithUser }) {
   };
 
   const handleSendMessage = () => {
-    console.log("Send attempted. Input:", messageText);
-    console.log("WebSocket state:", wsRef.current?.readyState);
-    console.log("Selected conversation:", selectedConversation);
-
     const content = messageText.trim();
     if (!content || !selectedConversation) {
       return;
     }
 
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      console.log("WebSocket not connected. State:", wsRef.current?.readyState);
       return;
     }
 
@@ -1941,7 +1914,6 @@ function ChatPanel({ chatWithUser }) {
     };
 
     setMessages((current) => [...current, optimisticMessage]);
-    console.log("Optimistic message added:", optimisticMessage);
     lastSentMessageRef.current = content;
     setConversations((current) =>
       current.map((conversation) =>
@@ -1960,7 +1932,6 @@ function ChatPanel({ chatWithUser }) {
         content,
       })
     );
-    console.log("WebSocket send completed");
     setMessageText("");
   };
 
@@ -4934,7 +4905,7 @@ function AdminDashboard() {
         const response = await api.get("/api/chat/unread-count");
         setUnreadCount(response.data.unread_count);
       } catch (err) {
-        console.error("Could not load unread count", err);
+        // silently ignore — unread count is non-critical
       }
     };
 

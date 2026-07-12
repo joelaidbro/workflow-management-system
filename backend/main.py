@@ -74,7 +74,7 @@ async def offline_detection_task():
 
 
 async def screenshot_cleanup_task():
-    print("Screenshot cleanup task started")
+    logging.info("Screenshot cleanup task started")
     while True:
         db = SessionLocal()
         try:
@@ -110,7 +110,7 @@ async def screenshot_cleanup_task():
 
 
 async def company_deletion_task():
-    print("Company deletion task started")
+    logging.info("Company deletion task started")
     while True:
         db = SessionLocal()
         try:

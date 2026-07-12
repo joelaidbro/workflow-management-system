@@ -1,7 +1,5 @@
-requests
-pynput
-pyinstaller
-Pillow
-pyautogui
-python-multipart
-pystray
+requests==2.34.2
+pynput==1.8.2
+Pillow==12.3.0
+pyautogui==0.9.54
+pystray==0.19.5

@@ -188,9 +188,6 @@ def get_message_history(
             message.is_read = True
     db.commit()
 
-    for message in reversed(messages):
-        print("HISTORY:", message.created_at, type(message.created_at))
-
     return [
         {
             "message_id": str(message.id),
