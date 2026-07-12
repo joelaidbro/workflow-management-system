@@ -3,6 +3,7 @@ import winsound
 import io
 import json
 import logging
+import os
 import queue
 import sys
 import threading
@@ -239,7 +240,7 @@ def exit_from_status_window() -> None:
         return
 
     if messagebox.askyesno("WorkFlow Agent", "Exit WorkFlow Agent?"):
-        sys.exit(0)
+        os._exit(0)
 
 
 def create_status_window():
@@ -792,7 +793,7 @@ def exit_agent(icon, item) -> None:
         return
 
     icon.stop()
-    sys.exit(0)
+    os._exit(0)
 
 
 def create_tray_menu() -> pystray.Menu:

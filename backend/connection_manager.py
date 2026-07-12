@@ -11,6 +11,15 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[user_id] = websocket
 
+    async def register(self, user_id: str, websocket: WebSocket):
+        old = self.active_connections.get(user_id)
+        if old is not None and old is not websocket:
+            try:
+                await old.close(code=1001)
+            except Exception:
+                pass
+        self.active_connections[user_id] = websocket
+
     def disconnect(self, user_id: str):
         if user_id in self.active_connections:
             del self.active_connections[user_id]

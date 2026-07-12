@@ -123,11 +123,3 @@ def me(current_user: User = Depends(get_current_user)):
         "department": current_user.department,
         "job_title": current_user.job_title,
     }
-
-
-@router.get("/auth/token")
-def get_token(
-    request: Request,
-    current_user: User = Depends(get_current_user),
-):
-    return {"token": request.cookies.get("access_token")}

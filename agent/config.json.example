@@ -1,0 +1,7 @@
+{
+  "server_url": "https://yourdomain.com",
+  "machine_token": "<token from admin panel — Users > Generate Agent Token>",
+  "staff_id": "<staff UUID from admin panel>",
+  "screenshot_enabled": true,
+  "screenshot_interval_seconds": 300
+}

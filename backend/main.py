@@ -8,11 +8,14 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+
+from sqlalchemy.exc import IntegrityError
 
 from database import SessionLocal, get_db
 from models import ActivityLog, Attendance, Company, CurrentStatus, MachineToken, Screenshot, User
@@ -339,16 +342,33 @@ async def lifespan(app: FastAPI):
                 pass
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
 app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request, exc):
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "A conflicting record already exists. Please try again."},
+    )
 
 allowed_origins_value = os.getenv("ALLOWED_ORIGINS")
-allowed_origins = (
-    [origin.strip() for origin in allowed_origins_value.split(",")]
-    if allowed_origins_value
-    else []
-)
+if not allowed_origins_value:
+    raise RuntimeError("ALLOWED_ORIGINS is not set. Add it to your .env file (e.g. ALLOWED_ORIGINS=https://yourdomain.com).")
+allowed_origins = [origin.strip() for origin in allowed_origins_value.split(",")]
 
 app.add_middleware(
     CORSMiddleware,

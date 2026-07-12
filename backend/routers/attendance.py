@@ -797,6 +797,15 @@ def export_salary_slip_pdf(
         )
 
     company = db.query(Company).filter(Company.id == staff.company_id).first()
+
+    if current_user.role == "staff":
+        company_config = company.config if company and company.config else {}
+        if not company_config.get("salary_visibility_to_staff", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Salary information is not available to staff",
+            )
+
     summary = build_attendance_summary(staff, month, year, db)
 
     output = BytesIO()

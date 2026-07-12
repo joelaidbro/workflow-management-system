@@ -1,6 +1,7 @@
 import os
 import uuid
 from datetime import datetime, time, timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -98,6 +99,8 @@ async def upload_screenshot(
         f"{timestamp_part}.jpg",
     )
     full_path = os.path.join(SCREENSHOTS_BASE_PATH, relative_path)
+    if not Path(full_path).resolve().is_relative_to(Path(SCREENSHOTS_BASE_PATH).resolve()):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
     contents = await file.read()
@@ -204,6 +207,8 @@ def get_screenshot_file(
         )
 
     full_path = os.path.join(SCREENSHOTS_BASE_PATH, screenshot.file_path)
+    if not Path(full_path).resolve().is_relative_to(Path(SCREENSHOTS_BASE_PATH).resolve()):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     if not os.path.exists(full_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

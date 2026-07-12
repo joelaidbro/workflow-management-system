@@ -33,7 +33,7 @@ async def chat_websocket(websocket: WebSocket, user_id: str):
     db = SessionLocal()
     connected_user_id = None
 
-    await manager.connect(user_id, websocket)
+    await websocket.accept()
     try:
         auth_message = await websocket.receive_json()
         token = auth_message.get("token")
@@ -70,6 +70,7 @@ async def chat_websocket(websocket: WebSocket, user_id: str):
             await websocket.close(code=1008)
             return
 
+        await manager.register(user_id, websocket)
         connected_user_id = user_id
 
         while True:
