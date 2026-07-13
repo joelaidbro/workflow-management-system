@@ -52,7 +52,7 @@ jobs:
             sleep 8
 
             echo "--- Health check ---"
-            if ! systemctl is-active --quiet workflowapp || ! curl -sfk https://127.0.0.1:8001/api/health > /dev/null; then
+            if ! systemctl is-active --quiet workflowapp || ! curl -sfk https://127.0.0.1:8001/health > /dev/null; then
               echo "!!! Health check failed — rolling back to $PREV_COMMIT"
               git reset --hard "$PREV_COMMIT"
               source backend/.venv/bin/activate
