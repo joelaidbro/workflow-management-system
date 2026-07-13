@@ -3874,10 +3874,8 @@ function ScreenshotsPanel() {
   useEffect(() => {
     const fetchStaff = async () => {
       try {
-        const response = await api.get("/api/users/list", {
-          params: { role: "staff" },
-        });
-        setStaffList(response.data.filter((staff) => staff.role === "staff"));
+        const response = await api.get("/api/users/list");
+        setStaffList(response.data.filter((u) => u.role === "staff" || u.role === "admin"));
       } catch (error) {
         toast.error("Could not load staff members");
       }
@@ -4908,7 +4906,6 @@ const navItems = [
   { id: "alerts", label: "Alerts" },
   { id: "chat", label: "Chat" },
   { id: "tasks", label: "Tasks" },
-  { id: "my-day", label: "My Day", adminOnly: true },
 ];
 
 function AdminDashboard() {
@@ -4989,11 +4986,9 @@ function AdminDashboard() {
   }, []);
 
   const activeItem = navItems.find((item) => item.id === activeSection);
-  const visibleNavItems = navItems.filter((item) => {
-    if (item.superAdminOnly && user?.role !== "super_admin") return false;
-    if (item.adminOnly && user?.role !== "admin") return false;
-    return true;
-  });
+  const visibleNavItems = navItems.filter(
+    (item) => !item.superAdminOnly || user?.role === "super_admin"
+  );
 
   const handleLogout = async () => {
     try {
@@ -5038,16 +5033,15 @@ function AdminDashboard() {
       return <TasksPanel />;
     }
 
-    if (activeSection === "my-day") {
-      return <MyDayPanel />;
-    }
-
     return (
-      <TeamStatusPanel
-        setActiveSection={setActiveSection}
-        setChatWithUser={setChatWithUser}
-        openProfile={setProfileUser}
-      />
+      <div className="space-y-8">
+        {user?.role === "admin" && <MyDayPanel />}
+        <TeamStatusPanel
+          setActiveSection={setActiveSection}
+          setChatWithUser={setChatWithUser}
+          openProfile={setProfileUser}
+        />
+      </div>
     );
   };
 
