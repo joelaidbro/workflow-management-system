@@ -3,8 +3,16 @@ Description=WorkFlow App Backend
 After=network.target postgresql.service
 
 [Service]
-User=root
-Group=root
+# Run as a dedicated non-root user.
+# One-time setup on the server (run once, then copy this file):
+#   useradd --system --no-create-home --shell /usr/sbin/nologin workflowapp
+#   chown -R workflowapp:workflowapp /home/teams.aidbro.com/workflow
+#   chown -R workflowapp:workflowapp /home/teams.aidbro.com/logos
+#   chown -R workflowapp:workflowapp /home/teams.aidbro.com/screenshots
+#   chown -R workflowapp:workflowapp /var/log/workflowapp
+#   systemctl daemon-reload && systemctl restart workflowapp
+User=workflowapp
+Group=workflowapp
 WorkingDirectory=/home/teams.aidbro.com/workflow/backend
 Environment="PATH=/home/teams.aidbro.com/workflow/backend/.venv/bin"
 EnvironmentFile=/home/teams.aidbro.com/workflow/backend/.env
@@ -13,6 +21,14 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+
+# Resource limits (VPS: 8 GB RAM)
+MemoryMax=1500M
+CPUQuota=80%
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

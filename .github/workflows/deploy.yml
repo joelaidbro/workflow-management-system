@@ -11,10 +11,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
@@ -27,21 +27,42 @@ jobs:
 
             cd /home/teams.aidbro.com/workflow
 
+            PREV_COMMIT=$(git rev-parse HEAD)
+            echo "Previous commit: $PREV_COMMIT"
+
             echo "--- Updating code ---"
             git fetch origin
             git reset --hard origin/main
+            echo "New commit: $(git rev-parse HEAD)"
 
-            echo "--- Updating backend ---"
+            echo "--- Updating backend dependencies ---"
             source backend/.venv/bin/activate
             pip install -r backend/requirements.txt --quiet
+
+            echo "--- Running migrations ---"
             cd backend
             alembic upgrade head
             cd ..
 
             echo "--- Restarting backend service ---"
             systemctl restart workflowapp
-            sleep 3
-            systemctl is-active workflowapp && echo "Backend running" || echo "Backend FAILED"
+            sleep 8
+
+            echo "--- Health check ---"
+            if ! systemctl is-active --quiet workflowapp || ! curl -sf http://127.0.0.1:8001/api/health > /dev/null; then
+              echo "!!! Health check failed — rolling back to $PREV_COMMIT"
+              git reset --hard "$PREV_COMMIT"
+              source backend/.venv/bin/activate
+              pip install -r backend/requirements.txt --quiet
+              systemctl restart workflowapp
+              sleep 5
+              systemctl is-active --quiet workflowapp \
+                && echo "Rollback OK — previous version restored" \
+                || echo "Rollback restart also failed — manual intervention required"
+              exit 1
+            fi
+
+            echo "Backend healthy."
 
             echo "--- Building frontend ---"
             cd frontend
@@ -50,4 +71,4 @@ jobs:
             cp -r dist/* /home/teams.aidbro.com/public_html/
             cd ..
 
-            echo "=== Deployment complete ==="
+            echo "=== Deployment complete: $(git rev-parse HEAD) ==="

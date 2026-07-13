@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
@@ -201,7 +201,7 @@ def get_message_history(
 
 @router.get("/chat/conversations")
 def get_conversations(
-    request: Request,
+    fmt: str | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -273,34 +273,15 @@ def get_conversations(
         .count()
     )
 
-    referer = request.headers.get("referer", "").lower()
-    is_frontend = (
-        "localhost" in referer or
-        "5173" in referer or
-        "teams.aidbro.com" in referer or
-        "aidbro" in referer
-    )
-
-    fmt = request.query_params.get("format")
     if fmt == "dict":
         return {
             "conversations": conversations,
             "total_unread_count": total_unread_count,
         }
-    elif fmt == "list":
-        for c in conversations:
-            c["total_unread_count"] = total_unread_count
-        return conversations
 
-    if is_frontend:
-        for c in conversations:
-            c["total_unread_count"] = total_unread_count
-        return conversations
-
-    return {
-        "conversations": conversations,
-        "total_unread_count": total_unread_count,
-    }
+    for c in conversations:
+        c["total_unread_count"] = total_unread_count
+    return conversations
 
 
 @router.get("/chat/unread-count")
