@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import ActivityLog, Attendance, Company, CurrentStatus, MachineToken, User
+from routers.settings import get_config
 
 
 router = APIRouter()
@@ -166,7 +167,7 @@ def verify_agent(
         )
 
     company = db.query(Company).filter(Company.id == user.company_id).first()
-    company_config = company.config if company and company.config else {}
+    company_config = get_config(company) if company else {}
     idle_timeout_minutes = company_config.get("idle_timeout_minutes", 10)
     screenshot_enabled = company_config.get("screenshot_enabled", True)
     screenshot_interval_seconds = company_config.get("screenshot_interval_seconds", 600)
@@ -207,7 +208,7 @@ def get_agent_session_status(
     )
 
     company = db.query(Company).filter(Company.id == user.company_id).first()
-    company_config = company.config if company and company.config else {}
+    company_config = get_config(company) if company else {}
     idle_timeout_minutes = company_config.get("idle_timeout_minutes", 10)
     screenshot_enabled = company_config.get("screenshot_enabled", True)
     screenshot_interval_seconds = company_config.get("screenshot_interval_seconds", 600)

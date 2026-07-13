@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_staff, require_admin
+from utils import format_utc_datetime
+from routers.settings import get_config
 from database import get_db
 from models import Attendance, Company, LeaveRequest, User
 
@@ -34,25 +36,12 @@ class LeaveReviewBody(BaseModel):
     comment: str | None = None
 
 
-def require_staff(current_user: User):
-    if current_user.role != "staff":
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-
-def require_admin(current_user: User):
-    if current_user.role not in {"admin", "super_admin"}:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
 
 def get_company_config(company_id, db: Session):
     company = db.query(Company).filter(Company.id == company_id).first()
-    return company.config if company and company.config else {}
+    if not company:
+        return {}
+    return get_config(company)
 
 
 def get_leave_types(company_id, db: Session):
@@ -68,10 +57,6 @@ def calculate_total_days(start_date: date_type, end_date: date_type, working_day
             total += 1
         current += timedelta(days=1)
     return total
-
-
-def format_utc_datetime(value):
-    return value.isoformat() + "Z" if value else None
 
 
 def get_staff_user(user_id: str, current_user: User, db: Session):

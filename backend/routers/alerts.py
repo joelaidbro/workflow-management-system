@@ -1,4 +1,3 @@
-import re
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -8,8 +7,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
+from utils import format_utc_datetime, strip_html_tags
+from routers.settings import get_config
 from database import get_db
-from main import limiter
+from limiter import limiter
 from models import Alert, AlertRecipient, Company, User
 from routers.agent import verify_machine_token
 
@@ -33,13 +34,6 @@ class AcknowledgeAlertRequest(BaseModel):
 class BrowserAcknowledgeAlertRequest(BaseModel):
     reply: str | None = None
 
-
-def strip_html_tags(message: str) -> str:
-    return re.sub(r"<[^>]*>", "", message).strip()
-
-
-def format_utc_datetime(value):
-    return value.isoformat() + "Z" if value else None
 
 
 @router.post("/alerts/send")
@@ -74,7 +68,7 @@ def send_alert(
         .filter(Company.id == current_user.company_id)
         .first()
     )
-    company_config = company.config if company and company.config else {}
+    company_config = get_config(company) if company else {}
     expiry_minutes = company_config.get("alert_expiry_minutes", 120)
 
     now = datetime.utcnow()

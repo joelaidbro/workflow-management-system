@@ -1,4 +1,3 @@
-import re
 import uuid
 from datetime import datetime
 
@@ -7,15 +6,13 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from auth import decode_jwt, get_current_user
+from utils import strip_html_tags
 from connection_manager import manager
 from database import SessionLocal, get_db
 from models import Message, User
 
 router = APIRouter()
 
-
-def strip_html_tags(content: str) -> str:
-    return re.sub(r"<[^>]*>", "", content).strip()
 
 
 def parse_datetime(value: str | None):

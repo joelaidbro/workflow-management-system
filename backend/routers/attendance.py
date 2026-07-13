@@ -1,4 +1,3 @@
-import re
 import uuid
 from collections import defaultdict
 from io import BytesIO
@@ -11,9 +10,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_staff, require_staff_or_admin, require_admin, require_super_admin
+from utils import compute_working_minutes, format_utc_datetime, strip_html_tags
+from routers.settings import get_config
 from database import get_db
-from main import limiter
+from limiter import limiter
 from models import ActivityLog, Attendance, Company, CurrentStatus, DailyReport, MachineToken, SalaryRecord, User
 
 router = APIRouter()
@@ -37,44 +38,6 @@ class SalaryApprovalRequest(BaseModel):
     final_salary: Decimal
 
 
-def strip_html_tags(value: str) -> str:
-    return re.sub(r"<[^>]*>", "", value).strip()
-
-
-def format_utc_datetime(value):
-    return value.isoformat() + "Z" if value else None
-
-
-def require_staff(current_user: User):
-    if current_user.role != "staff":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-
-def require_staff_or_admin(current_user: User):
-    if current_user.role not in {"staff", "admin"}:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-
-def require_admin(current_user: User):
-    if current_user.role not in {"admin", "super_admin"}:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-
-def require_super_admin(current_user: User):
-    if current_user.role != "super_admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
 
 
 def get_month_range(month: int, year: int):
@@ -145,7 +108,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
     days_absent = total_working_days - days_present
 
     company = db.query(Company).filter(Company.id == user.company_id).first()
-    company_config = company.config if company and company.config else {}
+    company_config = get_config(company) if company else {}
     working_days = company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
 
     return {
@@ -188,7 +151,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
 
 def calculate_monthly_salary(user: User, summary: dict, db: Session):
     company = db.query(Company).filter(Company.id == user.company_id).first()
-    company_config = company.config if company and company.config else {}
+    company_config = get_config(company) if company else {}
     configured_days = company_config.get("working_days_per_month")
     total_days = configured_days or (
         summary["days_present"] + summary["days_absent"]
@@ -218,18 +181,8 @@ def compute_live_working_minutes(user_id, login_time: datetime, db: Session) -> 
         .order_by(ActivityLog.timestamp.asc())
         .all()
     )
-    offline_minutes = 0
-    offline_start = None
-    for log in logs:
-        if log.status == "offline" and offline_start is None:
-            offline_start = log.timestamp
-        elif log.status != "offline" and offline_start is not None:
-            offline_minutes += round((log.timestamp - offline_start).total_seconds() / 60)
-            offline_start = None
-    if offline_start is not None:
-        offline_minutes += round((now - offline_start).total_seconds() / 60)
-    total_elapsed = int((now - login_time).total_seconds() // 60)
-    return max(0, total_elapsed - offline_minutes)
+    working_minutes, _ = compute_working_minutes(login_time, now, logs)
+    return working_minutes
 
 
 @router.post("/attendance/start-day")
@@ -391,19 +344,7 @@ def end_day(
         .all()
     )
 
-    offline_minutes = 0
-    offline_start = None
-    for log in activity_logs:
-        if log.status == "offline" and offline_start is None:
-            offline_start = log.timestamp
-        elif log.status != "offline" and offline_start is not None:
-            offline_minutes += round((log.timestamp - offline_start).total_seconds() / 60)
-            offline_start = None
-    if offline_start is not None:
-        offline_minutes += round((now - offline_start).total_seconds() / 60)
-
-    total_elapsed = int((now - attendance.login_time).total_seconds() // 60)
-    working_minutes = max(0, total_elapsed - offline_minutes)
+    working_minutes, offline_minutes = compute_working_minutes(attendance.login_time, now, activity_logs)
 
     attendance.logout_time = now
     attendance.report_submitted = True
@@ -738,7 +679,7 @@ def export_team_attendance_excel(
     salary_by_user = {str(r.user_id): r for r in all_salary_records}
 
     company = db.query(Company).filter(Company.id == current_user.company_id).first()
-    company_config = company.config if company and company.config else {}
+    company_config = get_config(company) if company else {}
     configured_days = company_config.get("working_days_per_month")
 
     for staff in staff_members:
@@ -835,7 +776,7 @@ def export_salary_slip_pdf(
     company = db.query(Company).filter(Company.id == staff.company_id).first()
 
     if current_user.role == "staff":
-        company_config = company.config if company and company.config else {}
+        company_config = get_config(company) if company else {}
         if not company_config.get("salary_visibility_to_staff", False):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

@@ -4,11 +4,12 @@ import os
 from copy import deepcopy
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_super_admin
 from database import get_db
 from models import Company, User
 
@@ -57,13 +58,6 @@ class LeaveTypeRequest(BaseModel):
     annual_limit: int
     carry_forward: bool = False
 
-
-def require_super_admin(current_user: User):
-    if current_user.role != "super_admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
 
 
 def get_current_company(current_user: User, db: Session):
@@ -239,3 +233,16 @@ def delete_logo(
         db.commit()
 
     return {"message": "Logo deleted"}
+
+
+@router.get("/settings/logo/file")
+def get_logo_file(company_id: str, db: Session = Depends(get_db)):
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company or not company.logo_path:
+        raise HTTPException(status_code=404, detail="Logo not found")
+
+    logo_full_path = os.path.join(LOGOS_DIR, company.logo_path)
+    if not os.path.exists(logo_full_path):
+        raise HTTPException(status_code=404, detail="Logo not found")
+
+    return FileResponse(logo_full_path, media_type="image/png")

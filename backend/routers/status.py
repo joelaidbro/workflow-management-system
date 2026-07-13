@@ -4,41 +4,15 @@ from datetime import datetime, time, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_admin, require_staff_or_admin
+from utils import compute_working_minutes, format_utc_datetime
 from database import get_db
 from models import ActivityLog, Attendance, CurrentStatus, User
 
 router = APIRouter()
 
-ADMIN_ROLES = {"admin", "super_admin"}
 OFFLINE_GRACE_PERIOD = timedelta(minutes=2)
 OFFLINE_EXEMPT_STATUSES = {"break", "meeting"}
-STAFF_ONLY_ROLES = {"staff", "admin"}
-MEETING_ROLES = {"staff", "admin"}
-
-
-def require_admin_user(current_user):
-    if current_user.role not in ADMIN_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-
-def require_staff_user(current_user):
-    if current_user.role not in STAFF_ONLY_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-
-def require_meeting_user(current_user):
-    if current_user.role not in MEETING_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
 
 
 def get_user_current_status(user_id, db):
@@ -54,10 +28,6 @@ def write_activity_log(user, status_value, timestamp, db):
             timestamp=timestamp,
         )
     )
-
-
-def format_utc_datetime(value):
-    return value.isoformat() + "Z" if value else None
 
 
 def calculate_status(current_status):
@@ -93,18 +63,8 @@ def _compute_live_working_minutes(user_id, login_time, db=None, prefetched_logs=
             .order_by(ActivityLog.timestamp.asc())
             .all()
         )
-    offline_minutes = 0
-    offline_start = None
-    for log in logs:
-        if log.status == "offline" and offline_start is None:
-            offline_start = log.timestamp
-        elif log.status != "offline" and offline_start is not None:
-            offline_minutes += round((log.timestamp - offline_start).total_seconds() / 60)
-            offline_start = None
-    if offline_start is not None:
-        offline_minutes += round((now - offline_start).total_seconds() / 60)
-    total_elapsed = int((now - login_time).total_seconds() // 60)
-    return max(0, total_elapsed - offline_minutes)
+    working_minutes, _ = compute_working_minutes(login_time, now, logs)
+    return working_minutes
 
 
 def format_status_response(user, current_status, attendance=None, db=None, prefetched_logs=None):
@@ -147,7 +107,7 @@ def get_team_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_admin_user(current_user)
+    require_admin(current_user)
 
     today = datetime.utcnow().date()
     query = (
@@ -209,7 +169,7 @@ def get_user_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_admin_user(current_user)
+    require_admin(current_user)
 
     try:
         requested_user_id = uuid.UUID(str(user_id))
@@ -271,7 +231,7 @@ def start_break(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_staff_user(current_user)
+    require_staff_or_admin(current_user)
 
     current_status = get_user_current_status(current_user.id, db)
     if not current_status:
@@ -323,7 +283,7 @@ def end_break(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_staff_user(current_user)
+    require_staff_or_admin(current_user)
 
     current_status = get_user_current_status(current_user.id, db)
     if not current_status or current_status.status != "break":
@@ -364,7 +324,7 @@ def start_meeting(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_meeting_user(current_user)
+    require_staff_or_admin(current_user)
 
     current_status = get_user_current_status(current_user.id, db)
     if not current_status:
@@ -415,7 +375,7 @@ def end_meeting(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_meeting_user(current_user)
+    require_staff_or_admin(current_user)
 
     current_status = get_user_current_status(current_user.id, db)
     if not current_status or current_status.status != "meeting":
@@ -453,7 +413,7 @@ def set_team_meeting(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_admin_user(current_user)
+    require_admin(current_user)
 
     action = payload.get("action")
     if action not in {"start", "end"}:

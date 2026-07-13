@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, hash_password
+from auth import get_current_user, hash_password, require_platform_admin
 from database import get_db
 from models import (
     Alert, Company, CurrentStatus, Message, User,
@@ -32,15 +32,6 @@ class CreateCompanyRequest(BaseModel):
 class UpdateCompanyRequest(BaseModel):
     name: str | None = None
     is_active: bool | None = None
-
-
-def require_platform_admin(current_user=Depends(get_current_user)):
-    if current_user.role != "platform_admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Platform admin access required",
-        )
-    return current_user
 
 
 def format_company(company: Company):

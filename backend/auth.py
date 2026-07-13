@@ -85,3 +85,32 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         )
 
     return user
+
+
+def require_staff(current_user: User):
+    if current_user.role != "staff":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def require_staff_or_admin(current_user: User):
+    if current_user.role not in {"staff", "admin"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def require_admin(current_user: User):
+    if current_user.role not in {"admin", "super_admin"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def require_super_admin(current_user: User):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def require_platform_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role != "platform_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform admin access required",
+        )
+    return current_user

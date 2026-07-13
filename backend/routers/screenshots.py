@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_super_admin
 from database import get_db
 from models import Screenshot, User
 from routers.agent import verify_machine_token
@@ -17,13 +17,6 @@ router = APIRouter()
 
 SCREENSHOTS_BASE_PATH = "/home/teams.aidbro.com/screenshots"
 
-
-def require_super_admin(current_user: User):
-    if current_user.role != "super_admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
 
 
 def get_company_user(user_id: str, current_user: User, db: Session):

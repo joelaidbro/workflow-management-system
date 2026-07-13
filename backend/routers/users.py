@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, hash_password
+from auth import get_current_user, hash_password, require_super_admin, require_admin
 from database import get_db
 from models import ActivityLog, CurrentStatus, MachineToken, Session as UserSession, User
 
@@ -43,21 +43,6 @@ class UpdateUserRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     new_password: str
 
-
-def require_super_admin(current_user: User):
-    if current_user.role != "super_admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-
-def require_admin_or_super_admin(current_user: User):
-    if current_user.role not in {"admin", "super_admin"}:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
 
 
 def format_user(user: User):
@@ -186,7 +171,7 @@ def list_users(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_super_admin(current_user)
+    require_admin(current_user)
 
     query = db.query(User).filter(
         User.company_id == current_user.company_id,

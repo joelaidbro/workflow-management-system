@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_admin
 from database import get_db
 from models import Task, User
 
@@ -32,13 +32,6 @@ class TaskEditBody(BaseModel):
 class TaskStatusBody(BaseModel):
     status: str
 
-
-def require_admin(current_user: User):
-    if current_user.role not in {"admin", "super_admin"}:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
 
 
 def format_task(task: Task) -> dict:
