@@ -27,6 +27,9 @@ jobs:
 
             cd /home/teams.aidbro.com/workflow
 
+            # The repo is owned by workflowapp but deploy runs as root — mark it safe.
+            git config --global --add safe.directory /home/teams.aidbro.com/workflow
+
             PREV_COMMIT=$(git rev-parse HEAD)
             echo "Previous commit: $PREV_COMMIT"
 
