@@ -476,3 +476,7 @@ Index(
     Task.status,
 )
 Index("ix_tasks_company_id_created_at", Task.company_id, Task.created_at)
+Index("ix_sessions_user_id", Session.user_id)
+Index("ix_alerts_sender_id", Alert.sender_id)
+Index("ix_salary_records_user_id", SalaryRecord.user_id)
+Index("ix_salary_records_company_id", SalaryRecord.company_id)
