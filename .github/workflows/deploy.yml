@@ -42,13 +42,24 @@ jobs:
             source backend/.venv/bin/activate
             pip install -r backend/requirements.txt --quiet
 
+            echo "--- Stopping service before migrations (prevents DDL lock contention) ---"
+            systemctl stop workflowapp
+
             echo "--- Running migrations ---"
             cd backend
-            alembic upgrade head
+            if ! alembic upgrade head; then
+              echo "!!! Migration failed — rolling back code to $PREV_COMMIT"
+              cd ..
+              git reset --hard "$PREV_COMMIT"
+              source backend/.venv/bin/activate
+              pip install -r backend/requirements.txt --quiet
+              systemctl start workflowapp
+              exit 1
+            fi
             cd ..
 
-            echo "--- Restarting backend service ---"
-            systemctl restart workflowapp
+            echo "--- Starting backend service ---"
+            systemctl start workflowapp
             sleep 8
 
             echo "--- Health check ---"
