@@ -39,6 +39,10 @@ class Company(Base):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("company_id", "employee_id", name="uq_users_company_employee_id"),
+        UniqueConstraint("company_id", "email", name="uq_users_company_email"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
@@ -291,11 +295,11 @@ class Attendance(Base):
     work_mode = Column(String(10), nullable=True)
     login_time = Column(DateTime, nullable=True)
     logout_time = Column(DateTime, nullable=True)
-    working_minutes = Column(Integer, default=0)
-    break_minutes = Column(Integer, default=0)
-    meeting_minutes = Column(Integer, default=0)
-    idle_minutes = Column(Integer, default=0)
-    offline_minutes = Column(Integer, default=0)
+    working_minutes = Column(Integer, default=0, nullable=False)
+    break_minutes = Column(Integer, default=0, nullable=False)
+    meeting_minutes = Column(Integer, default=0, nullable=False)
+    idle_minutes = Column(Integer, default=0, nullable=False)
+    offline_minutes = Column(Integer, default=0, nullable=False)
 
     user = relationship("User", back_populates="attendance_records")
 
