@@ -2,6 +2,7 @@ import asyncio
 import io
 import os
 from copy import deepcopy
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -44,6 +45,7 @@ DEFAULT_CONFIG = {
     "report_deadline_time": "21:00",
     "report_retention_months": 6,
     "leave_types": [],
+    "public_holidays": [],
     "half_day_leave_enabled": False,
     "leave_carry_forward": False,
     "screenshot_enabled": True,
@@ -57,6 +59,11 @@ class LeaveTypeRequest(BaseModel):
     name: str
     annual_limit: int
     carry_forward: bool = False
+
+
+class PublicHolidayRequest(BaseModel):
+    date: str
+    name: str
 
 
 
@@ -169,6 +176,78 @@ def delete_leave_type(
     db.commit()
 
     return {"message": "Leave type removed"}
+
+
+@router.get("/settings/public-holidays")
+def get_public_holidays(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    company = get_current_company(current_user, db)
+    config = get_config(company)
+    return config.get("public_holidays", [])
+
+
+@router.post("/settings/public-holidays")
+def add_public_holiday(
+    holiday_data: PublicHolidayRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+
+    holiday_date = holiday_data.date.strip()
+    holiday_name = holiday_data.name.strip()
+
+    try:
+        datetime.strptime(holiday_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format. Use YYYY-MM-DD",
+        )
+
+    if not holiday_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Holiday name is required",
+        )
+
+    company = get_current_company(current_user, db)
+    config = get_config(company)
+    holidays = config.get("public_holidays", [])
+
+    if any(h.get("date") == holiday_date for h in holidays):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A holiday already exists for this date",
+        )
+
+    holidays.append({"date": holiday_date, "name": holiday_name})
+    holidays.sort(key=lambda h: h["date"])
+    config["public_holidays"] = holidays
+    company.config = config
+    db.commit()
+
+    return holidays
+
+
+@router.delete("/settings/public-holidays/{holiday_date}")
+def delete_public_holiday(
+    holiday_date: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+    company = get_current_company(current_user, db)
+    config = get_config(company)
+    config["public_holidays"] = [
+        h for h in config.get("public_holidays", [])
+        if h.get("date") != holiday_date
+    ]
+    company.config = config
+    db.commit()
+    return {"message": "Public holiday removed"}
 
 
 @router.post("/settings/logo")

@@ -110,6 +110,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
     company = db.query(Company).filter(Company.id == user.company_id).first()
     company_config = get_config(company) if company else {}
     working_days = company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
+    public_holidays = company_config.get("public_holidays", [])
 
     return {
         "user_id": str(user.id),
@@ -133,6 +134,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         "total_idle_minutes": sum(record.idle_minutes or 0 for record in records),
         "total_offline_minutes": sum(record.offline_minutes or 0 for record in records),
         "working_days": working_days,
+        "public_holidays": public_holidays,
         "attendance_records": [
             {
                 "date": record.date,

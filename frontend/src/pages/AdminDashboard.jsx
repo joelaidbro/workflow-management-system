@@ -258,6 +258,18 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                           {minutesToHours(staff.idle_minutes || 0)}
                         </div>
                       </div>
+                      <div>
+                        <span className="text-gray-500">Break Duration</span>
+                        <div className="font-medium text-gray-900">
+                          {minutesToHours(staff.break_minutes || 0)}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Meeting Duration</span>
+                        <div className="font-medium text-gray-900">
+                          {minutesToHours(staff.meeting_minutes || 0)}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="mt-5 flex gap-3">
@@ -457,9 +469,13 @@ function StaffProfileModal({ userId, onClose }) {
         const workingDays = summary?.working_days || defaultWorkingDays;
         const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
         const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
+        const publicHolidayDates = new Set((summary?.public_holidays || []).map((h) => h.date));
+        const isPublicHoliday = publicHolidayDates.has(dateKey);
         let dotClass = "bg-red-500";
 
-        if (isWeekend && !record) {
+        if (isPublicHoliday && !record) {
+          dotClass = "bg-amber-400";
+        } else if (isWeekend && !record) {
           dotClass = "bg-gray-400";
         } else if (record?.work_mode === "leave") {
           dotClass = "bg-blue-500";
@@ -472,7 +488,7 @@ function StaffProfileModal({ userId, onClose }) {
           date: dateKey,
           dotClass,
           record,
-          work_mode: record?.work_mode || (isWeekend ? "weekend" : "office"),
+          work_mode: record?.work_mode || (isPublicHoliday ? "holiday" : (isWeekend ? "weekend" : "office")),
           working_minutes: record?.working_minutes || 0,
           break_minutes: record?.break_minutes || 0,
           idle_minutes: record?.idle_minutes || 0,
@@ -965,6 +981,14 @@ function LeavePanel() {
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  const [publicHolidays, setPublicHolidays] = useState([]);
+  const [holidayLoading, setHolidayLoading] = useState(false);
+  const [newHolidayDate, setNewHolidayDate] = useState("");
+  const [newHolidayName, setNewHolidayName] = useState("");
+  const [addingHoliday, setAddingHoliday] = useState(false);
+  const [holidayError, setHolidayError] = useState("");
+  const [deletingHolidayDate, setDeletingHolidayDate] = useState(null);
+
   const fetchLeaveRequests = async (status) => {
     setLoading(true);
     setError("");
@@ -981,9 +1005,59 @@ function LeavePanel() {
     }
   };
 
+  const fetchPublicHolidays = async () => {
+    setHolidayLoading(true);
+    try {
+      const response = await api.get("/api/settings/public-holidays");
+      setPublicHolidays(response.data || []);
+    } catch {
+      toast.error("Could not load public holidays");
+    } finally {
+      setHolidayLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchLeaveRequests(activeStatus);
+    if (activeStatus === "holidays") {
+      fetchPublicHolidays();
+    } else {
+      fetchLeaveRequests(activeStatus);
+    }
   }, [activeStatus]);
+
+  const handleAddHoliday = async () => {
+    setHolidayError("");
+    if (!newHolidayDate) { setHolidayError("Date is required"); return; }
+    if (!newHolidayName.trim()) { setHolidayError("Holiday name is required"); return; }
+    setAddingHoliday(true);
+    try {
+      const response = await api.post("/api/settings/public-holidays", {
+        date: newHolidayDate,
+        name: newHolidayName.trim(),
+      });
+      setPublicHolidays(response.data);
+      setNewHolidayDate("");
+      setNewHolidayName("");
+      toast.success("Public holiday added");
+    } catch (err) {
+      setHolidayError(err.response?.data?.detail || "Could not add holiday");
+    } finally {
+      setAddingHoliday(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (holidayDate) => {
+    setDeletingHolidayDate(holidayDate);
+    try {
+      await api.delete(`/api/settings/public-holidays/${holidayDate}`);
+      setPublicHolidays((prev) => prev.filter((h) => h.date !== holidayDate));
+      toast.success("Public holiday removed");
+    } catch {
+      toast.error("Could not remove holiday");
+    } finally {
+      setDeletingHolidayDate(null);
+    }
+  };
 
   const handleReviewStart = (requestId, decision) => {
     setReviewingRequest({ requestId, decision });
@@ -1019,6 +1093,7 @@ function LeavePanel() {
     { id: "pending", label: "Pending" },
     { id: "approved", label: "Approved" },
     { id: "rejected", label: "Rejected" },
+    { id: "holidays", label: "Public Holidays" },
   ];
 
   const statusBadgeClasses = {
@@ -1052,6 +1127,73 @@ function LeavePanel() {
         ))}
       </div>
 
+      {activeStatus === "holidays" ? (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <h3 className="mb-4 text-base font-semibold text-gray-900">Add Public Holiday</h3>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+                <input
+                  type="date"
+                  value={newHolidayDate}
+                  onChange={(e) => setNewHolidayDate(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Holiday Name</label>
+                <input
+                  type="text"
+                  value={newHolidayName}
+                  onChange={(e) => setNewHolidayName(e.target.value)}
+                  placeholder="e.g. Christmas Day"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={handleAddHoliday}
+                  disabled={addingHoliday}
+                  className="w-full rounded-lg bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {addingHoliday ? "Adding..." : "Add Holiday"}
+                </button>
+              </div>
+            </div>
+            {holidayError && <div className="mt-3 text-sm font-medium text-red-600">{holidayError}</div>}
+          </div>
+
+          {holidayLoading ? (
+            <div className="flex min-h-40 items-center justify-center text-gray-500">Loading holidays...</div>
+          ) : publicHolidays.length === 0 ? (
+            <div className="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+              No public holidays configured
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {publicHolidays.map((holiday) => (
+                <div key={holiday.date} className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <div>
+                    <div className="font-semibold text-gray-900">{holiday.name}</div>
+                    <div className="mt-1 text-sm text-gray-500">{holiday.date}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteHoliday(holiday.date)}
+                    disabled={deletingHolidayDate === holiday.date}
+                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-70"
+                  >
+                    {deletingHolidayDate === holiday.date ? "Removing..." : "Remove"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
       {error && <div className="text-sm font-medium text-red-600">{error}</div>}
 
       {loading ? (
@@ -1191,6 +1333,8 @@ function LeavePanel() {
             );
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   );

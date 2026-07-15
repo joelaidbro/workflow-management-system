@@ -179,6 +179,7 @@ function StaffDashboard() {
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [taskStatusFilter, setTaskStatusFilter] = useState("");
   const [updatingTaskStatusId, setUpdatingTaskStatusId] = useState(null);
+  const [configuredLeaveTypes, setConfiguredLeaveTypes] = useState([]);
 
   const fetchMyTasks = async () => {
     setLoadingTasks(true);
@@ -358,6 +359,20 @@ function StaffDashboard() {
       clearInterval(alertsIntervalId);
     };
   }, []);
+
+  useEffect(() => {
+    api.get("/api/leave/types")
+      .then((res) => setConfiguredLeaveTypes(res.data || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); e.returnValue = ""; };
+    if (attendance?.started && !attendance?.logout_time) {
+      window.addEventListener("beforeunload", handler);
+      return () => window.removeEventListener("beforeunload", handler);
+    }
+  }, [attendance?.started, attendance?.logout_time]);
 
   useEffect(() => {
     if (activeSection === "tasks") {
@@ -934,9 +949,13 @@ function StaffDashboard() {
         const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
         const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
         const isFuture = date > new Date();
+        const publicHolidayDates = new Set((attendanceSummary?.public_holidays || []).map((h) => h.date));
+        const isPublicHoliday = publicHolidayDates.has(dateKey);
         let dotClass = "bg-white border border-gray-300";
 
-        if (isWeekend || isFuture) {
+        if (isPublicHoliday && !record) {
+          dotClass = "bg-amber-400";
+        } else if (isWeekend || isFuture) {
           dotClass = "bg-gray-300";
         } else if (record?.work_mode === "leave") {
           dotClass = "bg-blue-500";
@@ -951,7 +970,7 @@ function StaffDashboard() {
           date: dateKey,
           day,
           dotClass,
-          work_mode: record?.work_mode || "office",
+          work_mode: record?.work_mode || (isPublicHoliday ? "holiday" : "office"),
           working_minutes: record?.working_minutes || 0,
           break_minutes: record?.break_minutes || 0,
           idle_minutes: record?.idle_minutes || 0,
@@ -1206,7 +1225,7 @@ function StaffDashboard() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="grid grid-cols-5 gap-4">
+              <div className="grid grid-cols-6 gap-4">
                 <div className="rounded-xl bg-gray-50 p-4">
                   <div className="text-sm text-gray-500">Login time</div>
                   <div className="mt-1 font-bold text-gray-900">
@@ -1229,6 +1248,12 @@ function StaffDashboard() {
                   <div className="text-sm text-orange-600">Break Duration</div>
                   <div className="mt-1 font-bold text-orange-900">
                     {minutesToHours(attendance.break_minutes || 0)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-blue-50 p-4">
+                  <div className="text-sm text-blue-600">Meeting Duration</div>
+                  <div className="mt-1 font-bold text-blue-900">
+                    {minutesToHours(attendance.meeting_minutes || 0)}
                   </div>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-4">
@@ -1387,14 +1412,27 @@ function StaffDashboard() {
                   <span className="mb-2 block text-sm font-medium text-gray-700">
                     Leave Type
                   </span>
-                  <input
-                    type="text"
-                    value={leaveForm.leave_type}
-                    onChange={(event) =>
-                      updateLeaveForm("leave_type", event.target.value)
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-                  />
+                  {configuredLeaveTypes.length > 0 ? (
+                    <select
+                      value={leaveForm.leave_type}
+                      onChange={(event) =>
+                        updateLeaveForm("leave_type", event.target.value)
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="">Select leave type</option>
+                      {configuredLeaveTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      disabled
+                      className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-400"
+                    >
+                      <option>No leave types configured</option>
+                    </select>
+                  )}
                 </label>
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-gray-700">

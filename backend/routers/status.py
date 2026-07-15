@@ -94,6 +94,8 @@ def format_status_response(user, current_status, attendance=None, db=None, prefe
             else None
         ),
         "idle_minutes": attendance.idle_minutes if attendance else 0,
+        "break_minutes": attendance.break_minutes or 0 if attendance else 0,
+        "meeting_minutes": attendance.meeting_minutes or 0 if attendance else 0,
         "login_time": format_utc_datetime(attendance.login_time)
         if attendance and attendance.login_time
         else None,

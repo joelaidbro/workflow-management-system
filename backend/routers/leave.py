@@ -49,12 +49,27 @@ def get_leave_types(company_id, db: Session):
     return leave_types if isinstance(leave_types, list) else []
 
 
-def calculate_total_days(start_date: date_type, end_date: date_type, working_day_numbers: set | None = None) -> int:
+@router.get("/leave/types")
+def get_available_leave_types(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    leave_types = get_leave_types(current_user.company_id, db)
+    return [lt.get("name") for lt in leave_types]
+
+
+def calculate_total_days(
+    start_date: date_type,
+    end_date: date_type,
+    working_day_numbers: set | None = None,
+    public_holiday_dates: set | None = None,
+) -> int:
     total = 0
     current = start_date
     while current <= end_date:
         if working_day_numbers is None or current.weekday() in working_day_numbers:
-            total += 1
+            if public_holiday_dates is None or current.isoformat() not in public_holiday_dates:
+                total += 1
         current += timedelta(days=1)
     return total
 
@@ -300,10 +315,11 @@ def review_leave_request(
         company_config = get_company_config(leave_request.company_id, db)
         raw_days = company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
         working_day_numbers = {DAY_NAME_TO_WEEKDAY[d] for d in raw_days if d in DAY_NAME_TO_WEEKDAY}
+        public_holiday_dates = {h["date"] for h in company_config.get("public_holidays", []) if "date" in h}
 
         current_date = leave_request.start_date
         while current_date <= leave_request.end_date:
-            if current_date.weekday() in working_day_numbers:
+            if current_date.weekday() in working_day_numbers and current_date.isoformat() not in public_holiday_dates:
                 attendance = (
                     db.query(Attendance)
                     .filter(
@@ -357,6 +373,7 @@ def get_leave_balance(
     company_config = get_company_config(current_user.company_id, db)
     raw_days = company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
     working_day_numbers = {DAY_NAME_TO_WEEKDAY[d] for d in raw_days if d in DAY_NAME_TO_WEEKDAY}
+    public_holiday_dates = {h["date"] for h in company_config.get("public_holidays", []) if "date" in h}
 
     year_start = date_type(year, 1, 1)
     year_end = date_type(year, 12, 31)
@@ -384,7 +401,7 @@ def get_leave_balance(
         for leave_request in requests_by_type[leave_type_name]:
             counted_start = max(leave_request.start_date, year_start)
             counted_end = min(leave_request.end_date, year_end)
-            used_days += calculate_total_days(counted_start, counted_end, working_day_numbers)
+            used_days += calculate_total_days(counted_start, counted_end, working_day_numbers, public_holiday_dates)
 
         balances.append(
             {

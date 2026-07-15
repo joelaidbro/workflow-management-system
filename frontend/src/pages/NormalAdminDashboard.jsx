@@ -73,8 +73,12 @@ function MyProfilePanel() {
         const workingDays = summary?.working_days || defaultWorkingDays;
         const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
         const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
+        const publicHolidayDates = new Set((summary?.public_holidays || []).map((h) => h.date));
+        const isPublicHoliday = publicHolidayDates.has(dateKey);
         let dotClass = "bg-red-500";
-        if (isWeekend && !record) {
+        if (isPublicHoliday && !record) {
+          dotClass = "bg-amber-400";
+        } else if (isWeekend && !record) {
           dotClass = "bg-gray-400";
         } else if (record?.work_mode === "leave") {
           dotClass = "bg-blue-500";
@@ -86,7 +90,7 @@ function MyProfilePanel() {
           date: dateKey,
           dotClass,
           record,
-          work_mode: record?.work_mode || (isWeekend ? "weekend" : "office"),
+          work_mode: record?.work_mode || (isPublicHoliday ? "holiday" : (isWeekend ? "weekend" : "office")),
           working_minutes: record?.working_minutes || 0,
           break_minutes: record?.break_minutes || 0,
           idle_minutes: record?.idle_minutes || 0,
@@ -505,6 +509,7 @@ function MyLeaveTab() {
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [configuredLeaveTypes, setConfiguredLeaveTypes] = useState([]);
 
   const fetchRequests = async () => {
     try {
@@ -520,6 +525,9 @@ function MyLeaveTab() {
   useEffect(() => {
     fetchRequests();
     api.patch("/api/leave/mark-read").catch(() => {});
+    api.get("/api/leave/types")
+      .then((res) => setConfiguredLeaveTypes(res.data || []))
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (event) => {
@@ -575,13 +583,25 @@ function MyLeaveTab() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Leave Type</label>
-              <input
-                type="text"
-                value={leaveType}
-                onChange={(e) => setLeaveType(e.target.value)}
-                placeholder="e.g. Annual Leave, Sick Leave"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-              />
+              {configuredLeaveTypes.length > 0 ? (
+                <select
+                  value={leaveType}
+                  onChange={(e) => setLeaveType(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                >
+                  <option value="">Select leave type</option>
+                  {configuredLeaveTypes.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  disabled
+                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-400"
+                >
+                  <option>No leave types configured</option>
+                </select>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -811,28 +831,65 @@ function TeamLeaveTab() {
   );
 }
 
+function PublicHolidaysReadonlyTab() {
+  const [holidays, setHolidays] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/api/settings/public-holidays")
+      .then((res) => setHolidays(res.data || []))
+      .catch(() => toast.error("Could not load public holidays"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="flex min-h-40 items-center justify-center text-gray-500">Loading holidays...</div>;
+  }
+  if (holidays.length === 0) {
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+        No public holidays configured
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {holidays.map((holiday) => (
+        <div key={holiday.date} className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div>
+            <div className="font-semibold text-gray-900">{holiday.name}</div>
+            <div className="mt-1 text-sm text-gray-500">{holiday.date}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AdminLeavePanel() {
   const [activeTab, setActiveTab] = useState("team");
+
+  const tabs = [
+    { id: "team", label: "Team Requests" },
+    { id: "my", label: "My Requests" },
+    { id: "holidays", label: "Public Holidays" },
+  ];
 
   return (
     <div className="space-y-5">
       <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab("team")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "team" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
-        >
-          Team Requests
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("my")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "my" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
-        >
-          My Requests
-        </button>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === tab.id ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-      {activeTab === "team" ? <TeamLeaveTab /> : <MyLeaveTab />}
+      {activeTab === "team" ? <TeamLeaveTab /> : activeTab === "my" ? <MyLeaveTab /> : <PublicHolidaysReadonlyTab />}
     </div>
   );
 }
