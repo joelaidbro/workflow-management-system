@@ -164,6 +164,16 @@ function StaffDashboard() {
   const [acknowledgingAlertId, setAcknowledgingAlertId] = useState(null);
   const [replyAlertId, setReplyAlertId] = useState(null);
   const [replyText, setReplyText] = useState("");
+  const [sentAlerts, setSentAlerts] = useState([]);
+  const [sendAlertType, setSendAlertType] = useState("info");
+  const [sendRecipientId, setSendRecipientId] = useState("");
+  const [sendAlertMessage, setSendAlertMessage] = useState("");
+  const [sendAlertError, setSendAlertError] = useState("");
+  const [sendingAlert, setSendingAlert] = useState(false);
+  const [potentialRecipients, setPotentialRecipients] = useState([]);
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [alertDeliveryReport, setAlertDeliveryReport] = useState(null);
+  const [loadingAlertReportId, setLoadingAlertReportId] = useState(null);
 
   const [myTasks, setMyTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -223,16 +233,30 @@ function StaffDashboard() {
   const fetchAlerts = async () => {
     setLoadingAlerts(true);
     try {
-      const [pendingResponse, historyResponse] = await Promise.all([
+      const [pendingResponse, historyResponse, sentResponse] = await Promise.all([
         api.get("/api/alerts/my-pending"),
         api.get("/api/alerts/my-history"),
+        api.get("/api/alerts/sent"),
       ]);
       setPendingAlerts(pendingResponse.data);
       setAlertHistory(historyResponse.data);
+      setSentAlerts(sentResponse.data);
     } catch (error) {
       toast.error("Could not load alerts");
     } finally {
       setLoadingAlerts(false);
+    }
+  };
+
+  const fetchPotentialRecipients = async () => {
+    setLoadingRecipients(true);
+    try {
+      const response = await api.get("/api/alerts/potential-recipients");
+      setPotentialRecipients(response.data);
+    } catch {
+      // silently ignore; user will see an empty dropdown
+    } finally {
+      setLoadingRecipients(false);
     }
   };
 
@@ -325,6 +349,7 @@ function StaffDashboard() {
     fetchLeaveRequests();
     fetchAlerts();
     fetchMyTasks();
+    fetchPotentialRecipients();
 
     const attendanceIntervalId = setInterval(fetchAttendance, 30000);
     const alertsIntervalId = setInterval(fetchAlerts, 30000);
@@ -979,6 +1004,52 @@ function StaffDashboard() {
     }
   };
 
+  const handleSendAlert = async (e) => {
+    e.preventDefault();
+    const cleanMessage = sendAlertMessage.trim();
+    if (!cleanMessage) {
+      setSendAlertError("Message cannot be empty");
+      return;
+    }
+    if (!sendRecipientId) {
+      setSendAlertError("Please select a recipient");
+      return;
+    }
+    setSendingAlert(true);
+    setSendAlertError("");
+    try {
+      const response = await api.post("/api/alerts/send", {
+        alert_type: sendAlertType,
+        message: cleanMessage,
+        recipient_id: sendRecipientId === "all" ? null : sendRecipientId,
+      });
+      toast.success(`Alert sent to ${response.data.recipient_count} recipient(s)`);
+      setSendAlertType("info");
+      setSendRecipientId("");
+      setSendAlertMessage("");
+      fetchAlerts();
+    } catch (err) {
+      setSendAlertError(err.response?.data?.detail || "Could not send alert");
+    } finally {
+      setSendingAlert(false);
+    }
+  };
+
+  const handleViewAlertDeliveryReport = async (alertId) => {
+    setLoadingAlertReportId(alertId);
+    try {
+      const response = await api.get(`/api/alerts/delivery-report/${alertId}`);
+      setAlertDeliveryReport(response.data);
+      setSentAlerts((prev) =>
+        prev.map((a) => (a.id === alertId ? { ...a, has_unread_replies: false } : a))
+      );
+    } catch {
+      toast.error("Could not load delivery report");
+    } finally {
+      setLoadingAlertReportId(null);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       <aside className="fixed inset-y-0 left-0 flex w-64 flex-col bg-blue-900 text-white">
@@ -1622,125 +1693,337 @@ function StaffDashboard() {
         {activeSection === "alerts" && (
           <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
-              {["pending", "history"].map((tab) => (
+              {[
+                { id: "pending", label: pendingAlerts.length > 0 ? `Pending (${pendingAlerts.length})` : "Pending" },
+                { id: "history", label: "History" },
+                { id: "send", label: "Send Alert" },
+              ].map(({ id, label }) => (
                 <button
-                  key={tab}
+                  key={id}
                   type="button"
-                  onClick={() => setAlertTab(tab)}
-                  className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold capitalize ${
-                    alertTab === tab
+                  onClick={() => setAlertTab(id)}
+                  className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${
+                    alertTab === id
                       ? "bg-blue-700 text-white"
                       : "text-gray-600 hover:bg-white"
                   }`}
                 >
-                  {tab}
+                  {label}
                 </button>
               ))}
             </div>
 
-            <div className="mt-5 space-y-4">
-              {loadingAlerts ? (
-                <div className="py-10 text-center text-gray-500">Loading alerts...</div>
-              ) : (alertTab === "pending" ? pendingAlerts : alertHistory).length === 0 ? (
-                <div className="py-10 text-center text-gray-500">No alerts found</div>
-              ) : (
-                (alertTab === "pending" ? pendingAlerts : alertHistory).map((alert) => (
-                  <div
-                    key={alert.alert_recipient_id}
-                    className="rounded-xl border border-gray-200 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
-                            alertTypeClasses[alert.alert_type] || alertTypeClasses.info
-                          }`}
-                        >
-                          {alert.alert_type}
-                        </span>
-                        <div className="mt-3 font-semibold text-gray-900">
-                          {alert.sender_name}
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-gray-700">
-                          {alert.message}
-                        </p>
-                        <div className="mt-3 text-xs text-gray-500">
-                          Sent: {formatDateTime(alert.created_at)}
-                        </div>
-                        {alert.acknowledged_at && (
-                          <div className="mt-1 text-xs text-gray-500">
-                            Acknowledged: {formatDateTime(alert.acknowledged_at)}
+            {(alertTab === "pending" || alertTab === "history") && (
+              <div className="mt-5 space-y-4">
+                {loadingAlerts ? (
+                  <div className="py-10 text-center text-gray-500">Loading alerts...</div>
+                ) : (alertTab === "pending" ? pendingAlerts : alertHistory).length === 0 ? (
+                  <div className="py-10 text-center text-gray-500">No alerts found</div>
+                ) : (
+                  (alertTab === "pending" ? pendingAlerts : alertHistory).map((alert) => (
+                    <div
+                      key={alert.alert_recipient_id}
+                      className="rounded-xl border border-gray-200 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                              alertTypeClasses[alert.alert_type] || alertTypeClasses.info
+                            }`}
+                          >
+                            {alert.alert_type}
+                          </span>
+                          <div className="mt-3 font-semibold text-gray-900">
+                            From: {alert.sender_name}
                           </div>
-                        )}
-                        {alert.reply && (
-                          <div className="mt-2 rounded-lg bg-gray-50 p-2 text-sm text-gray-700">
-                            {alert.reply}
+                          <p className="mt-2 text-sm leading-6 text-gray-700">
+                            {alert.message}
+                          </p>
+                          <div className="mt-3 text-xs text-gray-500">
+                            Sent: {formatDateTime(alert.created_at)}
                           </div>
-                        )}
-                        {replyAlertId === alert.alert_recipient_id && (
-                          <div className="mt-3 space-y-2">
-                            <textarea
-                              value={replyText}
-                              onChange={(e) => setReplyText(e.target.value)}
-                              placeholder="Type your reply message..."
-                              className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
-                              rows={2}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleSendAlertReply(alert)}
-                                className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800"
-                              >
-                                Send Reply
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReplyAlertId(null);
-                                  setReplyText("");
-                                }}
-                                className="rounded-lg bg-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-300"
-                              >
-                                Cancel
-                              </button>
+                          {alert.acknowledged_at && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              Acknowledged: {formatDateTime(alert.acknowledged_at)}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {alertTab === "pending" && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleAcknowledgeAlert(alert.alert_recipient_id)
-                            }
-                            disabled={acknowledgingAlertId === alert.alert_recipient_id}
-                            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
-                          >
-                            {acknowledgingAlertId === alert.alert_recipient_id
-                              ? "Acknowledging..."
-                              : "Acknowledge"}
-                          </button>
-                        )}
-                        {replyAlertId !== alert.alert_recipient_id && !alert.reply && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyAlertId(alert.alert_recipient_id);
-                              setReplyText("");
-                            }}
-                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                          >
-                            Reply
-                          </button>
-                        )}
+                          )}
+                          {alert.reply && (
+                            <div className="mt-2 rounded-lg bg-gray-50 p-2 text-sm text-gray-700">
+                              {alert.reply}
+                            </div>
+                          )}
+                          {replyAlertId === alert.alert_recipient_id && (
+                            <div className="mt-3 space-y-2">
+                              <textarea
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder="Type your reply message..."
+                                className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+                                rows={2}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendAlertReply(alert)}
+                                  className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800"
+                                >
+                                  Send Reply
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplyAlertId(null);
+                                    setReplyText("");
+                                  }}
+                                  className="rounded-lg bg-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-300"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {alertTab === "pending" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleAcknowledgeAlert(alert.alert_recipient_id)
+                              }
+                              disabled={acknowledgingAlertId === alert.alert_recipient_id}
+                              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                              {acknowledgingAlertId === alert.alert_recipient_id
+                                ? "Acknowledging..."
+                                : "Acknowledge"}
+                            </button>
+                          )}
+                          {replyAlertId !== alert.alert_recipient_id && !alert.reply && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyAlertId(alert.alert_recipient_id);
+                                setReplyText("");
+                              }}
+                              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                            >
+                              Reply
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {alertTab === "send" && (
+              <div className="mt-5 grid gap-6 lg:grid-cols-5">
+                <div className="lg:col-span-2">
+                  <div className="rounded-xl border border-gray-200 p-5">
+                    <h4 className="text-base font-bold text-gray-900">New Alert</h4>
+                    <form onSubmit={handleSendAlert} className="mt-5 space-y-5">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                          Alert type
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSendAlertType("info")}
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                              sendAlertType === "info"
+                                ? "bg-blue-700 text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                          >
+                            Info
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSendAlertType("urgent")}
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                              sendAlertType === "urgent"
+                                ? "bg-red-600 text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                          >
+                            Urgent
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                          Recipient
+                        </label>
+                        <select
+                          value={sendRecipientId}
+                          onChange={(e) => setSendRecipientId(e.target.value)}
+                          disabled={loadingRecipients}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100"
+                        >
+                          <option value="">-- Select recipient --</option>
+                          {potentialRecipients.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.full_name} ({r.role})
+                            </option>
+                          ))}
+                          <option value="all">Broadcast to all team</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                          Message
+                        </label>
+                        <textarea
+                          value={sendAlertMessage}
+                          onChange={(e) => setSendAlertMessage(e.target.value.slice(0, 500))}
+                          placeholder="Type your alert message..."
+                          rows={4}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                        />
+                        <div className="mt-1 text-right text-xs text-gray-400">
+                          {sendAlertMessage.length}/500
+                        </div>
+                      </div>
+                      {sendAlertError && (
+                        <div className="text-sm font-medium text-red-600">
+                          {sendAlertError}
+                        </div>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={sendingAlert}
+                        className={`w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                          sendAlertType === "urgent"
+                            ? "bg-red-600 hover:bg-red-700"
+                            : "bg-blue-700 hover:bg-blue-800"
+                        }`}
+                      >
+                        {sendingAlert ? "Sending..." : "Send Alert"}
+                      </button>
+                    </form>
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+
+                <div className="lg:col-span-3">
+                  <div className="rounded-xl border border-gray-200 p-5">
+                    <h4 className="text-base font-bold text-gray-900">Sent Alerts</h4>
+
+                    {alertDeliveryReport ? (
+                      <div className="mt-5">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-bold text-gray-800">Delivery Report</h5>
+                          <button
+                            type="button"
+                            onClick={() => setAlertDeliveryReport(null)}
+                            className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200"
+                          >
+                            Back to list
+                          </button>
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
+                          <div className="rounded-lg bg-gray-50 p-3">
+                            <div className="font-bold text-gray-900">{alertDeliveryReport.total_recipients}</div>
+                            <div className="text-gray-500">Recipients</div>
+                          </div>
+                          <div className="rounded-lg bg-green-50 p-3">
+                            <div className="font-bold text-green-700">{alertDeliveryReport.acknowledged_count}</div>
+                            <div className="text-green-700">Acknowledged</div>
+                          </div>
+                          <div className="rounded-lg bg-orange-50 p-3">
+                            <div className="font-bold text-orange-700">{alertDeliveryReport.pending_count}</div>
+                            <div className="text-orange-700">Pending</div>
+                          </div>
+                        </div>
+                        <div className="mt-5">
+                          <h6 className="mb-2 text-xs font-bold uppercase text-gray-500">Recipients</h6>
+                          <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 max-h-64 overflow-y-auto">
+                            {alertDeliveryReport.recipients.map((r) => (
+                              <div key={r.recipient_id} className="flex items-start justify-between gap-4 p-4 text-sm">
+                                <div>
+                                  <div className="font-semibold text-gray-900">{r.full_name}</div>
+                                  {r.reply && (
+                                    <div className="mt-2 rounded-lg bg-gray-50 p-2 text-gray-700">{r.reply}</div>
+                                  )}
+                                </div>
+                                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${r.status === "acknowledged" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
+                                  {r.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-5 space-y-3">
+                        {loadingAlerts ? (
+                          <div className="flex min-h-40 items-center justify-center text-gray-500">
+                            Loading...
+                          </div>
+                        ) : sentAlerts.length === 0 ? (
+                          <div className="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500">
+                            No alerts sent yet
+                          </div>
+                        ) : (
+                          sentAlerts.map((alert) => {
+                            const progress =
+                              alert.total_recipients > 0
+                                ? Math.round((alert.acknowledged_count / alert.total_recipients) * 100)
+                                : 0;
+                            return (
+                              <div
+                                key={alert.id}
+                                className={`rounded-xl border p-4 ${alert.has_unread_replies ? "border-red-300 bg-red-50/40" : "border-gray-200"}`}
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${alert.alert_type === "urgent" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                                        {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
+                                      </span>
+                                      {alert.has_unread_replies && (
+                                        <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">New replies</span>
+                                      )}
+                                      <span className="text-xs text-gray-500">{formatDateTime(alert.created_at)}</span>
+                                    </div>
+                                    <p className="mt-2 text-sm font-medium text-gray-900">{alert.message}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleViewAlertDeliveryReport(alert.id)}
+                                    disabled={loadingAlertReportId === alert.id}
+                                    className="shrink-0 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 disabled:opacity-70"
+                                  >
+                                    {loadingAlertReportId === alert.id ? "Loading..." : "View Report"}
+                                  </button>
+                                </div>
+                                <div className="mt-3">
+                                  <div className="flex items-center justify-between text-xs text-gray-600">
+                                    <span>{alert.acknowledged_count}/{alert.total_recipients} acknowledged</span>
+                                    {alert.pending_count > 0 && (
+                                      <span className="font-medium text-orange-600">{alert.pending_count} pending</span>
+                                    )}
+                                  </div>
+                                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200">
+                                    <div
+                                      className="h-full rounded-full bg-green-500 transition-all"
+                                      style={{ width: `${progress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

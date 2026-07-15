@@ -1214,13 +1214,13 @@ function AlertsPanel() {
 
     const fetchStaff = async () => {
       try {
-        const response = await api.get("/api/status/team");
+        const response = await api.get("/api/alerts/potential-recipients");
         if (isMounted) {
           setStaffList(response.data);
         }
       } catch (err) {
         if (isMounted) {
-          setError("Could not load staff list.");
+          setError("Could not load recipient list.");
         }
       } finally {
         if (isMounted) {
@@ -1354,10 +1354,10 @@ function AlertsPanel() {
               disabled={loadingStaff}
               className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-gray-100"
             >
-              <option value="">Broadcast to all staff</option>
+              <option value="">Broadcast to all team</option>
               {staffList.map((staff) => (
-                <option key={staff.user_id} value={staff.user_id}>
-                  {staff.full_name}
+                <option key={staff.id} value={staff.id}>
+                  {staff.full_name} ({staff.role})
                 </option>
               ))}
             </select>

@@ -17,7 +17,8 @@ from routers.agent import verify_machine_token
 router = APIRouter()
 
 VALID_ALERT_TYPES = {"info", "urgent"}
-ALLOWED_SENDER_ROLES = {"admin", "super_admin"}
+# super_admin has no agent installed and cannot receive alerts.
+ROLES_CANNOT_RECEIVE = {"super_admin", "platform_admin"}
 
 
 class SendAlertRequest(BaseModel):
@@ -44,12 +45,6 @@ def send_alert(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in ALLOWED_SENDER_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
     if alert_data.alert_type not in VALID_ALERT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -75,15 +70,18 @@ def send_alert(
     expires_at = now + timedelta(minutes=expiry_minutes)
 
     if alert_data.recipient_id is None:
+        # Broadcast: exclude super_admin/platform_admin (no agent) and the sender.
         recipients_query = db.query(User).filter(
             User.company_id == current_user.company_id,
             User.is_active.is_(True),
+            User.id != current_user.id,
+            User.role.notin_(ROLES_CANNOT_RECEIVE),
         )
 
         if current_user.role == "admin":
+            # admin broadcasts to their staff only.
             recipients_query = recipients_query.filter(User.role == "staff")
-        else:
-            recipients_query = recipients_query.filter(User.role.in_(["staff", "admin"]))
+        # super_admin and staff broadcast to all staff+admin (already filtered above).
 
         recipients = recipients_query.all()
     else:
@@ -108,6 +106,11 @@ def send_alert(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Recipient not found",
+            )
+        if recipient.role in ROLES_CANNOT_RECEIVE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This user cannot receive alerts",
             )
 
         recipients = [recipient]
@@ -334,12 +337,7 @@ def get_unread_replies_count(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in ALLOWED_SENDER_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-    count = (
+    count_query = (
         db.query(AlertRecipient)
         .join(Alert, Alert.id == AlertRecipient.alert_id)
         .filter(
@@ -348,9 +346,12 @@ def get_unread_replies_count(
             AlertRecipient.reply.isnot(None),
             AlertRecipient.reply_read_by_admin.is_(False),
         )
-        .count()
     )
-    return {"count": count}
+    # super_admin sees replies across all company alerts; everyone else only
+    # sees replies on alerts they personally sent.
+    if current_user.role != "super_admin":
+        count_query = count_query.filter(Alert.sender_id == current_user.id)
+    return {"count": count_query.count()}
 
 
 @router.get("/alerts/sent")
@@ -358,14 +359,9 @@ def get_sent_alerts(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in ALLOWED_SENDER_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
     query = db.query(Alert).filter(Alert.company_id == current_user.company_id)
-    if current_user.role == "admin":
+    # super_admin sees all company alerts; staff and admin see only their own.
+    if current_user.role != "super_admin":
         query = query.filter(Alert.sender_id == current_user.id)
 
     alerts = query.order_by(Alert.created_at.desc()).limit(20).all()
@@ -497,3 +493,31 @@ def get_delivery_report(
             for alert_recipient, recipient in recipient_rows
         ],
     }
+
+
+@router.get("/alerts/potential-recipients")
+def get_potential_recipients(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Returns the list of users the current user can send an alert to."""
+    users = (
+        db.query(User)
+        .filter(
+            User.company_id == current_user.company_id,
+            User.is_active.is_(True),
+            User.role.notin_(ROLES_CANNOT_RECEIVE),
+            User.id != current_user.id,
+        )
+        .order_by(User.full_name)
+        .all()
+    )
+    return [
+        {
+            "id": str(u.id),
+            "full_name": u.full_name,
+            "employee_id": u.employee_id,
+            "role": u.role,
+        }
+        for u in users
+    ]

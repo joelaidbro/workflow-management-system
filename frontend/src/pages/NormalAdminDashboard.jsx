@@ -854,9 +854,9 @@ function SentAlertsTab() {
 
   useEffect(() => {
     let isMounted = true;
-    api.get("/api/status/team")
+    api.get("/api/alerts/potential-recipients")
       .then((res) => { if (isMounted) setStaffList(res.data); })
-      .catch(() => { if (isMounted) setError("Could not load staff list."); })
+      .catch(() => { if (isMounted) setError("Could not load recipient list."); })
       .finally(() => { if (isMounted) setLoadingStaff(false); });
     return () => { isMounted = false; };
   }, []);
@@ -935,8 +935,8 @@ function SentAlertsTab() {
               disabled={loadingStaff}
               className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100"
             >
-              <option value="">Broadcast to all staff</option>
-              {staffList.map((s) => <option key={s.user_id} value={s.user_id}>{s.full_name}</option>)}
+              <option value="">Broadcast to all team</option>
+              {staffList.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.role})</option>)}
             </select>
           </div>
           <div>
