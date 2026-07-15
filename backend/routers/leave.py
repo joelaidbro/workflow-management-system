@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_staff, require_admin
+from auth import get_current_user, require_staff, require_staff_or_admin, require_admin
 from utils import format_utc_datetime
 from routers.settings import get_config
 from database import get_db
@@ -119,7 +119,7 @@ def submit_leave_request(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_staff(current_user)
+    require_staff_or_admin(current_user)
 
     today = datetime.utcnow().date()
     if leave_data.start_date < today:
@@ -427,7 +427,7 @@ def get_leave_decisions_count(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_staff(current_user)
+    require_staff_or_admin(current_user)
     count = (
         db.query(LeaveRequest)
         .filter(
@@ -445,7 +445,7 @@ def mark_leave_read(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_staff(current_user)
+    require_staff_or_admin(current_user)
     db.query(LeaveRequest).filter(
         LeaveRequest.user_id == current_user.id,
         LeaveRequest.is_read_by_staff.is_(False),

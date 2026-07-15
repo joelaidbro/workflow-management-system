@@ -4908,7 +4908,7 @@ const navItems = [
   { id: "tasks", label: "Tasks" },
 ];
 
-function AdminDashboard() {
+function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("dashboard");
   const [chatWithUser, setChatWithUser] = useState(null);
@@ -5034,14 +5034,11 @@ function AdminDashboard() {
     }
 
     return (
-      <div className="space-y-8">
-        {user?.role === "admin" && <MyDayPanel />}
-        <TeamStatusPanel
-          setActiveSection={setActiveSection}
-          setChatWithUser={setChatWithUser}
-          openProfile={setProfileUser}
-        />
-      </div>
+      <TeamStatusPanel
+        setActiveSection={setActiveSection}
+        setChatWithUser={setChatWithUser}
+        openProfile={setProfileUser}
+      />
     );
   };
 
@@ -5050,7 +5047,7 @@ function AdminDashboard() {
       <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col bg-blue-900 text-white">
         <div className="border-b border-blue-800 px-6 py-6">
           <LogoDisplay user={user} />
-          <p className="mt-1 text-sm text-blue-200">Admin Console</p>
+          <p className="mt-1 text-sm text-blue-200">Super Admin Console</p>
         </div>
 
         <nav className="flex-1 px-4 py-6">
@@ -5154,4 +5151,16 @@ function AdminDashboard() {
   );
 }
 
-export default AdminDashboard;
+export {
+  TeamStatusPanel,
+  StaffManagementPanel,
+  StaffProfileModal,
+  ChatPanel,
+  LogoDisplay,
+  MyDayPanel,
+  TASK_STATUS_COLORS,
+  TASK_STATUS_LABELS,
+  formatElapsedDuration,
+};
+
+export default SuperAdminDashboard;
