@@ -109,7 +109,6 @@ async def upload_screenshot(
     screenshot = Screenshot(
         company_id=user.company_id,
         user_id=user.id,
-        employee_id=user.employee_id,
         captured_at=captured_at_value,
         file_path=relative_path,
         file_size_kb=file_size_kb,

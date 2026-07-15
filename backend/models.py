@@ -365,7 +365,6 @@ class Screenshot(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    employee_id = Column(String(50), nullable=False)
     captured_at = Column(DateTime, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     file_path = Column(String(500), nullable=False)
@@ -389,7 +388,7 @@ class Task(Base):
     status = Column(String(20), nullable=False, default="pending")
     due_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     assignee = relationship(
         "User",
