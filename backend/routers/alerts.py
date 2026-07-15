@@ -86,7 +86,6 @@ def send_alert(
             recipients_query = recipients_query.filter(User.role.in_(["staff", "admin"]))
 
         recipients = recipients_query.all()
-        alert_recipient_id = None
     else:
         try:
             recipient_uuid = uuid.UUID(str(alert_data.recipient_id))
@@ -112,12 +111,10 @@ def send_alert(
             )
 
         recipients = [recipient]
-        alert_recipient_id = recipient.id
 
     alert = Alert(
         company_id=current_user.company_id,
         sender_id=current_user.id,
-        recipient_id=alert_recipient_id,
         alert_type=alert_data.alert_type,
         message=clean_message,
         created_at=now,
