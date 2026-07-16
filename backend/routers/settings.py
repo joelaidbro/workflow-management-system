@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from auth import get_current_user, require_super_admin
 from database import get_db
@@ -108,6 +109,7 @@ def update_settings_config(
     config = get_config(company)
     config.update(config_updates)
     company.config = config
+    flag_modified(company, "config")
     db.commit()
     db.refresh(company)
     return get_config(company)
@@ -153,6 +155,7 @@ def add_leave_type(
     )
     config["leave_types"] = leave_types
     company.config = config
+    flag_modified(company, "config")
     db.commit()
 
     return leave_types
@@ -173,6 +176,7 @@ def delete_leave_type(
         if leave_type.get("name") != leave_type_name
     ]
     company.config = config
+    flag_modified(company, "config")
     db.commit()
 
     return {"message": "Leave type removed"}
@@ -227,6 +231,7 @@ def add_public_holiday(
     holidays.sort(key=lambda h: h["date"])
     config["public_holidays"] = holidays
     company.config = config
+    flag_modified(company, "config")
     db.commit()
 
     return holidays
@@ -246,6 +251,7 @@ def delete_public_holiday(
         if h.get("date") != holiday_date
     ]
     company.config = config
+    flag_modified(company, "config")
     db.commit()
     return {"message": "Public holiday removed"}
 

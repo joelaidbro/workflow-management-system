@@ -3455,6 +3455,11 @@ function SettingsPanel() {
   };
 
   const deleteLeaveType = async (name) => {
+    const confirmed = window.confirm(
+      `Delete "${name}"?\n\nThis will remove the leave type and may affect existing leave balance history and records. This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
     try {
       await api.delete(`/api/settings/leave-types/${encodeURIComponent(name)}`);
       updateConfig(
