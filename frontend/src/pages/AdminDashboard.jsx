@@ -4794,6 +4794,14 @@ function MyDayPanel() {
     return () => clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); e.returnValue = ""; };
+    if (attendance?.started && !attendance?.logout_time) {
+      window.addEventListener("beforeunload", handler);
+      return () => window.removeEventListener("beforeunload", handler);
+    }
+  }, [attendance?.started, attendance?.logout_time]);
+
   const handleStartDay = async () => {
     setCheckingAgentConnection(true);
     try {
