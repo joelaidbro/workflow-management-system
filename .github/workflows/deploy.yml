@@ -85,4 +85,23 @@ jobs:
             cp -r dist/* /home/teams.aidbro.com/public_html/
             cd ..
 
+            echo "--- Publishing agent release ---"
+            VERSION_FILE="agent/version.txt"
+            if [ -f "$VERSION_FILE" ]; then
+              VERSION=$(tr -d '[:space:]' < "$VERSION_FILE")
+              AGENT_EXE="agent/dist/WorkFlowAgent_${VERSION}.exe"
+              if [ -f "$AGENT_EXE" ]; then
+                CHECKSUM=$(sha256sum "$AGENT_EXE" | awk '{print $1}')
+                mkdir -p /home/teams.aidbro.com/public_html/downloads
+                cp "$AGENT_EXE" /home/teams.aidbro.com/public_html/downloads/WorkFlowAgent.exe
+                printf '{"version":"%s","checksum":"%s","download_url":"https://teams.aidbro.com/downloads/WorkFlowAgent.exe"}' \
+                  "$VERSION" "$CHECKSUM" > agent_release.json
+                echo "Agent release published: v$VERSION"
+              else
+                echo "agent/dist/WorkFlowAgent_${VERSION}.exe not found — skipping agent release"
+              fi
+            else
+              echo "agent/version.txt not found — skipping agent release"
+            fi
+
             echo "=== Deployment complete: $(git rev-parse HEAD) ==="

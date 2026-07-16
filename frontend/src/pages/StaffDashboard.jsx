@@ -77,29 +77,34 @@ function StaffDashboard() {
 
   useEffect(() => {
     const poll = async () => {
-      try {
-        const [msgRes, reportRes, leaveRes] = await Promise.all([
-          api.get("/api/chat/unread-count"),
-          api.get("/api/attendance/reports/reply-count"),
-          api.get("/api/leave/decisions-count"),
-        ]);
-        const newMsgCount = msgRes.data.unread_count;
-        const newReportCount = reportRes.data.count;
-        const newLeaveCount = leaveRes.data.count;
-        if (prevMsgCountRef.current !== null && newMsgCount > prevMsgCountRef.current) {
+      const [msgResult, reportResult, leaveResult] = await Promise.allSettled([
+        api.get("/api/chat/unread-count"),
+        api.get("/api/attendance/reports/reply-count"),
+        api.get("/api/leave/decisions-count"),
+      ]);
+
+      if (msgResult.status === "fulfilled") {
+        const n = msgResult.value.data.unread_count;
+        if (prevMsgCountRef.current !== null && n > prevMsgCountRef.current) {
           playMessageSound();
         }
-        if (prevLeaveDecisionCountRef.current !== null && newLeaveCount > prevLeaveDecisionCountRef.current) {
+        prevMsgCountRef.current = n;
+        setUnreadCount(n);
+      }
+
+      if (reportResult.status === "fulfilled") {
+        const n = reportResult.value.data.count;
+        prevReportReplyCountRef.current = n;
+        setReportReplyCount(n);
+      }
+
+      if (leaveResult.status === "fulfilled") {
+        const n = leaveResult.value.data.count;
+        if (prevLeaveDecisionCountRef.current !== null && n > prevLeaveDecisionCountRef.current) {
           playActionSound();
         }
-        prevMsgCountRef.current = newMsgCount;
-        prevReportReplyCountRef.current = newReportCount;
-        prevLeaveDecisionCountRef.current = newLeaveCount;
-        setUnreadCount(newMsgCount);
-        setReportReplyCount(newReportCount);
-        setLeaveDecisionCount(newLeaveCount);
-      } catch {
-        // Silent fail
+        prevLeaveDecisionCountRef.current = n;
+        setLeaveDecisionCount(n);
       }
     };
     poll();
@@ -496,12 +501,19 @@ function StaffDashboard() {
         return;
       }
 
-      if (data.sender_id !== currentUserId) {
+      const activeConversation = selectedConversationRef.current;
+      const isFromSomeoneElse = data.sender_id !== currentUserId;
+      const isActiveChat = activeConversation?.user_id === data.sender_id;
+
+      if (isFromSomeoneElse) {
         playMessageSound();
+        // Update sidebar badge immediately — don't wait for the 30 s poll
+        if (!isActiveChat) {
+          setUnreadCount((c) => c + 1);
+        }
       }
 
-      const activeConversation = selectedConversationRef.current;
-      if (activeConversation?.user_id === data.sender_id) {
+      if (isActiveChat) {
         setChatMessages((current) => [
           ...current,
           {

@@ -186,6 +186,8 @@ class MachineToken(Base):
     is_active = Column(Boolean, default=True)
     session_active = Column(Boolean, default=False, nullable=False)
     last_seen_at = Column(DateTime, nullable=True)
+    agent_version = Column(String(20), nullable=True)
+    agent_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="machine_token")

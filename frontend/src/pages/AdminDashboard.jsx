@@ -1900,11 +1900,19 @@ function ChatPanel({ chatWithUser }) {
       }
 
       if (data.type === "new_message") {
-        if (data.sender_id !== currentUserId) {
-          playMessageSound();
-        }
         const activeConversation = selectedConversationRef.current;
-        if (activeConversation?.user_id === data.sender_id) {
+        const isFromSomeoneElse = data.sender_id !== currentUserId;
+        const isActiveChat = activeConversation?.user_id === data.sender_id;
+
+        if (isFromSomeoneElse) {
+          playMessageSound();
+          // Update sidebar badge immediately — don't wait for the 30 s poll
+          if (!isActiveChat) {
+            setUnreadCount((c) => c + 1);
+          }
+        }
+
+        if (isActiveChat) {
           setMessages((current) => [
             ...current,
             {
@@ -2383,6 +2391,7 @@ function StaffManagementPanel({ openProfile }) {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [currentAgentVersion, setCurrentAgentVersion] = useState(null);
   const currentUser = useMemo(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -2402,6 +2411,10 @@ function StaffManagementPanel({ openProfile }) {
 
   useEffect(() => {
     fetchUsers();
+    api
+      .get("/api/agent/version")
+      .then((r) => setCurrentAgentVersion(r.data.version ?? null))
+      .catch(() => {});
   }, []);
 
   const updateForm = (field, value) => {
@@ -2440,6 +2453,68 @@ function StaffManagementPanel({ openProfile }) {
       userId,
       ...tokenData,
     });
+  };
+
+  const downloadSetupCard = (staffName, machineToken, staffId) => {
+    const date = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WorkFlow Agent Setup Card — ${staffName}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#f9fafb;padding:32px;color:#111827}
+    .card{max-width:560px;margin:0 auto;background:white;border-radius:12px;border:2px solid #1d4ed8;padding:28px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+    .logo{color:#1d4ed8;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
+    .title{font-size:20px;font-weight:700}
+    .meta{font-size:12px;color:#6b7280;margin-top:4px}
+    hr{border:none;border-top:1px solid #e5e7eb;margin:20px 0}
+    .lbl{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+    .val{background:#f3f4f6;border-radius:6px;padding:10px 14px;font-family:'Courier New',monospace;font-size:13px;word-break:break-all;margin-bottom:16px}
+    .dl{text-align:center;margin:20px 0}
+    .dl a{display:inline-block;background:#1d4ed8;color:white;text-decoration:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600}
+    .steps{background:#eff6ff;border-radius:8px;padding:16px 20px;margin-top:20px}
+    .steps h4{font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:10px}
+    .steps ol{padding-left:18px}
+    .steps li{font-size:13px;color:#374151;line-height:1.8}
+    .footer{margin-top:20px;font-size:11px;color:#9ca3af;text-align:center}
+    @media print{body{background:white;padding:0}.card{box-shadow:none}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">WorkFlow</div>
+    <div class="title">Agent Setup Card</div>
+    <div class="meta">For: <strong>${staffName}</strong> &nbsp;·&nbsp; Generated ${date}</div>
+    <hr>
+    <div class="lbl">Machine Token</div>
+    <div class="val">${machineToken}</div>
+    <div class="lbl">Staff ID</div>
+    <div class="val">${staffId}</div>
+    <div class="dl">
+      <a href="https://teams.aidbro.com/downloads/WorkFlowAgent.exe">&#8595; Download WorkFlow Agent</a>
+    </div>
+    <div class="steps">
+      <h4>Setup Instructions</h4>
+      <ol>
+        <li>Download the agent using the button above</li>
+        <li>Right-click <strong>install_agent.bat</strong> and choose <strong>Run as administrator</strong></li>
+        <li>A setup window will appear — paste the <strong>Machine Token</strong> and <strong>Staff ID</strong> from above</li>
+        <li>Click <strong>Connect &amp; Save</strong> — the agent will start automatically</li>
+      </ol>
+    </div>
+    <div class="footer">Keep this card confidential. Do not share outside your organisation.</div>
+  </div>
+</body>
+</html>`;
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
   };
 
   const handleAgentTokenClick = async (userId) => {
@@ -2794,7 +2869,7 @@ function StaffManagementPanel({ openProfile }) {
               {users.map((user) => (
                 <tr key={user.id}>
                   <td className="px-4 py-3 font-semibold text-gray-900">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span>{user.full_name}</span>
                       <span className="group relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
                         i
@@ -2807,6 +2882,24 @@ function StaffManagementPanel({ openProfile }) {
                           </span>
                         </span>
                       </span>
+                      {(user.role === "staff" || user.role === "admin") &&
+                        user.agent_version && (
+                          <span
+                            title={
+                              user.agent_updated_at
+                                ? `Updated: ${new Date(user.agent_updated_at).toLocaleDateString()}`
+                                : ""
+                            }
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              currentAgentVersion &&
+                              user.agent_version === currentAgentVersion
+                                ? "bg-green-100 text-green-700"
+                                : "bg-yellow-100 text-yellow-700"
+                            }`}
+                          >
+                            v{user.agent_version}
+                          </span>
+                        )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{user.employee_id}</td>
@@ -3154,15 +3247,33 @@ function StaffManagementPanel({ openProfile }) {
                   </div>
                 </div>
                 <p className="mt-5 text-sm text-gray-600">
-                  Add both values to config.json on the staff member's PC
+                  Share these credentials with the staff member, or open a setup card they can use during installation.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setTokenModal(null)}
-                  className="mt-6 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-                >
-                  Close
-                </button>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const staffUser = users.find(
+                        (u) => u.id === tokenModal.userId
+                      );
+                      downloadSetupCard(
+                        staffUser?.full_name ?? "Staff Member",
+                        tokenModal.machine_token,
+                        tokenModal.staff_id
+                      );
+                    }}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                  >
+                    Open Setup Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTokenModal(null)}
+                    className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                  >
+                    Close
+                  </button>
+                </div>
               </>
             ) : (
               <>
@@ -3179,9 +3290,30 @@ function StaffManagementPanel({ openProfile }) {
                 <div className="mt-3 text-sm text-gray-600">
                   Generated on: {formatDate(tokenModal.created_at)}
                 </div>
+                {tokenModal.agent_version && (
+                  <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                    <span>Agent version:</span>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        currentAgentVersion &&
+                        tokenModal.agent_version === currentAgentVersion
+                          ? "bg-green-100 text-green-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      v{tokenModal.agent_version}
+                    </span>
+                    {tokenModal.agent_updated_at && (
+                      <span className="text-gray-400">
+                        · since {formatDate(tokenModal.agent_updated_at)}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-800">
-                  This will invalidate the existing agent installation. IT will
-                  need to update config.json on the staff member's PC.
+                  This will invalidate the existing agent installation. The
+                  staff member will need to reinstall and enter the new
+                  credentials in the setup wizard.
                 </div>
                 <div className="mt-6 flex gap-3">
                   <button
@@ -5101,30 +5233,41 @@ function SuperAdminDashboard() {
 
   useEffect(() => {
     const poll = async () => {
-      try {
-        const [reportRes, leaveRes, alertRes] = await Promise.all([
-          api.get("/api/attendance/reports/unread-count"),
-          api.get("/api/leave/pending-count"),
-          api.get("/api/alerts/unread-replies-count"),
-        ]);
-        const newReportCount = reportRes.data.count;
-        const newLeaveCount = leaveRes.data.count;
-        const newAlertCount = alertRes.data.count;
-        if (prevReportCountRef.current !== null && newReportCount > prevReportCountRef.current) {
+      const [reportResult, leaveResult, alertResult] = await Promise.allSettled([
+        api.get("/api/attendance/reports/unread-count"),
+        api.get("/api/leave/pending-count"),
+        api.get("/api/alerts/unread-replies-count"),
+      ]);
+
+      let soundPlayed = false;
+
+      if (reportResult.status === "fulfilled") {
+        const n = reportResult.value.data.count;
+        if (!soundPlayed && prevReportCountRef.current !== null && n > prevReportCountRef.current) {
           playActionSound();
-        } else if (prevLeaveCountRef.current !== null && newLeaveCount > prevLeaveCountRef.current) {
+          soundPlayed = true;
+        }
+        prevReportCountRef.current = n;
+        setReportUnreadCount(n);
+      }
+
+      if (leaveResult.status === "fulfilled") {
+        const n = leaveResult.value.data.count;
+        if (!soundPlayed && prevLeaveCountRef.current !== null && n > prevLeaveCountRef.current) {
           playActionSound();
-        } else if (prevAlertReplyCountRef.current !== null && newAlertCount > prevAlertReplyCountRef.current) {
+          soundPlayed = true;
+        }
+        prevLeaveCountRef.current = n;
+        setLeavePendingCount(n);
+      }
+
+      if (alertResult.status === "fulfilled") {
+        const n = alertResult.value.data.count;
+        if (!soundPlayed && prevAlertReplyCountRef.current !== null && n > prevAlertReplyCountRef.current) {
           playActionSound();
         }
-        prevReportCountRef.current = newReportCount;
-        prevLeaveCountRef.current = newLeaveCount;
-        prevAlertReplyCountRef.current = newAlertCount;
-        setReportUnreadCount(newReportCount);
-        setLeavePendingCount(newLeaveCount);
-        setAlertReplyCount(newAlertCount);
-      } catch {
-        // Silent fail — notification failures should never break the main UI
+        prevAlertReplyCountRef.current = n;
+        setAlertReplyCount(n);
       }
     };
     poll();

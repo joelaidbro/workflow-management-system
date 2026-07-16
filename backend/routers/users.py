@@ -45,7 +45,7 @@ class ResetPasswordRequest(BaseModel):
 
 
 
-def format_user(user: User):
+def format_user(user: User, machine_token=None):
     return {
         "id": str(user.id),
         "company_id": str(user.company_id),
@@ -61,6 +61,8 @@ def format_user(user: User):
         "is_active": user.is_active,
         "joining_date": user.joining_date,
         "created_at": user.created_at,
+        "agent_version": machine_token.agent_version if machine_token else None,
+        "agent_updated_at": machine_token.agent_updated_at if machine_token else None,
     }
 
 
@@ -187,7 +189,14 @@ def list_users(
         query = query.filter(User.department == department)
 
     users = query.order_by(User.full_name.asc()).all()
-    return [format_user(user) for user in users]
+
+    user_ids = [u.id for u in users]
+    token_by_user = {}
+    if user_ids:
+        for mt in db.query(MachineToken).filter(MachineToken.user_id.in_(user_ids)).all():
+            token_by_user[mt.user_id] = mt
+
+    return [format_user(u, token_by_user.get(u.id)) for u in users]
 
 
 @router.get("/users/chat-members")
@@ -392,4 +401,6 @@ def get_agent_token_status(
         "token_preview": f"••••••••{machine_token.token[-8:]}",
         "is_active": machine_token.is_active,
         "created_at": machine_token.created_at,
+        "agent_version": machine_token.agent_version,
+        "agent_updated_at": machine_token.agent_updated_at,
     }

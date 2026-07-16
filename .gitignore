@@ -43,10 +43,9 @@ backend/.env.production
 agent/config.json
 agent/WorkFlowAgent
 agent/agent.log
-agent/dist
 agent/WorkFlowAgent.zip
 agent/build
 agent/release
-agent/Staff
+agent/staff
 aifiles
 DEPLOYMENT.md

@@ -1,5 +1,7 @@
+import json
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -19,11 +21,13 @@ class HeartbeatRequest(BaseModel):
     staff_id: str
     machine_token: str
     status: str
+    agent_version: str | None = None
 
 
 class VerifyAgentRequest(BaseModel):
     staff_id: str
     machine_token: str
+    agent_version: str | None = None
 
 
 def verify_machine_token(staff_id, machine_token, db):
@@ -146,6 +150,13 @@ def heartbeat(
             )
         )
 
+    if (
+        heartbeat_data.agent_version
+        and machine_token_row.agent_version != heartbeat_data.agent_version
+    ):
+        machine_token_row.agent_version = heartbeat_data.agent_version
+        machine_token_row.agent_updated_at = now
+
     db.commit()
     return {"received": True}
 
@@ -165,6 +176,15 @@ def verify_agent(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=token_error,
         )
+
+    now = datetime.utcnow()
+    if (
+        verify_data.agent_version
+        and machine_token_row.agent_version != verify_data.agent_version
+    ):
+        machine_token_row.agent_version = verify_data.agent_version
+        machine_token_row.agent_updated_at = now
+        db.commit()
 
     company = db.query(Company).filter(Company.id == user.company_id).first()
     company_config = get_config(company) if company else {}
@@ -253,3 +273,17 @@ def get_agent_session_status(
         "screenshot_interval_seconds": screenshot_interval_seconds,
         "monitoring_enabled": monitoring_enabled,
     }
+
+
+_RELEASE_FILE = Path(__file__).resolve().parent.parent.parent / "agent_release.json"
+
+
+@router.get("/agent/version")
+def get_agent_version():
+    if not _RELEASE_FILE.exists():
+        raise HTTPException(status_code=503, detail="Agent release info not available")
+    try:
+        with _RELEASE_FILE.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Agent release info unreadable")

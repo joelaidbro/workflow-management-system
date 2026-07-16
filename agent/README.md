@@ -17,18 +17,16 @@ Runs silently on Windows PCs and reports staff activity to the server.
 2. Go to Staff Management
 3. Find the staff member
 4. Click "Agent Token"
-5. Copy the machine_token and staff_id
+5. Copy the **Machine Token** and **Staff ID** — send these to the staff member (email, WhatsApp, etc.)
 
-### Step 2 — Prepare installation files
-You need three files in the same folder:
-- WorkFlowAgent.exe (built by developer)
-- config.json (updated with staff member's token)
-- install_agent.bat
+### Step 2 — Send the installation package
+Give the staff member two files (same for everyone — no per-person editing needed):
+- `WorkFlowAgent.exe`
+- `install_agent.bat`
 
-Update config.json with the staff member's values:
-```json
-{
-    "server_url": "https://teams.aidbro.com:8001",
-    "machine_token": "PASTE_TOKEN_HERE",
-    "staff_id": "PASTE_STAFF_ID_HERE"
-}
+### Step 3 — Staff installs and sets up
+1. Staff right-clicks `install_agent.bat` → **Run as administrator**
+2. The agent installs and opens automatically
+3. A **First Time Setup** window appears asking for Machine Token and Staff ID
+4. Staff pastes the values you sent them, clicks **Connect & Save**
+5. The agent verifies the credentials and starts monitoring

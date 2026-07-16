@@ -1,14 +1,16 @@
 import ctypes
-import winsound
+import hashlib
 import io
 import json
 import logging
 import os
 import queue
+import subprocess
 import sys
 import threading
 import time
 import tkinter as tk
+import winsound
 from tkinter import messagebox, ttk
 from datetime import datetime
 from pathlib import Path
@@ -44,6 +46,9 @@ HEARTBEAT_INTERVAL = 60
 ALERT_INTERVAL = 15
 SESSION_POLL_INTERVAL = 15
 TRAY_UPDATE_INTERVAL = 5
+UPDATE_CHECK_INTERVAL = 86400  # 24 hours
+PRODUCTION_SERVER_URL = "https://teams.aidbro.com:8001"
+AGENT_VERSION = "1.0.0"
 
 logging.basicConfig(
     filename=LOG_PATH,
@@ -64,6 +69,228 @@ status_value_label = None
 server_value_label = None
 staff_value_label = None
 main_window = None
+
+
+def parse_version(version_str: str) -> tuple:
+    try:
+        return tuple(int(x) for x in version_str.strip().split("."))
+    except Exception:
+        return (0, 0, 0)
+
+
+def check_for_update() -> None:
+    """Downloads and applies a newer agent exe if the server reports one."""
+    if not getattr(sys, "frozen", False):
+        return  # only update the compiled exe, not a dev run
+
+    try:
+        resp = http_session.get(
+            f"{config['server_url']}/api/agent/version",
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return
+
+        data = resp.json()
+        server_version = data.get("version", "")
+        download_url = data.get("download_url", "")
+        checksum = data.get("checksum", "")
+
+        if not server_version or not download_url:
+            return
+
+        if parse_version(server_version) <= parse_version(AGENT_VERSION):
+            logging.info("Agent is up to date (%s)", AGENT_VERSION)
+            return
+
+        logging.info(
+            "Update available: %s → %s. Downloading…", AGENT_VERSION, server_version
+        )
+
+        install_dir = Path(sys.executable).parent
+        update_path = install_dir / "WorkFlowAgent_update.exe"
+
+        with http_session.get(download_url, stream=True, timeout=120) as dl:
+            dl.raise_for_status()
+            with update_path.open("wb") as f:
+                for chunk in dl.iter_content(chunk_size=65536):
+                    f.write(chunk)
+
+        if checksum:
+            actual = hashlib.sha256(update_path.read_bytes()).hexdigest()
+            if actual != checksum:
+                logging.error("Update checksum mismatch — aborting update")
+                update_path.unlink(missing_ok=True)
+                return
+
+        exe_path = install_dir / "WorkFlowAgent.exe"
+        script_path = install_dir / "wf_update.bat"
+        script_path.write_text(
+            "@echo off\r\n"
+            "timeout /t 3 /nobreak > nul\r\n"
+            f'taskkill /F /IM WorkFlowAgent.exe 2>nul\r\n'
+            f'move /Y "{update_path}" "{exe_path}"\r\n'
+            f'start "" "{exe_path}"\r\n'
+            "del \"%~f0\"\r\n",
+            encoding="ascii",
+        )
+
+        subprocess.Popen(
+            ["cmd.exe", "/c", str(script_path)],
+            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+            close_fds=True,
+        )
+        logging.info("Update script launched — exiting for update to %s.", server_version)
+        os._exit(0)
+
+    except Exception as exc:
+        logging.exception("Update check failed: %s", exc)
+
+
+def needs_setup() -> bool:
+    """Returns True if config.json is missing or credentials are empty."""
+    if not CONFIG_PATH.exists():
+        return True
+    try:
+        with CONFIG_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        return not data.get("machine_token") or not data.get("staff_id")
+    except Exception:
+        return True
+
+
+def show_setup_wizard() -> None:
+    """
+    Blocking first-time setup wizard. Writes config.json on success.
+    Exits the process if the user closes without completing setup.
+    """
+    root = tk.Tk()
+    root.title("WorkFlow Agent — Setup")
+    root.resizable(False, False)
+
+    def on_close():
+        if messagebox.askyesno(
+            "Setup Required",
+            "Setup is required to run WorkFlow Agent.\nExit?",
+            parent=root,
+        ):
+            os._exit(0)
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    container = ttk.Frame(root, padding=20)
+    container.pack(fill="both", expand=True)
+
+    tk.Label(
+        container,
+        text="WorkFlow Agent — First Time Setup",
+        font=("Segoe UI", 13, "bold"),
+    ).pack(anchor="w")
+    tk.Label(
+        container,
+        text="Enter the credentials your administrator provided.",
+        fg="gray",
+        font=("Segoe UI", 9),
+    ).pack(anchor="w", pady=(3, 12))
+
+    ttk.Separator(container, orient="horizontal").pack(fill="x", pady=(0, 12))
+
+    ttk.Label(container, text="Server URL").pack(anchor="w")
+    server_var = tk.StringVar(value=PRODUCTION_SERVER_URL)
+    ttk.Entry(container, textvariable=server_var, width=52).pack(fill="x", pady=(2, 10))
+
+    ttk.Label(container, text="Machine Token").pack(anchor="w")
+    token_var = tk.StringVar()
+    token_entry = ttk.Entry(container, textvariable=token_var, width=52)
+    token_entry.pack(fill="x", pady=(2, 10))
+
+    ttk.Label(container, text="Staff ID").pack(anchor="w")
+    staff_id_var = tk.StringVar()
+    ttk.Entry(container, textvariable=staff_id_var, width=52).pack(fill="x", pady=(2, 16))
+
+    status_var = tk.StringVar()
+    status_label = tk.Label(
+        container, textvariable=status_var, font=("Segoe UI", 9), fg="gray"
+    )
+    status_label.pack(anchor="w", pady=(0, 8))
+
+    connect_btn = ttk.Button(
+        container, text="Connect & Save", command=lambda: on_connect()
+    )
+    connect_btn.pack(anchor="e")
+
+    def on_connect():
+        server_url = server_var.get().strip().rstrip("/")
+        machine_token = token_var.get().strip()
+        staff_id = staff_id_var.get().strip()
+
+        if not server_url or not machine_token or not staff_id:
+            status_var.set("All fields are required.")
+            status_label.config(fg="#dc2626")
+            return
+
+        connect_btn.state(["disabled"])
+        status_var.set("Connecting to server…")
+        status_label.config(fg="gray")
+        root.update()
+
+        def do_validate():
+            try:
+                resp = http_session.post(
+                    f"{server_url}/api/agent/verify",
+                    json={"staff_id": staff_id, "machine_token": machine_token},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    name = resp.json().get("full_name", "")
+                    new_config = {
+                        "server_url": server_url,
+                        "machine_token": machine_token,
+                        "staff_id": staff_id,
+                        "screenshot_enabled": True,
+                        "screenshot_interval_seconds": 600,
+                    }
+                    with CONFIG_PATH.open("w", encoding="utf-8") as f:
+                        json.dump(new_config, f, indent=4)
+                    root.after(0, lambda: on_success(name))
+                else:
+                    root.after(
+                        0,
+                        lambda: on_error(
+                            "Invalid token or Staff ID. Please check with your administrator."
+                        ),
+                    )
+            except requests.exceptions.ConnectionError:
+                root.after(
+                    0,
+                    lambda: on_error(
+                        "Cannot reach server. Check your internet connection."
+                    ),
+                )
+            except Exception as exc:
+                root.after(0, lambda: on_error(f"Unexpected error: {exc}"))
+
+        threading.Thread(target=do_validate, daemon=True).start()
+
+    def on_success(name: str) -> None:
+        status_var.set(f"✓ Connected as {name}. Starting agent…")
+        status_label.config(fg="#16a34a")
+        root.after(1500, root.destroy)
+
+    def on_error(msg: str) -> None:
+        status_var.set(f"✗ {msg}")
+        status_label.config(fg="#dc2626")
+        connect_btn.state(["!disabled"])
+
+    root.update_idletasks()
+    w = root.winfo_reqwidth() + 10
+    h = root.winfo_reqheight() + 15
+    x = (root.winfo_screenwidth() - w) // 2
+    y = (root.winfo_screenheight() - h) // 2
+    root.geometry(f"{w}x{h}+{x}+{y}")
+
+    token_entry.focus()
+    root.mainloop()
 
 
 def load_config() -> None:
@@ -188,6 +415,7 @@ def verify_agent_startup() -> tuple[bool, str]:
             json={
                 "staff_id": config["staff_id"],
                 "machine_token": config["machine_token"],
+                "agent_version": AGENT_VERSION,
             },
             timeout=10,
         )
@@ -424,6 +652,7 @@ def send_heartbeat() -> None:
                 "staff_id": config["staff_id"],
                 "machine_token": config["machine_token"],
                 "status": heartbeat_status,
+                "agent_version": AGENT_VERSION,
             },
             timeout=10,
             verify=True,
@@ -839,6 +1068,7 @@ def main_loop() -> None:
     last_heartbeat = 0
     last_screenshot = 0
     last_session_poll = 0
+    last_update_check = time.time()  # startup thread already handles the first check
 
     while True:
         try:
@@ -847,6 +1077,10 @@ def main_loop() -> None:
             if now - last_session_poll >= SESSION_POLL_INTERVAL:
                 poll_session_status()
                 last_session_poll = now
+
+            if now - last_update_check >= UPDATE_CHECK_INTERVAL:
+                threading.Thread(target=check_for_update, daemon=True).start()
+                last_update_check = now
 
             if monitoring_enabled:
                 check_alerts()
@@ -873,10 +1107,13 @@ def main_loop() -> None:
 
 if __name__ == "__main__":
     try:
+        if needs_setup():
+            show_setup_wizard()
         load_config()
         load_displayed_alert_ids()  # Fix #4: restore persisted alert IDs before polling starts
         start_idle_detector()
         verify_agent_startup()
+        threading.Thread(target=check_for_update, daemon=True).start()
         threading.Thread(target=main_loop, daemon=True).start()
         threading.Thread(target=start_tray_icon, daemon=True).start()
         window = create_status_window()
