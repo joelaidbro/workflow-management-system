@@ -14,6 +14,7 @@ from auth import get_current_user, require_staff, require_staff_or_admin, requir
 from utils import compute_working_minutes, format_utc_datetime, strip_html_tags
 from routers.settings import get_config
 from connection_manager import manager
+from routers.notifications import push_to_user_sync
 from database import get_db
 from limiter import limiter
 from models import ActivityLog, Attendance, Company, CurrentStatus, DailyReport, MachineToken, SalaryRecord, User
@@ -389,6 +390,7 @@ def end_day(
     ]
     for admin_id in admin_ids:
         manager.notify_user_sync(admin_id, {"type": "notification", "kind": "new_report"})
+        push_to_user_sync(admin_id, "New Work Report", f"{current_user.full_name} submitted their daily report")
 
     return {
         "message": "Day ended successfully",
@@ -615,6 +617,7 @@ def reply_to_report(
     db.commit()
 
     manager.notify_user_sync(str(report.user_id), {"type": "notification", "kind": "report_reply"})
+    push_to_user_sync(str(report.user_id), "Report Reply", "Admin replied to your daily report")
 
     return {"message": "Reply submitted"}
 

@@ -10,6 +10,7 @@ from auth import get_current_user
 from utils import format_utc_datetime, strip_html_tags
 from routers.settings import get_config
 from connection_manager import manager
+from routers.notifications import push_to_user_sync
 from database import get_db
 from limiter import limiter
 from models import Alert, AlertRecipient, Company, User
@@ -236,6 +237,7 @@ def acknowledge_alert(
         alert_row = db.query(Alert).filter(Alert.id == alert_recipient.alert_id).first()
         if alert_row:
             manager.notify_user_sync(str(alert_row.sender_id), {"type": "notification", "kind": "alert_reply"})
+            push_to_user_sync(str(alert_row.sender_id), "Alert Reply", f"{user.full_name} replied to your alert")
 
     return {"acknowledged": True}
 
@@ -339,6 +341,7 @@ def acknowledge_my_alert(
         alert_row = db.query(Alert).filter(Alert.id == alert_recipient.alert_id).first()
         if alert_row:
             manager.notify_user_sync(str(alert_row.sender_id), {"type": "notification", "kind": "alert_reply"})
+            push_to_user_sync(str(alert_row.sender_id), "Alert Reply", f"{current_user.full_name} replied to your alert")
 
     return {"acknowledged": True}
 

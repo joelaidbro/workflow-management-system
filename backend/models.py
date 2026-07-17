@@ -129,6 +129,24 @@ class User(Base):
         back_populates="assigner",
         foreign_keys="Task.assigned_by",
     )
+    push_subscriptions = relationship(
+        "PushSubscription",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    endpoint = Column(String(2048), nullable=False, unique=True)
+    p256dh = Column(String(512), nullable=False)
+    auth = Column(String(256), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="push_subscriptions")
 
 
 class Session(Base):

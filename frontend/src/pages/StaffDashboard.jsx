@@ -111,6 +111,41 @@ function StaffDashboard() {
     const interval = setInterval(poll, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!VAPID_PUBLIC_KEY || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    const registerPush = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        await navigator.serviceWorker.ready;
+
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const padding = "=".repeat((4 - (VAPID_PUBLIC_KEY.length % 4)) % 4);
+          const base64 = (VAPID_PUBLIC_KEY + padding).replace(/-/g, "+").replace(/_/g, "/");
+          const raw = window.atob(base64);
+          const key = Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+        }
+
+        await api.post("/api/notifications/subscribe", {
+          endpoint: sub.endpoint,
+          p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey("p256dh")))),
+          auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey("auth")))),
+        });
+      } catch {
+        // Push is optional — silent failure
+      }
+    };
+
+    registerPush();
+  }, []);
+
   const [attendance, setAttendance] = useState(null);
   const [workMode, setWorkMode] = useState("office");
   const [loadingAttendance, setLoadingAttendance] = useState(true);

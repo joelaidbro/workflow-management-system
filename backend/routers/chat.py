@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import datetime
 
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from auth import decode_jwt, get_current_user
 from utils import strip_html_tags
 from connection_manager import manager
+from routers.notifications import send_push_to_user
 from database import SessionLocal, get_db
 from models import Message, User
 
@@ -120,6 +122,14 @@ async def chat_websocket(websocket: WebSocket, user_id: str):
                     "content": message.content,
                     "created_at": message.created_at.isoformat() + "Z",
                 },
+            )
+
+            asyncio.create_task(
+                send_push_to_user(
+                    str(recipient.id),
+                    sender.full_name,
+                    message.content[:100],
+                )
             )
 
             await websocket.send_json(

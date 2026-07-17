@@ -22,6 +22,7 @@ from tasks import (
 )
 
 from routers.agent import router as agent_router
+from routers.notifications import router as notifications_router
 from routers.alerts import router as alerts_router
 from routers.attendance import router as attendance_router
 from routers.auth import router as auth_router
@@ -108,6 +109,7 @@ app.include_router(settings_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(screenshots_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")
 
 
 @app.get("/health")
