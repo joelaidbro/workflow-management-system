@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_staff, require_staff_or_admin, require_admin, require_super_admin
 from utils import compute_working_minutes, format_utc_datetime, strip_html_tags
 from routers.settings import get_config
+from connection_manager import manager
 from database import get_db
 from limiter import limiter
 from models import ActivityLog, Attendance, Company, CurrentStatus, DailyReport, MachineToken, SalaryRecord, User
@@ -377,6 +378,18 @@ def end_day(
 
     db.commit()
 
+    admin_ids = [
+        str(row.id)
+        for row in db.query(User.id).filter(
+            User.company_id == current_user.company_id,
+            User.role.in_(["admin", "super_admin"]),
+            User.is_active.is_(True),
+            User.id != current_user.id,
+        ).all()
+    ]
+    for admin_id in admin_ids:
+        manager.notify_user_sync(admin_id, {"type": "notification", "kind": "new_report"})
+
     return {
         "message": "Day ended successfully",
         "working_minutes": working_minutes,
@@ -600,6 +613,8 @@ def reply_to_report(
     report.admin_reply_at = datetime.utcnow()
     report.replied_by = current_user.id
     db.commit()
+
+    manager.notify_user_sync(str(report.user_id), {"type": "notification", "kind": "report_reply"})
 
     return {"message": "Reply submitted"}
 

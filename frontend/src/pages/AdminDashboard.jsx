@@ -1939,6 +1939,20 @@ function ChatPanel({ chatWithUser }) {
           );
         }
       }
+
+      if (data.type === "notification") {
+        const { kind } = data;
+        if (kind === "new_report") {
+          setReportUnreadCount((c) => c + 1);
+          playActionSound();
+        } else if (kind === "new_leave_request") {
+          setLeavePendingCount((c) => c + 1);
+          playActionSound();
+        } else if (kind === "alert_reply") {
+          setAlertReplyCount((c) => c + 1);
+          playActionSound();
+        }
+      }
     };
 
     }
@@ -5227,7 +5241,7 @@ function SuperAdminDashboard() {
     };
 
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    const interval = setInterval(fetchUnreadCount, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -5271,7 +5285,7 @@ function SuperAdminDashboard() {
       }
     };
     poll();
-    const notifInterval = setInterval(poll, 30000);
+    const notifInterval = setInterval(poll, 10000);
     return () => clearInterval(notifInterval);
   }, []);
 

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_staff, require_staff_or_admin, require_admin
 from utils import format_utc_datetime
 from routers.settings import get_config
+from connection_manager import manager
 from database import get_db
 from models import Attendance, Company, LeaveRequest, User
 
@@ -190,6 +191,18 @@ def submit_leave_request(
     db.commit()
     db.refresh(leave_request)
 
+    admin_ids = [
+        str(row.id)
+        for row in db.query(User.id).filter(
+            User.company_id == current_user.company_id,
+            User.role.in_(["admin", "super_admin"]),
+            User.is_active.is_(True),
+            User.id != current_user.id,
+        ).all()
+    ]
+    for admin_id in admin_ids:
+        manager.notify_user_sync(admin_id, {"type": "notification", "kind": "new_leave_request"})
+
     return {
         "message": "Leave request submitted",
         "leave_request_id": str(leave_request.id),
@@ -346,6 +359,8 @@ def review_leave_request(
             current_date += timedelta(days=1)
 
     db.commit()
+
+    manager.notify_user_sync(str(leave_request.user_id), {"type": "notification", "kind": "leave_decision"})
 
     return {
         "message": f"Leave request {review_data.decision}",

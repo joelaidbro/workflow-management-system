@@ -108,7 +108,7 @@ function StaffDashboard() {
       }
     };
     poll();
-    const interval = setInterval(poll, 30000);
+    const interval = setInterval(poll, 10000);
     return () => clearInterval(interval);
   }, []);
   const [attendance, setAttendance] = useState(null);
@@ -495,6 +495,18 @@ function StaffDashboard() {
             ];
           });
         }
+      }
+
+      if (data.type === "notification") {
+        const { kind } = data;
+        if (kind === "report_reply") {
+          setReportReplyCount((c) => c + 1);
+          playActionSound();
+        } else if (kind === "leave_decision") {
+          setLeaveDecisionCount((c) => c + 1);
+          playActionSound();
+        }
+        return;
       }
 
       if (data.type !== "new_message") {

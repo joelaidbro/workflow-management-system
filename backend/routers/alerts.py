@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from utils import format_utc_datetime, strip_html_tags
 from routers.settings import get_config
+from connection_manager import manager
 from database import get_db
 from limiter import limiter
 from models import Alert, AlertRecipient, Company, User
@@ -231,6 +232,11 @@ def acknowledge_alert(
     alert_recipient.reply = acknowledge_data.reply
     db.commit()
 
+    if acknowledge_data.reply:
+        alert_row = db.query(Alert).filter(Alert.id == alert_recipient.alert_id).first()
+        if alert_row:
+            manager.notify_user_sync(str(alert_row.sender_id), {"type": "notification", "kind": "alert_reply"})
+
     return {"acknowledged": True}
 
 
@@ -328,6 +334,11 @@ def acknowledge_my_alert(
     alert_recipient.acknowledged_at = datetime.utcnow()
     alert_recipient.reply = acknowledge_data.reply
     db.commit()
+
+    if acknowledge_data.reply:
+        alert_row = db.query(Alert).filter(Alert.id == alert_recipient.alert_id).first()
+        if alert_row:
+            manager.notify_user_sync(str(alert_row.sender_id), {"type": "notification", "kind": "alert_reply"})
 
     return {"acknowledged": True}
 

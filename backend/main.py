@@ -12,6 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from sqlalchemy.exc import IntegrityError
 
+from connection_manager import manager
 from limiter import limiter
 from tasks import (
     company_deletion_task,
@@ -38,8 +39,8 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create the task inside the lifespan context.
-    # This guarantees the event loop is running.
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+    await manager.startup(redis_url)
     tasks = [
         asyncio.create_task(offline_detection_task()),
         asyncio.create_task(screenshot_cleanup_task()),
@@ -49,7 +50,6 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        # Clean shutdown - cancel the tasks when server stops.
         for task in tasks:
             task.cancel()
         for task in tasks:
@@ -57,6 +57,7 @@ async def lifespan(app: FastAPI):
                 await task
             except asyncio.CancelledError:
                 pass
+        await manager.shutdown()
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
