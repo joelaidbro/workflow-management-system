@@ -38,6 +38,12 @@ class ConnectionManager:
     async def _listen(self):
         """Background task: listens on Redis pub/sub and forwards to local WebSockets."""
         while True:
+            # redis-py's listen() returns immediately (empty generator) when nothing
+            # is subscribed, which would spin the event loop at 100% CPU. Wait until
+            # at least one channel is registered before entering the generator.
+            if not self._pubsub.subscribed:
+                await asyncio.sleep(1)
+                continue
             try:
                 async for message in self._pubsub.listen():
                     if message["type"] != "message":
