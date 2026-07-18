@@ -16,7 +16,7 @@ from models import PushSubscription, User
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-VAPID_PRIVATE_KEY_PATH = os.getenv("VAPID_PRIVATE_KEY_PATH")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY") or os.getenv("VAPID_PRIVATE_KEY_PATH")
 VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY")
 VAPID_EMAIL = os.getenv("VAPID_EMAIL", "admin@example.com")
 
@@ -77,7 +77,7 @@ async def send_push_to_user(user_id: str, title: str, body: str):
       - The user is currently connected via WebSocket (WS notification suffices)
       - pywebpush is not available
     """
-    if not VAPID_PRIVATE_KEY_PATH or not VAPID_PUBLIC_KEY:
+    if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
         return
     if await manager.is_connected(user_id):
         return
@@ -104,7 +104,7 @@ async def send_push_to_user(user_id: str, title: str, body: str):
                         "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
                     },
                     data=json.dumps({"title": title, "body": body}),
-                    vapid_private_key=VAPID_PRIVATE_KEY_PATH,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
                     vapid_claims={"sub": f"mailto:{VAPID_EMAIL}"},
                 )
             except WebPushException as ex:

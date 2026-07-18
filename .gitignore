@@ -49,3 +49,4 @@ agent/release
 agent/staff
 aifiles
 DEPLOYMENT.md
+backend/vapid_private.pem
