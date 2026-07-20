@@ -20,6 +20,20 @@ MAX_LOGO_BYTES = 2 * 1024 * 1024
 
 router = APIRouter()
 
+
+def get_logo_version(company: Company) -> int | None:
+    """File mtime as a cache-busting token — re-uploading a logo always
+    overwrites the same filename, so the URL never changes on its own;
+    callers append this as a query param so the browser sees a genuinely
+    new URL instead of relying on cache headers alone."""
+    if not company.logo_path:
+        return None
+    logo_full_path = os.path.join(LOGOS_DIR, company.logo_path)
+    try:
+        return int(os.path.getmtime(logo_full_path))
+    except OSError:
+        return None
+
 DEFAULT_CONFIG = {
     "idle_timeout_minutes": 10,
     "break_limit_minutes": 60,
@@ -330,4 +344,12 @@ def get_logo_file(company_id: str, db: Session = Depends(get_db)):
     if not os.path.exists(logo_full_path):
         raise HTTPException(status_code=404, detail="Logo not found")
 
-    return FileResponse(logo_full_path, media_type="image/png")
+    # The upload endpoint always writes to the same filename, so the URL never
+    # changes when a company replaces its logo — force revalidation on every
+    # request (cheap: FileResponse still answers with 304 via ETag/Last-Modified
+    # when the file is unchanged) instead of letting browsers cache it forever.
+    return FileResponse(
+        logo_full_path,
+        media_type="image/png",
+        headers={"Cache-Control": "no-cache"},
+    )

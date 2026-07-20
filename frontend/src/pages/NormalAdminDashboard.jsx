@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Bell,
@@ -1761,7 +1761,9 @@ const adminSectionTitles = {
 
 function NormalAdminDashboard() {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const { section } = useParams();
+  const activeSection = Object.keys(adminSectionTitles).includes(section) ? section : "dashboard";
+  const setActiveSection = (id) => navigate(`/admin/${id}`);
   const [chatWithUser, setChatWithUser] = useState(null);
   const [profileUser, setProfileUser] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -1841,7 +1843,7 @@ function NormalAdminDashboard() {
   const [logoError, setLogoError] = useState(false);
   const logoUrl =
     user?.company_id && !logoError
-      ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}`
+      ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}&v=${user.logo_version ?? 0}`
       : null;
 
   const handleLogout = async () => {

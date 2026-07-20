@@ -219,6 +219,46 @@ def get_company_users(
     return grouped_users
 
 
+@router.post("/platform/companies/{company_id}/reset-super-admin-password")
+def reset_super_admin_password(
+    company_id: str,
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    company = get_company_or_404(company_id, db)
+
+    super_admin = (
+        db.query(User)
+        .filter(
+            User.company_id == company.id,
+            User.role == "super_admin",
+            User.is_active.is_(True),
+        )
+        .order_by(User.created_at.asc())
+        .first()
+    )
+    if not super_admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active super admin found for this company",
+        )
+
+    temp_password = generate_temp_password()
+    super_admin.password_hash = hash_password(temp_password)
+    (
+        db.query(SessionModel)
+        .filter(SessionModel.user_id == super_admin.id, SessionModel.is_active.is_(True))
+        .update({"is_active": False}, synchronize_session=False)
+    )
+    db.commit()
+
+    return {
+        "full_name": super_admin.full_name,
+        "email": super_admin.email,
+        "admin_password": temp_password,
+    }
+
+
 @router.get("/platform/stats")
 def get_platform_stats(
     current_user: User = Depends(require_platform_admin),

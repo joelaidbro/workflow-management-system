@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Activity,
   AlertTriangle,
   Bell,
   Building2,
+  KeyRound,
   LayoutGrid,
   MessageSquare,
   Plus,
@@ -38,13 +39,17 @@ function formatLastActive(value) {
   return `${Math.floor(minutes / 60)} hours ago`;
 }
 
+const PLATFORM_SECTION_IDS = ["overview", "companies", "create-company"];
+
 function PlatformDashboard() {
   const navigate = useNavigate();
+  const { section } = useParams();
   const user = useMemo(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
-  const [activeSection, setActiveSection] = useState("overview");
+  const activeSection = PLATFORM_SECTION_IDS.includes(section) ? section : "overview";
+  const setActiveSection = (id) => navigate(`/platform/${id}`);
   const [stats, setStats] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companySearch, setCompanySearch] = useState("");
@@ -60,6 +65,9 @@ function PlatformDashboard() {
   const [executeDeletionModal, setExecuteDeletionModal] = useState(null);
   const [toggleModal, setToggleModal] = useState(null);
   const [confirmName, setConfirmName] = useState("");
+  const [resetPasswordModal, setResetPasswordModal] = useState(null);
+  const [resetPasswordResult, setResetPasswordResult] = useState(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const fetchStats = async () => {
     try {
@@ -124,6 +132,30 @@ function PlatformDashboard() {
     } finally {
       setToggleModal(null);
     }
+  };
+
+  const handleResetSuperAdminPassword = async () => {
+    if (!resetPasswordModal) return;
+    setResettingPassword(true);
+    try {
+      const response = await api.post(
+        `/api/platform/companies/${resetPasswordModal.id}/reset-super-admin-password`
+      );
+      setResetPasswordResult(response.data);
+      setResetPasswordModal(null);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not reset password");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const copyResetCredentials = () => {
+    if (!resetPasswordResult) return;
+    navigator.clipboard.writeText(
+      `Login Email: ${resetPasswordResult.email}\nPassword: ${resetPasswordResult.admin_password}`
+    );
+    toast.success("Copied");
   };
 
   const handleCancelDeletion = async (company) => {
@@ -336,6 +368,13 @@ function PlatformDashboard() {
                             <Button size="sm" variant="secondary" onClick={() => handleViewUsers(company)}>
                               View Users
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setResetPasswordModal(company)}
+                            >
+                              <KeyRound className="h-3.5 w-3.5" /> Reset Password
+                            </Button>
                             {company.is_deletion_pending ? (
                               <>
                                 <Button size="sm" onClick={() => handleCancelDeletion(company)}>
@@ -489,6 +528,55 @@ function PlatformDashboard() {
             ? `${toggleModal?.company.name} and its users will regain access immediately.`
             : `${toggleModal?.company.name} and its users will lose access immediately.`}
         </p>
+      </Modal>
+
+      <Modal
+        open={!!resetPasswordModal}
+        onClose={() => setResetPasswordModal(null)}
+        title="Reset super admin password?"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setResetPasswordModal(null)}>
+              Cancel
+            </Button>
+            <Button loading={resettingPassword} onClick={handleResetSuperAdminPassword}>
+              Reset Password
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          This generates a new password for {resetPasswordModal?.name}'s super admin account and
+          signs them out everywhere. You'll see the new password once — share it with the client
+          right after.
+        </p>
+      </Modal>
+
+      <Modal
+        open={!!resetPasswordResult}
+        onClose={() => setResetPasswordResult(null)}
+        title="Password reset"
+        footer={
+          <>
+            <Button variant="secondary" onClick={copyResetCredentials}>
+              Copy All
+            </Button>
+            <Button onClick={() => setResetPasswordResult(null)}>Close</Button>
+          </>
+        }
+      >
+        {resetPasswordResult && (
+          <>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Share these credentials with the client:
+            </p>
+            <div className="mt-4 space-y-1 rounded-lg bg-slate-100 p-4 text-sm text-slate-800 dark:bg-white/5 dark:text-slate-200">
+              <div>Name: {resetPasswordResult.full_name}</div>
+              <div>Login Email: {resetPasswordResult.email}</div>
+              <div>Password: {resetPasswordResult.admin_password}</div>
+            </div>
+          </>
+        )}
       </Modal>
 
       <Modal

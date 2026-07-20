@@ -14,15 +14,7 @@ function ProtectedRoute({ children, allowedRoles }) {
       return;
     }
 
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (allowedRoles && !allowedRoles.includes(user.role)) {
-        navigate("/login");
-        return;
-      }
-      setAuthState("authenticated");
-    }
+    let cancelled = false;
 
     const checkAuth = async () => {
       try {
@@ -30,28 +22,35 @@ function ProtectedRoute({ children, allowedRoles }) {
         const user = response.data;
         localStorage.setItem("user", JSON.stringify(user));
         if (allowedRoles && !allowedRoles.includes(user.role)) {
-          navigate("/login");
+          if (!cancelled) navigate("/login");
           return;
         }
-        setAuthState("authenticated");
+        if (!cancelled) setAuthState("authenticated");
       } catch (error) {
         localStorage.removeItem("access_token");
         localStorage.removeItem("user");
-        navigate("/login");
+        if (!cancelled) navigate("/login");
       }
     };
 
-    const timeoutId = setTimeout(checkAuth, 250);
+    checkAuth();
 
     return () => {
-      clearTimeout(timeoutId);
+      cancelled = true;
     };
   }, [allowedRoles, navigate]);
 
   if (authState === "checking") {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
+      <div className="relative flex min-h-screen items-center justify-center">
+        <div className="app-mesh-bg" aria-hidden="true" />
+        <div
+          role="status"
+          aria-live="polite"
+          className="text-sm font-medium text-slate-400"
+        >
+          Loading…
+        </div>
       </div>
     );
   }

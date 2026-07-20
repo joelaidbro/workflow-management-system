@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import ThemeToggle from "./ThemeToggle.jsx";
+import NotificationCenter from "./NotificationCenter.jsx";
 
 /**
  * Shared app shell: one continuous matte gradient canvas (`.app-mesh-bg`,
@@ -196,6 +197,7 @@ export default function DashboardShell({
           </h1>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             {headerExtra}
+            <NotificationCenter navItems={navItems} onSelect={onSectionChange} />
             <ThemeToggle />
           </div>
         </header>

@@ -22,7 +22,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/privacy-policy" element={<LegalPolicy />} />
       <Route
-        path="/staff"
+        path="/staff/:section?"
         element={
           <ProtectedRoute allowedRoles={["staff"]}>
             <StaffDashboard />
@@ -30,7 +30,7 @@ function App() {
         }
       />
       <Route
-        path="/admin"
+        path="/admin/:section?"
         element={
           <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
             <AdminRouter />
@@ -38,13 +38,14 @@ function App() {
         }
       />
       <Route
-        path="/platform"
+        path="/platform/:section?"
         element={
           <ProtectedRoute allowedRoles={["platform_admin"]}>
             <PlatformDashboard />
           </ProtectedRoute>
         }
       />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

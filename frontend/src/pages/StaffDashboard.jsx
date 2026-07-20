@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   ArrowDown,
@@ -89,6 +89,17 @@ const TASK_STATUS_LABEL = {
   done: "Done",
 };
 
+const STAFF_SECTION_IDS = [
+  "dashboard",
+  "reports",
+  "leave",
+  "messages",
+  "attendance",
+  "alerts",
+  "tasks",
+  "profile",
+];
+
 const TOOLTIP_HEADER_CLASS = {
   "bg-emerald-500": "bg-emerald-500/25",
   "bg-rose-500": "bg-rose-500/25",
@@ -107,7 +118,7 @@ function StaffDashboard() {
   const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
   const logoUrl =
     user?.company_id && !logoError
-      ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}`
+      ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}&v=${user.logo_version ?? 0}`
       : null;
   const [unreadCount, setUnreadCount] = useState(0);
   const [reportReplyCount, setReportReplyCount] = useState(0);
@@ -115,7 +126,9 @@ function StaffDashboard() {
   const prevMsgCountRef = useRef(null);
   const prevReportReplyCountRef = useRef(null);
   const prevLeaveDecisionCountRef = useRef(null);
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const { section } = useParams();
+  const activeSection = STAFF_SECTION_IDS.includes(section) ? section : "dashboard";
+  const setActiveSection = (id) => navigate(`/staff/${id}`);
 
   useEffect(() => {
     const poll = async () => {

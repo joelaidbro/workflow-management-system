@@ -15,6 +15,7 @@ from database import get_db
 from limiter import limiter
 from models import Session as SessionModel
 from models import User
+from routers.settings import get_logo_version
 
 router = APIRouter()
 
@@ -73,6 +74,7 @@ def login(
             "full_name": user.full_name,
             "role": user.role,
             "company_id": str(user.company_id),
+            "logo_version": get_logo_version(user.company),
             "access_token": jwt_token,
         }
     )
@@ -122,4 +124,5 @@ def me(current_user: User = Depends(get_current_user)):
         "work_type": current_user.work_type,
         "department": current_user.department,
         "job_title": current_user.job_title,
+        "logo_version": get_logo_version(current_user.company),
     }

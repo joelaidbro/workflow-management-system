@@ -33,6 +33,7 @@ function LoginPage() {
           full_name: response.data.full_name,
           role: response.data.role,
           company_id: response.data.company_id,
+          logo_version: response.data.logo_version,
         })
       );
 
