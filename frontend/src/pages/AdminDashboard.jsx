@@ -1783,7 +1783,13 @@ function AlertsPanel() {
   );
 }
 
-function ChatPanel({ chatWithUser }) {
+function ChatPanel({
+  chatWithUser,
+  onUnreadIncrement,
+  onReportUnreadIncrement,
+  onLeavePendingIncrement,
+  onAlertReplyIncrement,
+}) {
   const user = useMemo(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -1908,7 +1914,7 @@ function ChatPanel({ chatWithUser }) {
           playMessageSound();
           // Update sidebar badge immediately — don't wait for the 30 s poll
           if (!isActiveChat) {
-            setUnreadCount((c) => c + 1);
+            onUnreadIncrement?.();
           }
         }
 
@@ -1943,13 +1949,13 @@ function ChatPanel({ chatWithUser }) {
       if (data.type === "notification") {
         const { kind } = data;
         if (kind === "new_report") {
-          setReportUnreadCount((c) => c + 1);
+          onReportUnreadIncrement?.();
           playActionSound();
         } else if (kind === "new_leave_request") {
-          setLeavePendingCount((c) => c + 1);
+          onLeavePendingIncrement?.();
           playActionSound();
         } else if (kind === "alert_reply") {
-          setAlertReplyCount((c) => c + 1);
+          onAlertReplyIncrement?.();
           playActionSound();
         }
       }
@@ -5374,7 +5380,15 @@ function SuperAdminDashboard() {
     }
 
     if (activeSection === "chat") {
-      return <ChatPanel chatWithUser={chatWithUser} />;
+      return (
+        <ChatPanel
+          chatWithUser={chatWithUser}
+          onUnreadIncrement={() => setUnreadCount((c) => c + 1)}
+          onReportUnreadIncrement={() => setReportUnreadCount((c) => c + 1)}
+          onLeavePendingIncrement={() => setLeavePendingCount((c) => c + 1)}
+          onAlertReplyIncrement={() => setAlertReplyCount((c) => c + 1)}
+        />
+      );
     }
 
     if (activeSection === "tasks") {

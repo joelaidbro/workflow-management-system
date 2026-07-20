@@ -82,9 +82,15 @@ class ConnectionManager:
                 pass
         self.active_connections[user_id] = websocket
         if self._redis:
-            await self._redis.set(f"wf:online:{user_id}", "1", ex=600)
+            try:
+                await self._redis.set(f"wf:online:{user_id}", "1", ex=600)
+            except Exception as e:
+                logger.warning(f"Redis set failed for {user_id}: {e}")
         if self._pubsub:
-            await self._pubsub.subscribe(f"wf:notify:{user_id}")
+            try:
+                await self._pubsub.subscribe(f"wf:notify:{user_id}")
+            except Exception as e:
+                logger.warning(f"Redis subscribe failed for {user_id}: {e}")
 
     def disconnect(self, user_id: str):
         self.active_connections.pop(user_id, None)
@@ -93,7 +99,10 @@ class ConnectionManager:
 
     async def _cleanup_redis(self, user_id: str):
         if self._redis:
-            await self._redis.delete(f"wf:online:{user_id}")
+            try:
+                await self._redis.delete(f"wf:online:{user_id}")
+            except Exception as e:
+                logger.warning(f"Redis delete failed for {user_id}: {e}")
         if self._pubsub:
             try:
                 await self._pubsub.unsubscribe(f"wf:notify:{user_id}")

@@ -1747,7 +1747,16 @@ function NormalAdminDashboard() {
     if (activeSection === "leave") return <AdminLeavePanel />;
     if (activeSection === "alerts") return <AdminAlertsPanel />;
     if (activeSection === "tasks") return <AdminTasksPanel />;
-    if (activeSection === "chat") return <ChatPanel chatWithUser={chatWithUser} />;
+    if (activeSection === "chat")
+      return (
+        <ChatPanel
+          chatWithUser={chatWithUser}
+          onUnreadIncrement={() => setUnreadCount((c) => c + 1)}
+          onReportUnreadIncrement={() => setReportUnreadCount((c) => c + 1)}
+          onLeavePendingIncrement={() => setLeavePendingCount((c) => c + 1)}
+          onAlertReplyIncrement={() => setAlertReplyCount((c) => c + 1)}
+        />
+      );
 
     return (
       <div className="space-y-8">
