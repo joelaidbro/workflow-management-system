@@ -461,31 +461,31 @@ function TeamReportsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-4">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Report date</label>
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="rounded-lg border border-slate-300 dark:border-white/10 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
         </div>
         <button
           type="button"
           onClick={() => setUnreadOnly((c) => !c)}
-          className={`mt-6 rounded-lg px-4 py-2 text-sm font-semibold transition ${unreadOnly ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${unreadOnly ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"}`}
         >
           Unread Only
         </button>
         {unreadDates.length > 0 && (
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {unreadDates.map((date) => (
               <button
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${selectedDate === date ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:bg-brand-50 dark:bg-brand-500/10"}`}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${selectedDate === date ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 dark:border-white/10 bg-white text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10"}`}
               >
                 <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />
                 {date}
@@ -562,7 +562,7 @@ function AdminReportsPanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         <button
           type="button"
           onClick={() => setActiveTab("team")}
@@ -690,7 +690,7 @@ function MyLeaveTab() {
                 </select>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Start Date</label>
                 <input
@@ -828,7 +828,7 @@ function TeamLeaveTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -964,7 +964,7 @@ function AdminLeavePanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -1240,7 +1240,7 @@ function ReceivedAlertsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         <button
           type="button"
           onClick={() => setView("pending")}
@@ -1329,7 +1329,7 @@ function AdminAlertsPanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         <button
           type="button"
           onClick={() => setActiveTab("sent")}
@@ -1568,13 +1568,13 @@ function TeamTasksTab() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-3">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="focus-ring rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="done">Done</option>
           </select>
-          <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+          <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="focus-ring rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
             <option value="">All Staff</option>
             {staffList.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
           </select>
@@ -1630,7 +1630,7 @@ function TeamTasksTab() {
                     <td className="px-5 py-4">
                       <div className="flex gap-2">
                         <button type="button" onClick={() => { setEditTask(task); setEditForm({ title: task.title, description: task.description, due_date: task.due_date || "" }); setEditError(""); }} className="rounded-lg bg-slate-100 dark:bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10">Edit</button>
-                        <button type="button" onClick={() => handleDelete(task.id)} disabled={deletingId === task.id} className="rounded-lg bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:bg-rose-500/15 disabled:opacity-60">{deletingId === task.id ? "..." : "Delete"}</button>
+                        <button type="button" onClick={() => handleDelete(task.id)} disabled={deletingId === task.id} className="rounded-lg bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/15 disabled:opacity-60">{deletingId === task.id ? "..." : "Delete"}</button>
                       </div>
                     </td>
                   </tr>
@@ -1648,22 +1648,22 @@ function TeamTasksTab() {
             <div className="mt-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Assign To</label>
-                <select value={assignForm.assigned_to} onChange={(e) => setAssignForm((f) => ({ ...f, assigned_to: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white">
+                <select value={assignForm.assigned_to} onChange={(e) => setAssignForm((f) => ({ ...f, assigned_to: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white">
                   <option value="">Select staff member...</option>
                   {staffList.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.employee_id})</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Task Title</label>
-                <input type="text" value={assignForm.title} onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Prepare monthly report" className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                <input type="text" value={assignForm.title} onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Prepare monthly report" className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Description</label>
-                <textarea value={assignForm.description} onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))} rows={3} placeholder="Describe what needs to be done..." className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                <textarea value={assignForm.description} onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))} rows={3} placeholder="Describe what needs to be done..." className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Due Date <span className="text-slate-400">(optional)</span></label>
-                <input type="date" value={assignForm.due_date} onChange={(e) => setAssignForm((f) => ({ ...f, due_date: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                <input type="date" value={assignForm.due_date} onChange={(e) => setAssignForm((f) => ({ ...f, due_date: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               {assignError && <p className="text-sm text-rose-600 dark:text-rose-400">{assignError}</p>}
             </div>
@@ -1683,15 +1683,15 @@ function TeamTasksTab() {
             <div className="mt-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Task Title</label>
-                <input type="text" value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                <input type="text" value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Description</label>
-                <textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                <textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Due Date <span className="text-slate-400">(optional)</span></label>
-                <input type="date" value={editForm.due_date} onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                <input type="date" value={editForm.due_date} onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
                 {editForm.due_date && <button type="button" onClick={() => setEditForm((f) => ({ ...f, due_date: "" }))} className="mt-1 text-xs text-slate-400 hover:text-rose-500">Clear due date</button>}
               </div>
               {editError && <p className="text-sm text-rose-600 dark:text-rose-400">{editError}</p>}
@@ -1712,7 +1712,7 @@ function AdminTasksPanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         <button
           type="button"
           onClick={() => setActiveTab("team")}

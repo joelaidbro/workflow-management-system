@@ -1053,7 +1053,7 @@ function StaffDashboard() {
         const isFuture = date > new Date();
         const publicHolidayDates = new Set((attendanceSummary?.public_holidays || []).map((h) => h.date));
         const isPublicHoliday = publicHolidayDates.has(dateKey);
-        let dotClass = "bg-white dark:bg-slate-900/80 border border-slate-300 dark:bg-white/5 dark:border-white/15";
+        let dotClass = "bg-white border border-slate-300 dark:bg-white/5 dark:border-white/15";
         let statusLabel = "No record";
 
         if (isPublicHoliday && !record) {
@@ -1446,7 +1446,7 @@ function StaffDashboard() {
                     }
                   }}
                   disabled={loadingChatUsers}
-                  className="focus-ring mb-4 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
                   <option value="">{loadingChatUsers ? "Loading users..." : "Select person"}</option>
                   {availableChatUsers.map((item) => (
@@ -1704,7 +1704,7 @@ function StaffDashboard() {
                                   value={replyText}
                                   onChange={(e) => setReplyText(e.target.value)}
                                   placeholder="Type your reply message..."
-                                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 p-2 text-sm dark:border-white/10 dark:bg-white/5 dark:text-white"
+                                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white p-2 text-sm dark:border-white/10 dark:bg-white/5 dark:text-white"
                                   rows={2}
                                 />
                                 <div className="flex gap-2">
@@ -1798,7 +1798,7 @@ function StaffDashboard() {
                             value={sendRecipientId}
                             onChange={(e) => setSendRecipientId(e.target.value)}
                             disabled={loadingRecipients}
-                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none disabled:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none disabled:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white"
                           >
                             <option value="">-- Select recipient --</option>
                             {potentialRecipients.map((r) => (
@@ -1818,7 +1818,7 @@ function StaffDashboard() {
                             onChange={(e) => setSendAlertMessage(e.target.value.slice(0, 500))}
                             placeholder="Type your alert message..."
                             rows={4}
-                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                           />
                           <div className="mt-1 text-right text-xs text-slate-400">
                             {sendAlertMessage.length}/500
@@ -1984,7 +1984,7 @@ function StaffDashboard() {
             <select
               value={taskStatusFilter}
               onChange={(e) => setTaskStatusFilter(e.target.value)}
-              className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+              className="focus-ring rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
             >
               <option value="">All Statuses</option>
               <option value="pending">Pending</option>
@@ -2169,7 +2169,7 @@ function StaffDashboard() {
           value={reportContent}
           onChange={(event) => setReportContent(event.target.value)}
           placeholder="Summarise what you worked on today..."
-          className="focus-ring min-h-40 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+          className="focus-ring min-h-40 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
         />
         <div className="mt-1 text-right text-xs text-slate-400">
           {reportContent.length} characters
@@ -2235,7 +2235,7 @@ function StaffDashboard() {
                             className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
                               sentByMe
                                 ? "bg-brand-600 text-white"
-                                : "bg-white dark:bg-slate-900/80 text-slate-800 dark:bg-white/10 dark:text-slate-100"
+                                : "bg-white text-slate-800 dark:bg-white/10 dark:text-slate-100"
                             }`}
                           >
                             {message.content}
@@ -2276,7 +2276,7 @@ function StaffDashboard() {
                     }
                   }}
                   placeholder="Type a message..."
-                  className="focus-ring flex-1 rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring flex-1 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
                 <button
                   type="button"

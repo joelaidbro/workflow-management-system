@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
+  ArrowLeft,
   Bell,
   Camera,
   CalendarDays,
@@ -234,7 +235,7 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
 
                 {isExpanded && (
                   <div className="bg-slate-50 px-5 py-5 dark:bg-white/[0.03]">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                       <div>
                         <span className="text-slate-400">Employee ID</span>
                         <div className="font-medium text-slate-900 dark:text-white">
@@ -319,7 +320,7 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                     </div>
 
                     {alertTarget?.user_id === staff.user_id && (
-                      <div className="mt-5 rounded-xl border border-amber-200/60 bg-white dark:bg-slate-900/80 p-4 dark:border-amber-400/20 dark:bg-white/5">
+                      <div className="mt-5 rounded-xl border border-amber-200/60 bg-white p-4 dark:border-amber-400/20 dark:bg-white/5">
                         <div className="text-sm font-semibold text-slate-900 dark:text-white">
                           Send alert to {staff.full_name}
                         </div>
@@ -352,7 +353,7 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                           onChange={(event) =>
                             setDirectAlertMessage(event.target.value)
                           }
-                          className="focus-ring mt-4 min-h-28 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                          className="focus-ring mt-4 min-h-28 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                           placeholder="Type alert message..."
                         />
                         {directAlertError && (
@@ -852,8 +853,8 @@ function ReportsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-4">
+        <div className="flex flex-wrap items-end gap-3">
           <div>
             <label
               htmlFor="reports-date"
@@ -872,7 +873,7 @@ function ReportsPanel() {
           <button
             type="button"
             onClick={() => setUnreadOnly((current) => !current)}
-            className={`mt-6 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
               unreadOnly
                 ? "bg-brand-600 text-white"
                 : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
@@ -881,7 +882,7 @@ function ReportsPanel() {
             Unread Only
           </button>
           {unreadDates.length > 0 && (
-            <div className="mt-6 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
               {unreadDates.map((date) => (
                 <button
                   key={date}
@@ -890,7 +891,7 @@ function ReportsPanel() {
                   className={`relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                     selectedDate === date
                       ? "border-brand-600 bg-brand-600 text-white"
-                      : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:bg-brand-50 dark:bg-brand-500/10"
+                      : "border-slate-200 dark:border-white/10 bg-white text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10"
                   }`}
                 >
                   <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />
@@ -1136,7 +1137,7 @@ function LeavePanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -1157,14 +1158,14 @@ function LeavePanel() {
         <div className="space-y-5">
           <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-5">
             <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Add Public Holiday</h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Date</label>
                 <input
                   type="date"
                   value={newHolidayDate}
                   onChange={(e) => setNewHolidayDate(e.target.value)}
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
@@ -1174,7 +1175,7 @@ function LeavePanel() {
                   value={newHolidayName}
                   onChange={(e) => setNewHolidayName(e.target.value)}
                   placeholder="e.g. Christmas Day"
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div className="flex items-end">
@@ -2181,14 +2182,18 @@ function ChatPanel({
 
   return (
     <div className="flex h-[calc(100vh-9rem)] overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
-      <aside className="w-1/3 border-r border-slate-200 dark:border-white/10">
+      <aside
+        className={`w-full border-r border-slate-200 dark:border-white/10 lg:block lg:w-1/3 ${
+          selectedConversation ? "hidden" : "block"
+        }`}
+      >
         <div className="border-b border-slate-200 dark:border-white/10 p-5">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Messages</h3>
             <button
               type="button"
               onClick={fetchAvailableChatUsers}
-              className="rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+              className="shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700"
             >
               New Chat
             </button>
@@ -2208,7 +2213,7 @@ function ChatPanel({
                   }
                 }}
                 disabled={loadingChatUsers}
-                className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               >
                 <option value="">
                   {loadingChatUsers ? "Loading staff..." : "Select staff member"}
@@ -2274,7 +2279,11 @@ function ChatPanel({
         </div>
       </aside>
 
-      <section className="relative flex flex-1 flex-col">
+      <section
+        className={`relative flex-1 flex-col lg:flex ${
+          selectedConversation ? "flex" : "hidden"
+        }`}
+      >
         {!selectedConversation ? (
           <div className="flex flex-1 items-center justify-center text-slate-400">
             Select a conversation to start chatting
@@ -2282,6 +2291,14 @@ function ChatPanel({
         ) : (
           <>
             <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setSelectedConversation(null)}
+                aria-label="Back to conversations"
+                className="focus-ring -ml-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10 lg:hidden"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-500/15 text-sm font-bold text-brand-600 dark:text-brand-300">
                 {selectedConversation.full_name.charAt(0).toUpperCase()}
               </div>
@@ -2337,7 +2354,7 @@ function ChatPanel({
                           className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
                             sentByMe
                               ? "bg-brand-600 text-white"
-                              : "bg-white dark:bg-slate-900/80 dark:bg-white/10 text-slate-700 dark:text-slate-200"
+                              : "bg-white dark:bg-white/10 text-slate-700 dark:text-slate-200"
                           }`}
                         >
                           {message.content}
@@ -2787,14 +2804,14 @@ function StaffManagementPanel({ openProfile }) {
         </button>
         <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Add New Staff Member</h3>
 
-        <form onSubmit={handleCreateUser} className="mt-6 grid grid-cols-2 gap-4">
+        <form onSubmit={handleCreateUser} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <input
             type="text"
             required
             value={formData.full_name}
             onChange={(event) => updateForm("full_name", event.target.value)}
             placeholder="Full Name"
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="email"
@@ -2802,7 +2819,7 @@ function StaffManagementPanel({ openProfile }) {
             value={formData.email}
             onChange={(event) => updateForm("email", event.target.value)}
             placeholder="Email"
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="text"
@@ -2810,33 +2827,33 @@ function StaffManagementPanel({ openProfile }) {
             value={formData.employee_id}
             onChange={(event) => updateForm("employee_id", event.target.value)}
             placeholder="Employee ID"
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="text"
             value={formData.department}
             onChange={(event) => updateForm("department", event.target.value)}
             placeholder="Department"
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="text"
             value={formData.job_title}
             onChange={(event) => updateForm("job_title", event.target.value)}
             placeholder="Job Title"
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="text"
             value={formData.phone}
             onChange={(event) => updateForm("phone", event.target.value)}
             placeholder="Phone"
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <select
             value={formData.role}
             onChange={(event) => updateForm("role", event.target.value)}
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
             <option value="staff">Staff</option>
             <option value="admin">Admin</option>
@@ -2844,7 +2861,7 @@ function StaffManagementPanel({ openProfile }) {
           <select
             value={formData.work_type}
             onChange={(event) => updateForm("work_type", event.target.value)}
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
             <option value="office">Office</option>
             <option value="wfh">WFH</option>
@@ -2855,13 +2872,13 @@ function StaffManagementPanel({ openProfile }) {
             value={formData.password}
             onChange={(event) => updateForm("password", event.target.value)}
             placeholder="Password"
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="date"
             value={formData.joining_date}
             onChange={(event) => updateForm("joining_date", event.target.value)}
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
 
           {createError && (
@@ -2899,6 +2916,7 @@ function StaffManagementPanel({ openProfile }) {
         {loading ? (
           <div className="p-8 text-center text-slate-400">Loading staff...</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase text-slate-400">
               <tr>
@@ -3029,6 +3047,7 @@ function StaffManagementPanel({ openProfile }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -3038,7 +3057,7 @@ function StaffManagementPanel({ openProfile }) {
             <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Edit Staff Details</h3>
             <p className="mt-1 text-sm text-slate-400">{editModal.full_name}</p>
 
-            <form onSubmit={handleSaveEdit} className="mt-6 grid grid-cols-2 gap-4">
+            <form onSubmit={handleSaveEdit} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Full Name
@@ -3047,7 +3066,7 @@ function StaffManagementPanel({ openProfile }) {
                   type="text"
                   value={editForm.full_name || ""}
                   onChange={(event) => updateEditForm("full_name", event.target.value)}
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
@@ -3059,7 +3078,7 @@ function StaffManagementPanel({ openProfile }) {
                   type="email"
                   value={editForm.email || ""}
                   onChange={(event) => updateEditForm("email", event.target.value)}
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
@@ -3071,7 +3090,7 @@ function StaffManagementPanel({ openProfile }) {
                   type="text"
                   value={editForm.phone || ""}
                   onChange={(event) => updateEditForm("phone", event.target.value)}
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
@@ -3085,7 +3104,7 @@ function StaffManagementPanel({ openProfile }) {
                   onChange={(event) =>
                     updateEditForm("department", event.target.value)
                   }
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
@@ -3097,7 +3116,7 @@ function StaffManagementPanel({ openProfile }) {
                   type="text"
                   value={editForm.job_title || ""}
                   onChange={(event) => updateEditForm("job_title", event.target.value)}
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
@@ -3108,7 +3127,7 @@ function StaffManagementPanel({ openProfile }) {
                 <select
                   value={editForm.work_type || "office"}
                   onChange={(event) => updateEditForm("work_type", event.target.value)}
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
                   <option value="office">Office</option>
                   <option value="wfh">WFH</option>
@@ -3128,7 +3147,7 @@ function StaffManagementPanel({ openProfile }) {
                     onChange={(event) =>
                       updateEditForm("base_salary", event.target.value)
                     }
-                    className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                   />
                 </label>
               )}
@@ -3180,7 +3199,7 @@ function StaffManagementPanel({ openProfile }) {
                       new_password: event.target.value,
                     }))
                   }
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
@@ -3197,7 +3216,7 @@ function StaffManagementPanel({ openProfile }) {
                       confirm_password: event.target.value,
                     }))
                   }
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
@@ -3390,7 +3409,7 @@ function StaffManagementPanel({ openProfile }) {
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               {salarySlipModal.full_name}
             </p>
-            <div className="mt-5 grid grid-cols-2 gap-4">
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Month
@@ -3406,7 +3425,7 @@ function StaffManagementPanel({ openProfile }) {
                       month: parseInt(event.target.value, 10) || 1,
                     }))
                   }
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
               <label className="block">
@@ -3422,7 +3441,7 @@ function StaffManagementPanel({ openProfile }) {
                       year: parseInt(event.target.value, 10) || new Date().getFullYear(),
                     }))
                   }
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
             </div>
@@ -3728,7 +3747,7 @@ function SettingsPanel() {
             [field]: parseInt(event.target.value, 10) || 0,
           }))
         }
-        className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+        className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
     </label>
   );
@@ -3743,7 +3762,7 @@ function SettingsPanel() {
         onChange={(event) =>
           setState((current) => ({ ...current, [field]: event.target.value }))
         }
-        className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+        className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
     </label>
   );
@@ -3757,7 +3776,7 @@ function SettingsPanel() {
         onChange={(event) =>
           setState((current) => ({ ...current, [field]: event.target.value }))
         }
-        className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+        className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
     </label>
   );
@@ -3804,7 +3823,7 @@ function SettingsPanel() {
       <div className="rounded-xl border border-slate-900/10 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-white/15 dark:bg-slate-900/70">
         {activeTab === "monitoring" && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {renderNumberInput(
                 "Idle timeout (minutes)",
                 "idle_timeout_minutes",
@@ -3885,7 +3904,7 @@ function SettingsPanel() {
 
         {activeTab === "security" && (
           <div className="space-y-5">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {renderNumberInput(
                 "Failed login lockout attempts",
                 "failed_login_lockout_attempts",
@@ -3921,7 +3940,7 @@ function SettingsPanel() {
 
         {activeTab === "chat" && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {renderToggleRow(
                 "Chat enabled",
                 "chat_enabled",
@@ -3959,7 +3978,7 @@ function SettingsPanel() {
 
         {activeTab === "attendance" && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {renderNumberInput(
                 "Working days per month",
                 "working_days_per_month",
@@ -4005,7 +4024,7 @@ function SettingsPanel() {
 
         {activeTab === "leave" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {renderToggleRow(
                 "Half day leave enabled",
                 "half_day_leave_enabled",
@@ -4054,7 +4073,7 @@ function SettingsPanel() {
                   }))
                 }
                 placeholder="Name"
-                className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
               <input
                 type="number"
@@ -4066,7 +4085,7 @@ function SettingsPanel() {
                   }))
                 }
                 placeholder="Annual limit"
-                className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
               <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 px-4">
                 <span className="text-sm text-slate-600 dark:text-slate-300">Carry forward</span>
@@ -4296,7 +4315,7 @@ function ScreenshotsPanel() {
                 setTotal(0);
                 setPage(1);
               }}
-              className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
             >
               <option value="">Select staff member</option>
               {staffList.map((staff) => (
@@ -4320,7 +4339,7 @@ function ScreenshotsPanel() {
                     setSelectedDate(event.target.value);
                     setPage(1);
                   }}
-                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
               <div className="flex items-end">
@@ -4676,7 +4695,7 @@ function TasksPanel() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
           >
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
@@ -4686,7 +4705,7 @@ function TasksPanel() {
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
-            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+            className="focus-ring rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
           >
             <option value="">All Staff</option>
             {staffList.map((s) => (
@@ -4764,7 +4783,7 @@ function TasksPanel() {
                           type="button"
                           onClick={() => handleDelete(task.id)}
                           disabled={deletingId === task.id}
-                          className="rounded-lg bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:bg-rose-500/15 disabled:opacity-60"
+                          className="rounded-lg bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/15 disabled:opacity-60"
                         >
                           {deletingId === task.id ? "..." : "Delete"}
                         </button>
@@ -4789,7 +4808,7 @@ function TasksPanel() {
                 <select
                   value={assignForm.assigned_to}
                   onChange={(e) => setAssignForm((f) => ({ ...f, assigned_to: e.target.value }))}
-                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
                   <option value="">Select staff member...</option>
                   {staffList.map((s) => (
@@ -4804,7 +4823,7 @@ function TasksPanel() {
                   value={assignForm.title}
                   onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))}
                   placeholder="e.g. Prepare monthly report"
-                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
@@ -4814,7 +4833,7 @@ function TasksPanel() {
                   onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Describe what needs to be done..."
                   rows={4}
-                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
@@ -4825,7 +4844,7 @@ function TasksPanel() {
                   type="date"
                   value={assignForm.due_date}
                   onChange={(e) => setAssignForm((f) => ({ ...f, due_date: e.target.value }))}
-                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               {assignError && <p className="text-sm text-rose-600 dark:text-rose-400">{assignError}</p>}
@@ -4866,7 +4885,7 @@ function TasksPanel() {
                   type="text"
                   value={editForm.title}
                   onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
@@ -4875,7 +4894,7 @@ function TasksPanel() {
                   value={editForm.description}
                   onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                   rows={4}
-                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
@@ -4886,7 +4905,7 @@ function TasksPanel() {
                   type="date"
                   value={editForm.due_date}
                   onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))}
-                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
                 {editForm.due_date && (
                   <button
@@ -5163,7 +5182,7 @@ function MyDayPanel() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <button
               type="button"
               onClick={currentStatus === "break" ? handleEndBreak : handleStartBreak}
