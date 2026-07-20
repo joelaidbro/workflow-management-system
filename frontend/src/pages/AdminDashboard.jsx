@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import {
+  Bell,
+  Camera,
+  CalendarDays,
+  ClipboardList,
+  Home,
+  ListChecks,
+  MessageSquare,
+  Settings as SettingsIcon,
+  Users,
+} from "lucide-react";
 
 import api from "../api.js";
 import { playMessageSound, playActionSound } from "../utils/sounds";
@@ -11,13 +23,20 @@ import {
   formatTime,
   minutesToHours,
 } from "../utils/dateUtils";
+import Button from "../components/ui/Button.jsx";
+import Card, { CardBody, CardHeader } from "../components/ui/Card.jsx";
+import Badge from "../components/ui/Badge.jsx";
+import Modal from "../components/ui/Modal.jsx";
+import TabBar from "../components/ui/TabBar.jsx";
+import { EmptyState, LoadingState } from "../components/ui/States.jsx";
+import DashboardShell from "../components/ui/DashboardShell.jsx";
 
 const statusColors = {
-  active: "bg-green-500",
-  idle: "bg-yellow-400",
-  break: "bg-orange-400",
-  meeting: "bg-blue-400",
-  offline: "bg-gray-400",
+  active: "bg-emerald-500",
+  idle: "bg-amber-400",
+  break: "bg-amber-400",
+  meeting: "bg-brand-400",
+  offline: "bg-slate-400",
 };
 
 const statusLabels = {
@@ -126,174 +145,166 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-80 items-center justify-center text-gray-500">
-        Loading team status...
-      </div>
-    );
+    return <LoadingState label="Loading team status…" />;
   }
 
   return (
     <div className="space-y-6">
-      {error && <div className="text-sm font-medium text-red-600">{error}</div>}
+      {error && <div className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</div>}
 
-      <div className="grid grid-cols-5 gap-4">
-        <div className="rounded-xl border border-green-200 bg-green-50 p-5">
-          <div className="text-sm font-medium text-green-700">🟢 Active</div>
-          <div className="mt-3 text-3xl font-bold text-green-900">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="rounded-xl border border-emerald-200/60 bg-emerald-50 p-5 dark:border-emerald-400/20 dark:bg-emerald-500/10">
+          <div className="text-sm font-medium text-emerald-700 dark:text-emerald-300">🟢 Active</div>
+          <div className="mt-3 text-3xl font-bold tracking-tight text-emerald-900 dark:text-emerald-200">
             {counts.active}
           </div>
         </div>
-        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
-          <div className="text-sm font-medium text-yellow-700">🟡 Idle</div>
-          <div className="mt-3 text-3xl font-bold text-yellow-900">
+        <div className="rounded-xl border border-amber-200/60 bg-amber-50 p-5 dark:border-amber-400/20 dark:bg-amber-500/10">
+          <div className="text-sm font-medium text-amber-700 dark:text-amber-300">🟡 Idle</div>
+          <div className="mt-3 text-3xl font-bold tracking-tight text-amber-900 dark:text-amber-200">
             {counts.idle}
           </div>
         </div>
-        <div className="rounded-xl border border-orange-200 bg-orange-50 p-5">
-          <div className="text-sm font-medium text-orange-700">☕ On Break</div>
-          <div className="mt-3 text-3xl font-bold text-orange-900">
+        <div className="rounded-xl border border-amber-200/60 bg-amber-50 p-5 dark:border-amber-400/20 dark:bg-amber-500/10">
+          <div className="text-sm font-medium text-amber-700 dark:text-amber-300">☕ On Break</div>
+          <div className="mt-3 text-3xl font-bold tracking-tight text-amber-900 dark:text-amber-200">
             {counts.break}
           </div>
         </div>
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
-          <div className="text-sm font-medium text-blue-700">📋 In Meeting</div>
-          <div className="mt-3 text-3xl font-bold text-blue-900">
+        <div className="rounded-xl border border-brand-200/60 bg-brand-50 p-5 dark:border-brand-400/20 dark:bg-brand-500/10">
+          <div className="text-sm font-medium text-brand-700 dark:text-brand-300">📋 In Meeting</div>
+          <div className="mt-3 text-3xl font-bold tracking-tight text-brand-900 dark:text-brand-200">
             {counts.meeting}
           </div>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-          <div className="text-sm font-medium text-gray-700">⚫ Offline</div>
-          <div className="mt-3 text-3xl font-bold text-gray-900">
+        <div className="rounded-xl border border-slate-200/70 bg-slate-100 p-5 dark:border-white/10 dark:bg-white/5">
+          <div className="text-sm font-medium text-slate-600 dark:text-slate-300">⚫ Offline</div>
+          <div className="mt-3 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             {counts.offline}
           </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <Card className="overflow-hidden">
         {staffList.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No staff members found
-          </div>
+          <CardBody>
+            <EmptyState title="No staff members found" />
+          </CardBody>
         ) : (
           staffList.map((staff) => {
             const isExpanded = expandedUserId === staff.user_id;
             const breakMinutes = getBreakMinutes(staff.break_started_at);
 
             return (
-              <div key={staff.user_id} className="border-b border-gray-100 last:border-b-0">
+              <div key={staff.user_id} className="border-b border-slate-100 last:border-b-0 dark:border-white/5">
                 <button
                   type="button"
                   onClick={() =>
                     setExpandedUserId(isExpanded ? null : staff.user_id)
                   }
-                  className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-gray-50"
+                  className="focus-ring flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50 dark:hover:bg-white/5"
                 >
                   <span
-                    className={`h-3 w-3 rounded-full ${
-                      statusColors[staff.status] || "bg-gray-400"
+                    className={`h-3 w-3 shrink-0 rounded-full ${
+                      statusColors[staff.status] || "bg-slate-400"
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-gray-900">
+                    <div className="font-semibold text-slate-900 dark:text-white">
                       {staff.full_name}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
                       {staff.department || "No department"}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 dark:bg-white/10 dark:text-slate-200">
                       {statusLabels[staff.status] || staff.status}
                     </span>
                     {staff.status === "break" && breakMinutes !== null && (
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-slate-400">
                         {breakMinutes} min
                       </span>
                     )}
-                    <span className="text-lg text-gray-400">
+                    <span className="text-lg text-slate-400">
                       {isExpanded ? "⌃" : "⌄"}
                     </span>
                   </div>
                 </button>
 
                 {isExpanded && (
-                  <div className="bg-gray-50 px-5 py-5">
+                  <div className="bg-slate-50 px-5 py-5 dark:bg-white/[0.03]">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-500">Employee ID</span>
-                        <div className="font-medium text-gray-900">
+                        <span className="text-slate-400">Employee ID</span>
+                        <div className="font-medium text-slate-900 dark:text-white">
                           {staff.employee_id || "N/A"}
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Work mode today</span>
-                        <div className="font-medium text-gray-900">
+                        <span className="text-slate-400">Work mode today</span>
+                        <div className="font-medium text-slate-900 dark:text-white">
                           {staff.today_work_mode
                             ? staff.today_work_mode.toUpperCase()
                             : "N/A"}
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Login time</span>
-                        <div className="font-medium text-gray-900">
+                        <span className="text-slate-400">Login time</span>
+                        <div className="font-medium text-slate-900 dark:text-white">
                           {formatTime(staff.login_time)}
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Last activity</span>
-                        <div className="font-medium text-gray-900">
+                        <span className="text-slate-400">Last activity</span>
+                        <div className="font-medium text-slate-900 dark:text-white">
                           {formatTime(staff.updated_at)}
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Working hours today</span>
-                        <div className="font-medium text-gray-900">
+                        <span className="text-slate-400">Working hours today</span>
+                        <div className="font-medium text-slate-900 dark:text-white">
                           {minutesToHours(staff.working_minutes_so_far ?? 0)}
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Idle Time Today</span>
-                        <div className="font-medium text-gray-900">
+                        <span className="text-slate-400">Idle Time Today</span>
+                        <div className="font-medium text-slate-900 dark:text-white">
                           {minutesToHours(staff.idle_minutes || 0)}
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Break Duration</span>
-                        <div className="font-medium text-gray-900">
+                        <span className="text-slate-400">Break Duration</span>
+                        <div className="font-medium text-slate-900 dark:text-white">
                           {minutesToHours(staff.break_minutes || 0)}
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Meeting Duration</span>
-                        <div className="font-medium text-gray-900">
+                        <span className="text-slate-400">Meeting Duration</span>
+                        <div className="font-medium text-slate-900 dark:text-white">
                           {minutesToHours(staff.meeting_minutes || 0)}
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-5 flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => openProfile(staff.user_id)}
-                        className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-                      >
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <Button size="sm" variant="secondary" onClick={() => openProfile(staff.user_id)}>
                         View Profile
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="!bg-amber-400 !text-amber-950 hover:!bg-amber-500"
                         onClick={() => {
                           setAlertTarget(staff);
                           setDirectAlertType("info");
                           setDirectAlertMessage("");
                           setDirectAlertError("");
                         }}
-                        className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-yellow-950 hover:bg-yellow-500"
                       >
                         Send Alert
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        size="sm"
                         onClick={() => {
                           setChatWithUser({
                             user_id: staff.user_id,
@@ -302,25 +313,24 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                           });
                           setActiveSection("chat");
                         }}
-                        className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
                       >
                         Open Chat
-                      </button>
+                      </Button>
                     </div>
 
                     {alertTarget?.user_id === staff.user_id && (
-                      <div className="mt-5 rounded-xl border border-yellow-200 bg-white p-4">
-                        <div className="text-sm font-semibold text-gray-900">
+                      <div className="mt-5 rounded-xl border border-amber-200/60 bg-white dark:bg-slate-900/80 p-4 dark:border-amber-400/20 dark:bg-white/5">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white">
                           Send alert to {staff.full_name}
                         </div>
                         <div className="mt-4 grid grid-cols-2 gap-3">
                           <button
                             type="button"
                             onClick={() => setDirectAlertType("info")}
-                            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                            className={`focus-ring rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
                               directAlertType === "info"
-                                ? "bg-blue-700 text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                ? "bg-brand-600 text-white"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                             }`}
                           >
                             Info
@@ -328,10 +338,10 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                           <button
                             type="button"
                             onClick={() => setDirectAlertType("urgent")}
-                            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                            className={`focus-ring rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
                               directAlertType === "urgent"
-                                ? "bg-red-600 text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                ? "bg-rose-600 text-white"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                             }`}
                           >
                             Urgent
@@ -342,30 +352,21 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
                           onChange={(event) =>
                             setDirectAlertMessage(event.target.value)
                           }
-                          className="mt-4 min-h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                          className="focus-ring mt-4 min-h-28 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                           placeholder="Type alert message..."
                         />
                         {directAlertError && (
-                          <div className="mt-2 text-sm font-medium text-red-600">
+                          <div className="mt-2 text-sm font-medium text-rose-600 dark:text-rose-400">
                             {directAlertError}
                           </div>
                         )}
                         <div className="mt-4 flex justify-end gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setAlertTarget(null)}
-                            className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-                          >
+                          <Button size="sm" variant="secondary" onClick={() => setAlertTarget(null)}>
                             Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSendDirectAlert}
-                            disabled={sendingDirectAlert}
-                            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
-                          >
+                          </Button>
+                          <Button size="sm" loading={sendingDirectAlert} onClick={handleSendDirectAlert}>
                             {sendingDirectAlert ? "Sending..." : "Send"}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -375,15 +376,25 @@ function TeamStatusPanel({ setActiveSection, setChatWithUser, openProfile }) {
             );
           })
         )}
-      </div>
+      </Card>
     </div>
   );
 }
+
+const PROFILE_TOOLTIP_HEADER_CLASS = {
+  "bg-emerald-500": "bg-emerald-500/25",
+  "bg-rose-500": "bg-rose-500/25",
+  "bg-sky-500": "bg-sky-500/25",
+  "bg-amber-400": "bg-amber-400/25",
+};
 
 function StaffProfileModal({ userId, onClose }) {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
+  const todayKey = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10);
   const currentUser = useMemo(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -397,6 +408,23 @@ function StaffProfileModal({ userId, onClose }) {
     x: 0,
     y: 0,
   });
+  const TOOLTIP_WIDTH = 208;
+  const TOOLTIP_HEIGHT = 190;
+  const showTooltip = (event, day) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const margin = 8;
+    const x = Math.min(
+      Math.max(margin, rect.left - TOOLTIP_WIDTH / 2 + rect.width / 2),
+      window.innerWidth - TOOLTIP_WIDTH - margin
+    );
+    const preferredY = rect.top - TOOLTIP_HEIGHT - 10;
+    const y =
+      preferredY < margin
+        ? Math.min(rect.bottom + 10, window.innerHeight - TOOLTIP_HEIGHT - margin)
+        : preferredY;
+    setTooltip({ visible: true, day, x, y });
+  };
+  const hideTooltip = () => setTooltip({ visible: false, day: null, x: 0, y: 0 });
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -471,22 +499,28 @@ function StaffProfileModal({ userId, onClose }) {
         const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
         const publicHolidayDates = new Set((summary?.public_holidays || []).map((h) => h.date));
         const isPublicHoliday = publicHolidayDates.has(dateKey);
-        let dotClass = "bg-red-500";
+        let dotClass = "bg-rose-500";
+        let statusLabel = "Absent";
 
         if (isPublicHoliday && !record) {
           dotClass = "bg-amber-400";
+          statusLabel = "Public holiday";
         } else if (isWeekend && !record) {
-          dotClass = "bg-gray-400";
+          dotClass = "bg-slate-300 dark:bg-white/10";
+          statusLabel = "Weekend";
         } else if (record?.work_mode === "leave") {
-          dotClass = "bg-blue-500";
+          dotClass = "bg-sky-500";
+          statusLabel = "On leave";
         } else if (record?.is_present) {
-          dotClass = "bg-green-500";
+          dotClass = "bg-emerald-500";
+          statusLabel = "Present";
         }
 
         return {
           day,
           date: dateKey,
           dotClass,
+          statusLabel,
           record,
           work_mode: record?.work_mode || (isPublicHoliday ? "holiday" : (isWeekend ? "weekend" : "office")),
           working_minutes: record?.working_minutes || 0,
@@ -500,205 +534,197 @@ function StaffProfileModal({ userId, onClose }) {
   }, [currentYear, currentMonth, summary]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900">
-              {summary?.full_name || "Profile"}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {summary?.employee_id || "N/A"} · {summary?.department || "No department"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
-          >
-            Close
-          </button>
-        </div>
+    <Modal open onClose={onClose} size="xl" title={summary?.full_name || "Profile"}>
+      <p className="-mt-3 text-sm text-slate-500 dark:text-slate-400">
+        {summary?.employee_id || "N/A"} · {summary?.department || "No department"}
+      </p>
 
-        {loading ? (
-          <div className="py-12 text-center text-gray-500">Loading profile...</div>
-        ) : (
-          <>
-            <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-5">
-              <div className="grid gap-4 text-sm md:grid-cols-2">
-                <div>
-                  <span className="text-gray-500">Employee ID</span>
-                  <div className="font-semibold text-gray-900">{summary?.employee_id || "N/A"}</div>
+      {loading ? (
+        <LoadingState label="Loading profile…" />
+      ) : (
+        <>
+          <div className="mt-6 rounded-2xl border border-slate-200/70 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
+            <div className="grid gap-4 text-sm md:grid-cols-2">
+              <div>
+                <span className="text-slate-400">Employee ID</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.employee_id || "N/A"}</div>
+              </div>
+              <div>
+                <span className="text-slate-400">Department</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.department || "N/A"}</div>
+              </div>
+              <div>
+                <span className="text-slate-400">Job Title</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.job_title || "N/A"}</div>
+              </div>
+              <div>
+                <span className="text-slate-400">Work Type</span>
+                <div className="mt-1">
+                  <Badge tone={summary?.work_type === "wfh" ? "info" : "success"}>
+                    {summary?.work_type === "wfh" ? "WFH" : "Office"}
+                  </Badge>
                 </div>
+              </div>
+              <div>
+                <span className="text-slate-400">Email</span>
                 <div>
-                  <span className="text-gray-500">Department</span>
-                  <div className="font-semibold text-gray-900">{summary?.department || "N/A"}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Job Title</span>
-                  <div className="font-semibold text-gray-900">{summary?.job_title || "N/A"}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Work Type</span>
-                  <div className="mt-1">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        summary?.work_type === "wfh"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
+                  {summary?.email ? (
+                    <a
+                      href={`mailto:${summary.email}`}
+                      className="font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200"
                     >
-                      {summary?.work_type === "wfh" ? "WFH" : "Office"}
-                    </span>
+                      {summary.email}
+                    </a>
+                  ) : (
+                    <span className="font-semibold text-slate-900 dark:text-white">N/A</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-400">Phone</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.phone || "N/A"}</div>
+              </div>
+              <div>
+                <span className="text-slate-400">Joining Date</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{formatDate(summary?.joining_date)}</div>
+              </div>
+              {currentUser?.role === "super_admin" && (
+                <div>
+                  <span className="text-slate-400">Base Salary</span>
+                  <div className="font-semibold text-slate-900 dark:text-white">
+                    {summary?.base_salary != null ? summary.base_salary : "N/A"}
                   </div>
                 </div>
-                <div>
-                  <span className="text-gray-500">Email</span>
-                  <div>
-                    {summary?.email ? (
-                      <a
-                        href={`mailto:${summary.email}`}
-                        className="font-semibold text-blue-700 hover:text-blue-800"
-                      >
-                        {summary.email}
-                      </a>
-                    ) : (
-                      <span className="font-semibold text-gray-900">N/A</span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Phone</span>
-                  <div className="font-semibold text-gray-900">{summary?.phone || "N/A"}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Joining Date</span>
-                  <div className="font-semibold text-gray-900">{formatDate(summary?.joining_date)}</div>
-                </div>
-                {currentUser?.role === "super_admin" && (
-                  <div>
-                    <span className="text-gray-500">Base Salary</span>
-                    <div className="font-semibold text-gray-900">
-                      {summary?.base_salary != null ? summary.base_salary : "N/A"}
-                    </div>
-                  </div>
-                )}
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 md:grid-cols-5">
+            <div className="rounded-xl border border-emerald-200/60 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-500/10">
+              <div className="text-emerald-700 dark:text-emerald-300">Days Present</div>
+              <div className="mt-1 text-2xl font-bold text-emerald-900 dark:text-emerald-200">
+                {summary?.days_present || 0}
               </div>
             </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-4 text-sm md:grid-cols-5">
-              <div className="rounded-xl bg-green-50 p-4">
-                <div className="text-green-700">Days Present</div>
-                <div className="mt-1 text-2xl font-bold text-green-900">
-                  {summary?.days_present || 0}
-                </div>
-              </div>
-              <div className="rounded-xl bg-red-50 p-4">
-                <div className="text-red-700">Days Absent</div>
-                <div className="mt-1 text-2xl font-bold text-red-900">
-                  {summary?.days_absent || 0}
-                </div>
-              </div>
-              <div className="rounded-xl bg-blue-50 p-4">
-                <div className="text-blue-700">Working Hours</div>
-                <div className="mt-1 text-2xl font-bold text-blue-900">
-                  {minutesToHours(summary?.total_working_minutes || 0)}
-                </div>
-              </div>
-              <div className="rounded-xl bg-orange-50 p-4">
-                <div className="text-orange-700">Break Time</div>
-                <div className="mt-1 text-2xl font-bold text-orange-900">
-                  {minutesToHours(summary?.total_break_minutes || 0)}
-                </div>
-              </div>
-              <div className="rounded-xl bg-yellow-50 p-4">
-                <div className="text-yellow-700">Idle Time</div>
-                <div className="mt-1 text-2xl font-bold text-yellow-900">
-                  {minutesToHours(summary?.total_idle_minutes || 0)}
-                </div>
+            <div className="rounded-xl border border-rose-200/60 bg-rose-50 p-4 dark:border-rose-400/20 dark:bg-rose-500/10">
+              <div className="text-rose-700 dark:text-rose-300">Days Absent</div>
+              <div className="mt-1 text-2xl font-bold text-rose-900 dark:text-rose-200">
+                {summary?.days_absent || 0}
               </div>
             </div>
-
-            <div className="mt-6">
-              <div className="mb-3 flex items-center justify-between">
-                <h4 className="font-bold text-gray-900">Attendance Calendar</h4>
-                <div className="flex gap-3 text-xs text-gray-500">
-                  <span>Green present</span>
-                  <span>Red absent</span>
-                  <span>Blue leave</span>
-                  <span>Gray weekend</span>
-                </div>
+            <div className="rounded-xl border border-brand-200/60 bg-brand-50 p-4 dark:border-brand-400/20 dark:bg-brand-500/10">
+              <div className="text-brand-700 dark:text-brand-300">Working Hours</div>
+              <div className="mt-1 text-2xl font-bold text-brand-900 dark:text-brand-200">
+                {minutesToHours(summary?.total_working_minutes || 0)}
               </div>
-              <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-gray-500">
+            </div>
+            <div className="rounded-xl border border-amber-200/60 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-500/10">
+              <div className="text-amber-700 dark:text-amber-300">Break Time</div>
+              <div className="mt-1 text-2xl font-bold text-amber-900 dark:text-amber-200">
+                {minutesToHours(summary?.total_break_minutes || 0)}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200/70 bg-slate-100 p-4 dark:border-white/10 dark:bg-white/5">
+              <div className="text-slate-600 dark:text-slate-300">Idle Time</div>
+              <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                {minutesToHours(summary?.total_idle_minutes || 0)}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h4 className="mb-3 font-bold tracking-tight text-slate-900 dark:text-white">Attendance Calendar</h4>
+            <div className="rounded-2xl border border-slate-900/10 bg-white/80 p-5 backdrop-blur-xl dark:border-white/15 dark:bg-slate-900/70">
+              <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-slate-400 sm:gap-2">
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
                   <div key={day}>{day}</div>
                 ))}
               </div>
-              <div className="mt-2 grid grid-cols-7 gap-2 rounded-xl bg-gray-50 p-4">
+              <div className="mt-3 grid grid-cols-7 gap-1 sm:gap-2">
                 {calendarDays.map((item) =>
                   item.blank ? (
                     <div key={item.id} className="h-12" />
                   ) : (
                     <div
                       key={item.day}
-                      className="flex flex-col items-center gap-1 rounded-lg bg-white p-2 text-xs text-gray-600"
+                      className={`flex h-12 flex-col items-center justify-center gap-1 rounded-lg border text-xs text-slate-600 transition-colors dark:text-slate-300 sm:h-14 ${
+                        item.date === todayKey
+                          ? "border-brand-400/60 bg-brand-50 dark:border-brand-400/50 dark:bg-brand-500/10"
+                          : "border-slate-200/70 bg-slate-50/80 hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20"
+                      }`}
                     >
-                      <span>{item.day}</span>
-                      <span
-                        className={`h-3 w-3 cursor-pointer rounded-full ${item.dotClass}`}
-                        onMouseEnter={(event) => {
-                          const rect = event.currentTarget.getBoundingClientRect();
-                          setTooltip({
-                            visible: true,
-                            day: item,
-                            x: rect.left,
-                            y: rect.top,
-                          });
-                        }}
-                        onMouseLeave={() =>
-                          setTooltip({ visible: false, day: null, x: 0, y: 0 })
-                        }
+                      <span className={item.date === todayKey ? "font-bold text-brand-700 dark:text-brand-200" : ""}>
+                        {item.day}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`${formatDate(item.date)}: ${item.statusLabel}`}
+                        className={`focus-ring h-5 w-5 rounded-full ring-2 ring-black/5 transition-transform hover:scale-110 dark:ring-white/10 sm:h-6 sm:w-6 ${item.dotClass}`}
+                        onMouseEnter={(event) => showTooltip(event, item)}
+                        onMouseLeave={hideTooltip}
+                        onFocus={(event) => showTooltip(event, item)}
+                        onBlur={hideTooltip}
                       />
                     </div>
                   )
                 )}
               </div>
-              {tooltip.visible && tooltip.day && (
-                <div
-                  className="pointer-events-none fixed z-50 rounded-lg bg-gray-900 p-3 text-xs text-white shadow-xl"
-                  style={{ left: tooltip.x + 10, top: tooltip.y - 80 }}
-                >
-                  <div className="mb-1 font-bold">
-                    {formatDate(tooltip.day.date)}
+            </div>
+            {tooltip.visible && tooltip.day && createPortal(
+              <div
+                role="tooltip"
+                className="pointer-events-none fixed z-50 w-52 overflow-hidden rounded-xl bg-slate-900 text-xs text-white shadow-2xl ring-1 ring-white/10"
+                style={{ left: tooltip.x, top: tooltip.y }}
+              >
+                <div className={`flex items-center justify-between gap-2 px-3 py-2 ${PROFILE_TOOLTIP_HEADER_CLASS[tooltip.day.dotClass] || "bg-white/10"}`}>
+                  <span className="font-bold">{formatDate(tooltip.day.date)}</span>
+                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                    {tooltip.day.statusLabel}
+                  </span>
+                </div>
+                <div className="space-y-1.5 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Working</span>
+                    <span className="font-semibold">{minutesToHours(tooltip.day.working_minutes)}</span>
                   </div>
-                  <div>🕐 Working: {minutesToHours(tooltip.day.working_minutes)}</div>
-                  <div>☕ Break: {minutesToHours(tooltip.day.break_minutes)}</div>
-                  <div>💤 Idle: {minutesToHours(tooltip.day.idle_minutes)}</div>
-                  <div>🔵 Mode: {tooltip.day.work_mode || "Office"}</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Break</span>
+                    <span className="font-semibold">{minutesToHours(tooltip.day.break_minutes)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Idle</span>
+                    <span className="font-semibold">{minutesToHours(tooltip.day.idle_minutes)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Mode</span>
+                    <span className="font-semibold capitalize">{tooltip.day.work_mode || "Office"}</span>
+                  </div>
                   {tooltip.day.login_time && (
-                    <div>⏰ Login: {formatTime(tooltip.day.login_time)}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Login</span>
+                      <span className="font-semibold">{formatTime(tooltip.day.login_time)}</span>
+                    </div>
                   )}
                   {tooltip.day.logout_time && (
-                    <div>⏰ Logout: {formatTime(tooltip.day.logout_time)}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Logout</span>
+                      <span className="font-semibold">{formatTime(tooltip.day.logout_time)}</span>
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>,
+              document.body
+            )}
+          </div>
 
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={handleDownloadReport}
-                disabled={downloading}
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {downloading ? "Downloading..." : "Download Report"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+          <div className="mt-6 flex justify-end">
+            <Button variant="secondary" loading={downloading} onClick={handleDownloadReport}>
+              {downloading ? "Downloading..." : "Download Report"}
+            </Button>
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }
 
@@ -826,12 +852,12 @@ function ReportsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-4">
         <div className="flex items-center gap-4">
           <div>
             <label
               htmlFor="reports-date"
-              className="mb-1 block text-sm font-medium text-gray-600"
+              className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300"
             >
               Report date
             </label>
@@ -840,7 +866,7 @@ function ReportsPanel() {
               type="date"
               value={selectedDate}
               onChange={(event) => setSelectedDate(event.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="rounded-lg border border-slate-300 dark:border-white/10 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-200"
             />
           </div>
           <button
@@ -848,8 +874,8 @@ function ReportsPanel() {
             onClick={() => setUnreadOnly((current) => !current)}
             className={`mt-6 rounded-lg px-4 py-2 text-sm font-semibold transition ${
               unreadOnly
-                ? "bg-blue-700 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-brand-600 text-white"
+                : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
             }`}
           >
             Unread Only
@@ -863,11 +889,11 @@ function ReportsPanel() {
                   onClick={() => setSelectedDate(date)}
                   className={`relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                     selectedDate === date
-                      ? "border-blue-700 bg-blue-700 text-white"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:bg-brand-50 dark:bg-brand-500/10"
                   }`}
                 >
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />
                   {date}
                 </button>
               ))}
@@ -878,20 +904,20 @@ function ReportsPanel() {
           type="button"
           onClick={handleDownloadTeamReport}
           disabled={downloadingTeamReport}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {downloadingTeamReport ? "Downloading..." : "↓ Download Team Report"}
         </button>
       </div>
 
-      {error && <div className="text-sm font-medium text-red-600">{error}</div>}
+      {error && <div className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</div>}
 
       {loading ? (
-        <div className="flex min-h-80 items-center justify-center text-gray-500">
+        <div className="flex min-h-80 items-center justify-center text-slate-400">
           Loading reports...
         </div>
       ) : reports.length === 0 ? (
-        <div className="flex min-h-80 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+        <div className="flex min-h-80 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
           No reports found for this date
         </div>
       ) : (
@@ -899,38 +925,38 @@ function ReportsPanel() {
           {reports.map((report) => (
             <div
               key={report.id}
-              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+              className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-5 shadow-sm"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-gray-900">{report.full_name}</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-white">{report.full_name}</h3>
                     {!report.is_read_by_admin && (
-                      <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">
+                      <span className="rounded-full bg-brand-100 dark:bg-brand-500/15 px-2 py-1 text-xs font-semibold text-brand-600 dark:text-brand-300">
                         New
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-slate-400">
                     {report.employee_id || "No employee ID"}
                   </p>
                 </div>
-                <div className="text-right text-sm text-gray-500">
+                <div className="text-right text-sm text-slate-400">
                   <div>{formatDate(report.report_date)}</div>
                   <div>{formatTime(report.submitted_at)}</div>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm leading-6 text-gray-800">
+              <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-4 text-sm leading-6 text-slate-700 dark:text-slate-200">
                 {report.content}
               </div>
 
               {report.admin_reply ? (
-                <div className="mt-4 rounded-lg bg-blue-50 p-4">
-                  <div className="text-sm font-semibold text-blue-900">
+                <div className="mt-4 rounded-lg bg-brand-50 dark:bg-brand-500/10 p-4">
+                  <div className="text-sm font-semibold text-brand-800 dark:text-brand-200">
                     Your reply:
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-blue-900">
+                  <p className="mt-2 text-sm leading-6 text-brand-800 dark:text-brand-200">
                     {report.admin_reply}
                   </p>
                 </div>
@@ -945,10 +971,10 @@ function ReportsPanel() {
                       }))
                     }
                     placeholder="Write a reply..."
-                    className="min-h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                    className="min-h-28 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                   />
                   {replyErrors[report.id] && (
-                    <div className="text-sm font-medium text-red-600">
+                    <div className="text-sm font-medium text-rose-600 dark:text-rose-400">
                       {replyErrors[report.id]}
                     </div>
                   )}
@@ -956,7 +982,7 @@ function ReportsPanel() {
                     type="button"
                     onClick={() => handleReplySubmit(report.id)}
                     disabled={submittingReplyId === report.id}
-                    className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {submittingReplyId === report.id
                       ? "Submitting..."
@@ -1097,20 +1123,20 @@ function LeavePanel() {
   ];
 
   const statusBadgeClasses = {
-    pending: "bg-yellow-100 text-yellow-800",
-    approved: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800",
+    pending: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    approved: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    rejected: "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300",
   };
 
   const leaveTypeClasses = {
-    pending: "bg-blue-100 text-blue-800",
-    approved: "bg-purple-100 text-purple-800",
-    rejected: "bg-gray-100 text-gray-800",
+    pending: "bg-brand-100 dark:bg-brand-500/15 text-brand-700 dark:text-brand-300",
+    approved: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    rejected: "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-200",
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-2">
+      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -1118,8 +1144,8 @@ function LeavePanel() {
             onClick={() => setActiveStatus(tab.id)}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
               activeStatus === tab.id
-                ? "bg-blue-700 text-white"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-brand-600 text-white"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"
             }`}
           >
             {tab.label}
@@ -1129,26 +1155,26 @@ function LeavePanel() {
 
       {activeStatus === "holidays" ? (
         <div className="space-y-5">
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-            <h3 className="mb-4 text-base font-semibold text-gray-900">Add Public Holiday</h3>
+          <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-5">
+            <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Add Public Holiday</h3>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Date</label>
                 <input
                   type="date"
                   value={newHolidayDate}
                   onChange={(e) => setNewHolidayDate(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Holiday Name</label>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Holiday Name</label>
                 <input
                   type="text"
                   value={newHolidayName}
                   onChange={(e) => setNewHolidayName(e.target.value)}
                   placeholder="e.g. Christmas Day"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div className="flex items-end">
@@ -1156,19 +1182,19 @@ function LeavePanel() {
                   type="button"
                   onClick={handleAddHoliday}
                   disabled={addingHoliday}
-                  className="w-full rounded-lg bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="w-full rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {addingHoliday ? "Adding..." : "Add Holiday"}
                 </button>
               </div>
             </div>
-            {holidayError && <div className="mt-3 text-sm font-medium text-red-600">{holidayError}</div>}
+            {holidayError && <div className="mt-3 text-sm font-medium text-rose-600 dark:text-rose-400">{holidayError}</div>}
           </div>
 
           {holidayLoading ? (
-            <div className="flex min-h-40 items-center justify-center text-gray-500">Loading holidays...</div>
+            <div className="flex min-h-40 items-center justify-center text-slate-400">Loading holidays...</div>
           ) : publicHolidays.length === 0 ? (
-            <div className="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+            <div className="flex min-h-40 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
               No public holidays configured
             </div>
           ) : (
@@ -1176,14 +1202,14 @@ function LeavePanel() {
               {publicHolidays.map((holiday) => (
                 <div key={holiday.date} className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
                   <div>
-                    <div className="font-semibold text-gray-900">{holiday.name}</div>
-                    <div className="mt-1 text-sm text-gray-500">{holiday.date}</div>
+                    <div className="font-semibold text-slate-900 dark:text-white">{holiday.name}</div>
+                    <div className="mt-1 text-sm text-slate-400">{holiday.date}</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleDeleteHoliday(holiday.date)}
                     disabled={deletingHolidayDate === holiday.date}
-                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-70"
+                    className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-70"
                   >
                     {deletingHolidayDate === holiday.date ? "Removing..." : "Remove"}
                   </button>
@@ -1194,14 +1220,14 @@ function LeavePanel() {
         </div>
       ) : (
         <>
-      {error && <div className="text-sm font-medium text-red-600">{error}</div>}
+      {error && <div className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</div>}
 
       {loading ? (
-        <div className="flex min-h-80 items-center justify-center text-gray-500">
+        <div className="flex min-h-80 items-center justify-center text-slate-400">
           Loading leave requests...
         </div>
       ) : leaveRequests.length === 0 ? (
-        <div className="flex min-h-80 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+        <div className="flex min-h-80 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
           No leave requests found
         </div>
       ) : (
@@ -1215,14 +1241,14 @@ function LeavePanel() {
             return (
               <div
                 key={request.id}
-                className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+                className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-5 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="font-bold text-gray-900">
+                    <div className="font-bold text-slate-900 dark:text-white">
                       {request.full_name}
                     </div>
-                    <div className="mt-1 text-sm text-gray-500">
+                    <div className="mt-1 text-sm text-slate-400">
                       {request.employee_id || "No employee ID"}
                     </div>
                   </div>
@@ -1246,21 +1272,21 @@ function LeavePanel() {
 
                 <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Date range</span>
-                    <div className="mt-1 font-medium text-gray-900">
+                    <span className="text-slate-400">Date range</span>
+                    <div className="mt-1 font-medium text-slate-900 dark:text-white">
                       {dateRange}
                     </div>
                   </div>
                   <div>
-                    <span className="text-gray-500">Total days</span>
-                    <div className="mt-1 font-medium text-gray-900">
+                    <span className="text-slate-400">Total days</span>
+                    <div className="mt-1 font-medium text-slate-900 dark:text-white">
                       {request.total_days} days
                     </div>
                   </div>
                 </div>
 
                 {request.reason && (
-                  <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+                  <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-4 text-sm text-slate-600 dark:text-slate-300">
                     {request.reason}
                   </div>
                 )}
@@ -1272,32 +1298,32 @@ function LeavePanel() {
                         <button
                           type="button"
                           onClick={() => handleReviewStart(request.id, "approved")}
-                          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                         >
                           Approve
                         </button>
                         <button
                           type="button"
                           onClick={() => handleReviewStart(request.id, "rejected")}
-                          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                          className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
                         >
                           Reject
                         </button>
                       </div>
                     ) : (
-                      <div className="space-y-3 rounded-lg bg-gray-50 p-4">
+                      <div className="space-y-3 rounded-lg bg-slate-50 dark:bg-white/5 p-4">
                         <textarea
                           value={reviewComment}
                           onChange={(event) => setReviewComment(event.target.value)}
                           placeholder="Optional comment..."
-                          className="min-h-24 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                          className="min-h-24 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                         />
                         <div className="flex gap-3">
                           <button
                             type="button"
                             onClick={handleReviewSubmit}
                             disabled={submittingReview}
-                            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                            className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
                           >
                             {submittingReview
                               ? "Submitting..."
@@ -1306,7 +1332,7 @@ function LeavePanel() {
                           <button
                             type="button"
                             onClick={() => setReviewingRequest(null)}
-                            className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                            className="focus-ring rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                           >
                             Cancel
                           </button>
@@ -1315,7 +1341,7 @@ function LeavePanel() {
                     )}
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+                  <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-4 text-sm text-slate-600 dark:text-slate-300">
                     {request.admin_comment && (
                       <p>
                         <span className="font-semibold">Admin comment:</span>{" "}
@@ -1323,7 +1349,7 @@ function LeavePanel() {
                       </p>
                     )}
                     {request.reviewed_at && (
-                      <p className="mt-2 text-gray-500">
+                      <p className="mt-2 text-slate-400">
                         Reviewed {formatDateTime(request.reviewed_at)}
                       </p>
                     )}
@@ -1450,12 +1476,12 @@ function AlertsPanel() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-5">
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
-        <h3 className="text-xl font-bold text-gray-900">Send Alert</h3>
+      <section className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 shadow-sm lg:col-span-2">
+        <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Send Alert</h3>
 
         <form onSubmit={handleSendAlert} className="mt-6 space-y-5">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
+            <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
               Alert type
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -1464,8 +1490,8 @@ function AlertsPanel() {
                 onClick={() => setAlertType("info")}
                 className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                   alertType === "info"
-                    ? "bg-blue-700 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-brand-600 text-white"
+                    : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
                 }`}
               >
                 Info
@@ -1475,8 +1501,8 @@ function AlertsPanel() {
                 onClick={() => setAlertType("urgent")}
                 className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                   alertType === "urgent"
-                    ? "bg-red-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-rose-600 text-white"
+                    : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
                 }`}
               >
                 Urgent
@@ -1487,7 +1513,7 @@ function AlertsPanel() {
           <div>
             <label
               htmlFor="alert-recipient"
-              className="mb-2 block text-sm font-medium text-gray-700"
+              className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300"
             >
               Recipient
             </label>
@@ -1496,7 +1522,7 @@ function AlertsPanel() {
               value={recipientId}
               onChange={(event) => setRecipientId(event.target.value)}
               disabled={loadingStaff}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-gray-100"
+              className="w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:bg-white/5"
             >
               <option value="">Broadcast to all team</option>
               {staffList.map((staff) => (
@@ -1510,7 +1536,7 @@ function AlertsPanel() {
           <div>
             <label
               htmlFor="alert-message"
-              className="mb-2 block text-sm font-medium text-gray-700"
+              className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300"
             >
               Message
             </label>
@@ -1519,22 +1545,22 @@ function AlertsPanel() {
               value={message}
               onChange={(event) => setMessage(event.target.value.slice(0, 500))}
               placeholder="Type your message here..."
-              className="min-h-40 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+              className="min-h-40 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
             />
-            <div className="mt-1 text-right text-xs text-gray-500">
+            <div className="mt-1 text-right text-xs text-slate-400">
               {message.length}/500
             </div>
           </div>
 
-          {error && <div className="text-sm font-medium text-red-600">{error}</div>}
+          {error && <div className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</div>}
 
           <button
             type="submit"
             disabled={sending}
             className={`w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70 ${
               alertType === "urgent"
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-blue-700 hover:bg-blue-800"
+                ? "bg-rose-600 hover:bg-rose-700"
+                : "bg-brand-600 hover:bg-brand-700"
             }`}
           >
             {sending ? "Sending..." : "Send Alert"}
@@ -1542,15 +1568,15 @@ function AlertsPanel() {
         </form>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-3">
-        <h3 className="text-xl font-bold text-gray-900">Sent Alerts</h3>
+      <section className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 shadow-sm lg:col-span-3">
+        <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Sent Alerts</h3>
         <div className="mt-6 space-y-4">
           {loadingSentAlerts ? (
-            <div className="flex min-h-80 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+            <div className="flex min-h-80 items-center justify-center rounded-lg bg-slate-50 dark:bg-white/5 text-slate-400">
               Loading sent alerts...
             </div>
           ) : sentAlerts.length === 0 ? (
-            <div className="flex min-h-80 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+            <div className="flex min-h-80 items-center justify-center rounded-lg bg-slate-50 dark:bg-white/5 text-slate-400">
               No alerts sent yet
             </div>
           ) : (
@@ -1567,8 +1593,8 @@ function AlertsPanel() {
                   key={alert.id}
                   className={`rounded-xl border p-4 ${
                     alert.has_unread_replies
-                      ? "border-red-300 bg-red-50/40"
-                      : "border-gray-200"
+                      ? "border-rose-300 dark:border-rose-400/30 bg-rose-50/60 dark:bg-rose-500/10"
+                      : "border-slate-200 dark:border-white/10"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -1577,23 +1603,23 @@ function AlertsPanel() {
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-bold ${
                             alert.alert_type === "urgent"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-blue-100 text-blue-700"
+                              ? "bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                              : "bg-brand-100 dark:bg-brand-500/15 text-brand-600 dark:text-brand-300"
                           }`}
                         >
                           {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
                         </span>
                         {alert.has_unread_replies && (
-                          <span className="flex items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                          <span className="flex items-center gap-1 rounded-full bg-rose-500 px-2 py-0.5 text-xs font-bold text-white">
                             <span className="h-1.5 w-1.5 rounded-full bg-white" />
                             New replies
                           </span>
                         )}
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-slate-400">
                           {formatDateTime(alert.created_at)}
                         </span>
                       </div>
-                      <p className="mt-3 text-sm font-medium text-gray-900">
+                      <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">
                         {alert.message}
                       </p>
                     </div>
@@ -1601,7 +1627,7 @@ function AlertsPanel() {
                       type="button"
                       onClick={() => handleViewDeliveryReport(alert.id)}
                       disabled={loadingReportId === alert.id}
-                      className="shrink-0 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-70"
+                      className="shrink-0 rounded-lg bg-slate-100 dark:bg-white/5 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {loadingReportId === alert.id
                         ? "Loading..."
@@ -1611,18 +1637,18 @@ function AlertsPanel() {
 
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-gray-700">
+                      <span className="font-medium text-slate-600 dark:text-slate-300">
                         {alert.acknowledged_count}/{alert.total_recipients} acknowledged
                       </span>
                       {alert.pending_count > 0 && (
-                        <span className="font-medium text-orange-600">
+                        <span className="font-medium text-amber-600 dark:text-amber-300">
                           {alert.pending_count} pending
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
                       <div
-                        className="h-full rounded-full bg-green-500"
+                        className="h-full rounded-full bg-emerald-500"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -1635,93 +1661,93 @@ function AlertsPanel() {
       </section>
 
       {deliveryReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white dark:bg-slate-900/80 p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">
+                <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
                   Delivery Report
                 </h3>
-                <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-600">
+                <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-slate-600 dark:text-slate-300">
                   <div>
-                    <span className="font-semibold text-gray-500">Type:</span>{" "}
-                    <span className="capitalize font-semibold text-gray-900">
+                    <span className="font-semibold text-slate-400">Type:</span>{" "}
+                    <span className="capitalize font-semibold text-slate-900 dark:text-white">
                       {deliveryReport.alert_type}
                     </span>
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-500">Sender:</span>{" "}
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-slate-400">Sender:</span>{" "}
+                    <span className="font-semibold text-slate-900 dark:text-white">
                       {deliveryReport.sender_name || "Admin"}
                     </span>
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-500">Sent Time:</span>{" "}
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-slate-400">Sent Time:</span>{" "}
+                    <span className="font-semibold text-slate-900 dark:text-white">
                       {formatDateTime(deliveryReport.created_at)}
                     </span>
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-500">Recipients:</span>{" "}
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-slate-400">Recipients:</span>{" "}
+                    <span className="font-semibold text-slate-900 dark:text-white">
                       {deliveryReport.total_recipients}
                     </span>
                   </div>
                 </div>
-                <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-800 border border-gray-100">
-                  <div className="font-semibold text-gray-700 mb-1">Message:</div>
+                <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-3 text-sm text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-white/5">
+                  <div className="font-semibold text-slate-600 dark:text-slate-300 mb-1">Message:</div>
                   {deliveryReport.message}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setDeliveryReport(null)}
-                className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+                className="rounded-lg bg-slate-100 dark:bg-white/5 px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
               >
                 Close
               </button>
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-3 text-center text-sm">
-              <div className="rounded-lg bg-gray-50 p-3">
-                <div className="font-bold text-gray-900">
+              <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-3">
+                <div className="font-bold text-slate-900 dark:text-white">
                   {deliveryReport.total_recipients}
                 </div>
-                <div className="text-gray-500">Recipients</div>
+                <div className="text-slate-400">Recipients</div>
               </div>
-              <div className="rounded-lg bg-green-50 p-3">
-                <div className="font-bold text-green-700">
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 p-3">
+                <div className="font-bold text-emerald-600 dark:text-emerald-300">
                   {deliveryReport.acknowledged_count}
                 </div>
-                <div className="text-green-700">Acknowledged</div>
+                <div className="text-emerald-600 dark:text-emerald-300">Acknowledged</div>
               </div>
-              <div className="rounded-lg bg-orange-50 p-3">
-                <div className="font-bold text-orange-700">
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-500/10 p-3">
+                <div className="font-bold text-amber-700 dark:text-amber-300">
                   {deliveryReport.pending_count}
                 </div>
-                <div className="text-orange-700">Pending</div>
+                <div className="text-amber-700 dark:text-amber-300">Pending</div>
               </div>
             </div>
 
             <div className="mt-6">
-              <h4 className="text-sm font-bold text-gray-700 mb-2">Acknowledgements</h4>
-              <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 max-h-60 overflow-y-auto">
+              <h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">Acknowledgements</h4>
+              <div className="divide-y divide-slate-100 dark:divide-white/5 rounded-xl border border-slate-200 dark:border-white/10 max-h-60 overflow-y-auto">
                 {deliveryReport.recipients.map((recipient) => (
                   <div
                     key={recipient.recipient_id}
                     className="flex items-start justify-between gap-4 p-4 text-sm"
                   >
                     <div>
-                      <div className="font-semibold text-gray-900">
+                      <div className="font-semibold text-slate-900 dark:text-white">
                         {recipient.full_name}
                       </div>
                       {recipient.acknowledged_at && (
-                        <div className="mt-1 text-xs text-gray-500">
+                        <div className="mt-1 text-xs text-slate-400">
                           {formatDateTime(recipient.acknowledged_at)}
                         </div>
                       )}
                       {recipient.reply && (
-                        <div className="mt-2 rounded-lg bg-gray-50 p-2 text-gray-700">
+                        <div className="mt-2 rounded-lg bg-slate-50 dark:bg-white/5 p-2 text-slate-600 dark:text-slate-300">
                           {recipient.reply}
                         </div>
                       )}
@@ -1729,8 +1755,8 @@ function AlertsPanel() {
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
                         recipient.status === "acknowledged"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-orange-100 text-orange-700"
+                          ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
+                          : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
                       }`}
                     >
                       {recipient.status}
@@ -1740,13 +1766,13 @@ function AlertsPanel() {
               </div>
             </div>
 
-            <div className="mt-6 border-t border-gray-100 pt-6">
-              <h4 className="text-sm font-bold text-gray-700 mb-2">Replies</h4>
+            <div className="mt-6 border-t border-slate-100 dark:border-white/5 pt-6">
+              <h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">Replies</h4>
               {((deliveryReport.recipients || [])
                 .filter((r) => r.reply)
                 .sort((a, b) => new Date(a.acknowledged_at) - new Date(b.acknowledged_at))
               ).length === 0 ? (
-                <div className="text-sm text-gray-500 italic py-2">No replies yet</div>
+                <div className="text-sm text-slate-400 italic py-2">No replies yet</div>
               ) : (
                 <div className="space-y-3">
                   {(deliveryReport.recipients || [])
@@ -1755,22 +1781,22 @@ function AlertsPanel() {
                     .map((reply) => (
                       <div
                         key={reply.recipient_id}
-                        className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 text-sm"
+                        className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-4 text-sm"
                       >
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                          <div className="font-semibold text-gray-900">
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+                          <div className="font-semibold text-slate-900 dark:text-white">
                             {reply.full_name}{" "}
                             {reply.employee_id && (
-                              <span className="text-xs font-normal text-gray-500">
+                              <span className="text-xs font-normal text-slate-400">
                                 ({reply.employee_id})
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-slate-400">
                             {formatDateTime(reply.acknowledged_at)}
                           </div>
                         </div>
-                        <div className="mt-2 text-gray-700">{reply.reply}</div>
+                        <div className="mt-2 text-slate-600 dark:text-slate-300">{reply.reply}</div>
                       </div>
                     ))}
                 </div>
@@ -2154,15 +2180,15 @@ function ChatPanel({
   };
 
   return (
-    <div className="flex h-[calc(100vh-9rem)] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      <aside className="w-1/3 border-r border-gray-200">
-        <div className="border-b border-gray-200 p-5">
+    <div className="flex h-[calc(100vh-9rem)] overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
+      <aside className="w-1/3 border-r border-slate-200 dark:border-white/10">
+        <div className="border-b border-slate-200 dark:border-white/10 p-5">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-xl font-bold text-gray-900">Messages</h3>
+            <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Messages</h3>
             <button
               type="button"
               onClick={fetchAvailableChatUsers}
-              className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+              className="rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700"
             >
               New Chat
             </button>
@@ -2182,7 +2208,7 @@ function ChatPanel({
                   }
                 }}
                 disabled={loadingChatUsers}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               >
                 <option value="">
                   {loadingChatUsers ? "Loading staff..." : "Select staff member"}
@@ -2200,11 +2226,11 @@ function ChatPanel({
 
         <div className="h-full overflow-y-auto">
           {loadingConversations ? (
-            <div className="p-6 text-center text-gray-500">
+            <div className="p-6 text-center text-slate-400">
               Loading conversations...
             </div>
           ) : conversations.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
+            <div className="p-6 text-center text-slate-400">
               No conversations yet
             </div>
           ) : (
@@ -2213,31 +2239,31 @@ function ChatPanel({
                 key={conversation.user_id}
                 type="button"
                 onClick={() => handleSelectConversation(conversation)}
-                className={`w-full border-b border-gray-100 p-4 text-left transition ${
+                className={`w-full border-b border-slate-100 dark:border-white/5 p-4 text-left transition ${
                   selectedConversation?.user_id === conversation.user_id
-                    ? "bg-blue-50"
-                    : "hover:bg-gray-50"
+                    ? "bg-brand-50 dark:bg-brand-500/10"
+                    : "hover:bg-slate-50 dark:hover:bg-white/5"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="font-bold text-gray-900">
+                    <div className="font-bold text-slate-900 dark:text-white">
                       {conversation.full_name}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-slate-400">
                       {conversation.department || "No department"}
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-slate-400">
                     {formatTime(conversation.last_message_at)}
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-3">
-                  <div className="truncate text-sm text-gray-600">
+                  <div className="truncate text-sm text-slate-600 dark:text-slate-300">
                     {truncateMessage(conversation.last_message)}
                   </div>
                   {conversation.unread_count > 0 && (
-                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-700 px-2 text-xs font-bold text-white">
+                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-brand-600 px-2 text-xs font-bold text-white">
                       {conversation.unread_count}
                     </span>
                   )}
@@ -2250,30 +2276,30 @@ function ChatPanel({
 
       <section className="relative flex flex-1 flex-col">
         {!selectedConversation ? (
-          <div className="flex flex-1 items-center justify-center text-gray-500">
+          <div className="flex flex-1 items-center justify-center text-slate-400">
             Select a conversation to start chatting
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-5 py-4">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+            <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 px-5 py-4">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-500/15 text-sm font-bold text-brand-600 dark:text-brand-300">
                 {selectedConversation.full_name.charAt(0).toUpperCase()}
               </div>
               <div>
-                <div className="font-bold text-gray-900">
+                <div className="font-bold text-slate-900 dark:text-white">
                   {selectedConversation.full_name}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-slate-400">
                   {selectedConversation.department || "No department"}
                 </div>
               </div>
             </div>
 
-            <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-5">
+            <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex flex-1 flex-col gap-4 overflow-y-auto bg-slate-50 dark:bg-white/5 p-5">
               {loadingMessages ? (
-                <div className="text-center text-gray-500">Loading messages...</div>
+                <div className="text-center text-slate-400">Loading messages...</div>
               ) : messages.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center text-gray-500">
+                <div className="flex flex-1 items-center justify-center text-slate-400">
                   Start a conversation with {selectedConversation.full_name}
                 </div>
               ) : (
@@ -2281,12 +2307,12 @@ function ChatPanel({
                   {hasMoreMessages && (
                     <div className="flex justify-center py-2">
                       {loadingOlder ? (
-                        <span className="text-xs text-gray-400">Loading older messages...</span>
+                        <span className="text-xs text-slate-400">Loading older messages...</span>
                       ) : (
                         <button
                           type="button"
                           onClick={loadOlderMessages}
-                          className="rounded-full bg-gray-200 px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-300"
+                          className="rounded-full bg-slate-200 dark:bg-white/10 px-4 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-white/15"
                         >
                           Load older messages
                         </button>
@@ -2303,21 +2329,21 @@ function ChatPanel({
                     >
                       <div className="max-w-[70%]">
                         {!sentByMe && (
-                          <div className="mb-1 text-xs font-semibold text-gray-500">
+                          <div className="mb-1 text-xs font-semibold text-slate-400">
                             {message.sender_name || selectedConversation.full_name}
                           </div>
                         )}
                         <div
                           className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
                             sentByMe
-                              ? "bg-blue-700 text-white"
-                              : "bg-white text-gray-800"
+                              ? "bg-brand-600 text-white"
+                              : "bg-white dark:bg-slate-900/80 dark:bg-white/10 text-slate-700 dark:text-slate-200"
                           }`}
                         >
                           {message.content}
                         </div>
                         <div
-                          className={`mt-1 text-xs text-gray-500 ${
+                          className={`mt-1 text-xs text-slate-400 ${
                             sentByMe ? "text-right" : "text-left"
                           }`}
                         >
@@ -2336,13 +2362,13 @@ function ChatPanel({
                 type="button"
                 onClick={scrollToBottom}
                 title="Scroll to latest message"
-                className="absolute bottom-24 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-lg text-white shadow-lg hover:bg-blue-800"
+                className="absolute bottom-24 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-lg text-white shadow-lg hover:bg-brand-700"
               >
                 ↓
               </button>
             )}
 
-            <div className="border-t border-gray-200 bg-white p-4">
+            <div className="border-t border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-4">
               <div className="flex gap-3">
                 <input
                   type="text"
@@ -2350,12 +2376,12 @@ function ChatPanel({
                   onChange={(event) => setMessageText(event.target.value)}
                   onKeyDown={handleInputKeyDown}
                   placeholder="Type a message..."
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="flex-1 rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                 />
                 <button
                   type="button"
                   onClick={handleSendMessage}
-                  className="rounded-lg bg-blue-700 px-5 py-3 text-lg font-bold text-white hover:bg-blue-800"
+                  className="rounded-lg bg-brand-600 px-5 py-3 text-lg font-bold text-white hover:bg-brand-700"
                 >
                   →
                 </button>
@@ -2751,15 +2777,15 @@ function StaffManagementPanel({ openProfile }) {
 
   if (view === "create") {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-900/10 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-white/15 dark:bg-slate-900/70">
         <button
           type="button"
           onClick={() => setView("list")}
-          className="mb-5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+          className="mb-5 rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
         >
           Back
         </button>
-        <h3 className="text-2xl font-bold text-gray-900">Add New Staff Member</h3>
+        <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Add New Staff Member</h3>
 
         <form onSubmit={handleCreateUser} className="mt-6 grid grid-cols-2 gap-4">
           <input
@@ -2768,7 +2794,7 @@ function StaffManagementPanel({ openProfile }) {
             value={formData.full_name}
             onChange={(event) => updateForm("full_name", event.target.value)}
             placeholder="Full Name"
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="email"
@@ -2776,7 +2802,7 @@ function StaffManagementPanel({ openProfile }) {
             value={formData.email}
             onChange={(event) => updateForm("email", event.target.value)}
             placeholder="Email"
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="text"
@@ -2784,33 +2810,33 @@ function StaffManagementPanel({ openProfile }) {
             value={formData.employee_id}
             onChange={(event) => updateForm("employee_id", event.target.value)}
             placeholder="Employee ID"
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="text"
             value={formData.department}
             onChange={(event) => updateForm("department", event.target.value)}
             placeholder="Department"
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="text"
             value={formData.job_title}
             onChange={(event) => updateForm("job_title", event.target.value)}
             placeholder="Job Title"
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="text"
             value={formData.phone}
             onChange={(event) => updateForm("phone", event.target.value)}
             placeholder="Phone"
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <select
             value={formData.role}
             onChange={(event) => updateForm("role", event.target.value)}
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
             <option value="staff">Staff</option>
             <option value="admin">Admin</option>
@@ -2818,7 +2844,7 @@ function StaffManagementPanel({ openProfile }) {
           <select
             value={formData.work_type}
             onChange={(event) => updateForm("work_type", event.target.value)}
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
             <option value="office">Office</option>
             <option value="wfh">WFH</option>
@@ -2829,17 +2855,17 @@ function StaffManagementPanel({ openProfile }) {
             value={formData.password}
             onChange={(event) => updateForm("password", event.target.value)}
             placeholder="Password"
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           <input
             type="date"
             value={formData.joining_date}
             onChange={(event) => updateForm("joining_date", event.target.value)}
-            className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
 
           {createError && (
-            <div className="col-span-2 text-sm font-medium text-red-600">
+            <div className="col-span-2 text-sm font-medium text-rose-600 dark:text-rose-400">
               {createError}
             </div>
           )}
@@ -2847,7 +2873,7 @@ function StaffManagementPanel({ openProfile }) {
           <button
             type="submit"
             disabled={creating}
-            className="col-span-2 rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+            className="col-span-2 rounded-lg bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {creating ? "Creating..." : "Create Staff Member"}
           </button>
@@ -2859,22 +2885,22 @@ function StaffManagementPanel({ openProfile }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-bold text-gray-900">Staff Management</h3>
+        <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Staff Management</h3>
         <button
           type="button"
           onClick={() => setView("create")}
-          className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+          className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
         >
           Add Staff Member
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading staff...</div>
+          <div className="p-8 text-center text-slate-400">Loading staff...</div>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+            <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase text-slate-400">
               <tr>
                 <th className="px-4 py-3">Full Name</th>
                 <th className="px-4 py-3">Employee ID</th>
@@ -2885,15 +2911,15 @@ function StaffManagementPanel({ openProfile }) {
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
               {users.map((user) => (
                 <tr key={user.id}>
-                  <td className="px-4 py-3 font-semibold text-gray-900">
+                  <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
                     <div className="flex flex-wrap items-center gap-2">
                       <span>{user.full_name}</span>
-                      <span className="group relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                      <span className="group relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-500/15 text-xs font-bold text-brand-600 dark:text-brand-300">
                         i
-                        <span className="pointer-events-none absolute left-1/2 top-7 z-20 hidden w-64 -translate-x-1/2 rounded-lg bg-gray-900 p-3 text-left text-xs font-medium text-white shadow-lg group-hover:block">
+                        <span className="pointer-events-none absolute left-1/2 top-7 z-20 hidden w-64 -translate-x-1/2 rounded-lg bg-slate-900 p-3 text-left text-xs font-medium text-white shadow-lg group-hover:block">
                           <span className="block">
                             Email: {user.email || "N/A"}
                           </span>
@@ -2913,8 +2939,8 @@ function StaffManagementPanel({ openProfile }) {
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
                               currentAgentVersion &&
                               user.agent_version === currentAgentVersion
-                                ? "bg-green-100 text-green-700"
-                                : "bg-yellow-100 text-yellow-700"
+                                ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
+                                : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
                             }`}
                           >
                             v{user.agent_version}
@@ -2922,30 +2948,30 @@ function StaffManagementPanel({ openProfile }) {
                         )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{user.employee_id}</td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{user.employee_id}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                     {user.department || "N/A"}
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
                         user.role === "admin"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700"
+                          ? "bg-brand-100 dark:bg-brand-500/15 text-brand-600 dark:text-brand-300"
+                          : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300"
                       }`}
                     >
                       {user.role}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                     {user.work_type === "wfh" ? "WFH" : "Office"}
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
                         user.is_active
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
+                          ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
+                          : "bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400"
                       }`}
                     >
                       {user.is_active ? "Active" : "Inactive"}
@@ -2956,21 +2982,21 @@ function StaffManagementPanel({ openProfile }) {
                       <button
                         type="button"
                         onClick={() => openProfile(user.id || user.user_id)}
-                        className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+                        className="focus-ring rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700"
                       >
                         View Profile
                       </button>
                       <button
                         type="button"
                         onClick={() => openEditModal(user)}
-                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                        className="focus-ring rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => openPasswordModal(user)}
-                        className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-600"
+                        className="focus-ring rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                       >
                         Reset Password
                       </button>
@@ -2978,7 +3004,7 @@ function StaffManagementPanel({ openProfile }) {
                         <button
                           type="button"
                           onClick={() => handleAgentTokenClick(user.id)}
-                          className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200"
+                          className="focus-ring rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                         >
                           Agent Token
                         </button>
@@ -2986,14 +3012,14 @@ function StaffManagementPanel({ openProfile }) {
                       <button
                         type="button"
                         onClick={() => setSalarySlipModal(user)}
-                        className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700"
+                        className="focus-ring rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                       >
                         Salary Slip
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeactivate(user.id)}
-                        className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
+                        className="focus-ring rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-700"
                       >
                         Deactivate
                       </button>
@@ -3007,50 +3033,50 @@ function StaffManagementPanel({ openProfile }) {
       </div>
 
       {editModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900">Edit Staff Details</h3>
-            <p className="mt-1 text-sm text-gray-500">{editModal.full_name}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl bg-white/95 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/95">
+            <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Edit Staff Details</h3>
+            <p className="mt-1 text-sm text-slate-400">{editModal.full_name}</p>
 
             <form onSubmit={handleSaveEdit} className="mt-6 grid grid-cols-2 gap-4">
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Full Name
                 </span>
                 <input
                   type="text"
                   value={editForm.full_name || ""}
                   onChange={(event) => updateEditForm("full_name", event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Email
                 </span>
                 <input
                   type="email"
                   value={editForm.email || ""}
                   onChange={(event) => updateEditForm("email", event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Phone
                 </span>
                 <input
                   type="text"
                   value={editForm.phone || ""}
                   onChange={(event) => updateEditForm("phone", event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Department
                 </span>
                 <input
@@ -3059,30 +3085,30 @@ function StaffManagementPanel({ openProfile }) {
                   onChange={(event) =>
                     updateEditForm("department", event.target.value)
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Job Title
                 </span>
                 <input
                   type="text"
                   value={editForm.job_title || ""}
                   onChange={(event) => updateEditForm("job_title", event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Work Type
                 </span>
                 <select
                   value={editForm.work_type || "office"}
                   onChange={(event) => updateEditForm("work_type", event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
                   <option value="office">Office</option>
                   <option value="wfh">WFH</option>
@@ -3091,7 +3117,7 @@ function StaffManagementPanel({ openProfile }) {
 
               {currentUser?.role === "super_admin" && (
                 <label className="col-span-2 block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700">
+                  <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                     Base Salary
                   </span>
                   <input
@@ -3102,13 +3128,13 @@ function StaffManagementPanel({ openProfile }) {
                     onChange={(event) =>
                       updateEditForm("base_salary", event.target.value)
                     }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                    className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                   />
                 </label>
               )}
 
               {editError && (
-                <div className="col-span-2 text-sm font-medium text-red-600">
+                <div className="col-span-2 text-sm font-medium text-rose-600 dark:text-rose-400">
                   {editError}
                 </div>
               )}
@@ -3117,14 +3143,14 @@ function StaffManagementPanel({ openProfile }) {
                 <button
                   type="button"
                   onClick={() => setEditModal(null)}
-                  className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                  className="focus-ring rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {savingEdit ? "Saving..." : "Save Changes"}
                 </button>
@@ -3135,14 +3161,14 @@ function StaffManagementPanel({ openProfile }) {
       )}
 
       {passwordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900">Reset Password</h3>
-            <p className="mt-1 text-sm text-gray-500">{passwordModal.full_name}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900/80 p-6 shadow-xl">
+            <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Reset Password</h3>
+            <p className="mt-1 text-sm text-slate-400">{passwordModal.full_name}</p>
 
             <form onSubmit={handleResetPassword} className="mt-6 space-y-4">
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   New Password
                 </span>
                 <input
@@ -3154,12 +3180,12 @@ function StaffManagementPanel({ openProfile }) {
                       new_password: event.target.value,
                     }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Confirm Password
                 </span>
                 <input
@@ -3171,22 +3197,22 @@ function StaffManagementPanel({ openProfile }) {
                       confirm_password: event.target.value,
                     }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
 
-              <label className="flex items-center gap-2 text-sm text-gray-600">
+              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                 <input
                   type="checkbox"
                   checked={showResetPassword}
                   onChange={(event) => setShowResetPassword(event.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="h-4 w-4 rounded border-slate-300 dark:border-white/10"
                 />
                 Show password
               </label>
 
               {passwordError && (
-                <div className="text-sm font-medium text-red-600">
+                <div className="text-sm font-medium text-rose-600 dark:text-rose-400">
                   {passwordError}
                 </div>
               )}
@@ -3195,14 +3221,14 @@ function StaffManagementPanel({ openProfile }) {
                 <button
                   type="button"
                   onClick={() => setPasswordModal(null)}
-                  className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                  className="focus-ring rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={resettingPassword}
-                  className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {resettingPassword ? "Resetting..." : "Reset Password"}
                 </button>
@@ -3213,23 +3239,23 @@ function StaffManagementPanel({ openProfile }) {
       )}
 
       {tokenModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl bg-white/95 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/95">
             {tokenModal.type === "first_time" ? (
               <>
-                <div className="rounded-lg bg-yellow-100 px-4 py-3 text-sm font-semibold text-yellow-900">
+                <div className="rounded-lg bg-amber-100 dark:bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-200">
                   ⚠️ Copy this token now — it cannot be viewed again in full
                 </div>
-                <h3 className="mt-5 text-xl font-bold text-gray-900">
+                <h3 className="mt-5 text-xl font-bold text-slate-900 dark:text-white">
                   Agent Token
                 </h3>
                 <div className="mt-5 space-y-4">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    <label className="mb-2 block text-sm font-semibold text-slate-600 dark:text-slate-300">
                       Machine Token:
                     </label>
                     <div className="flex gap-2">
-                      <div className="min-w-0 flex-1 rounded-lg bg-gray-100 p-4 font-mono text-sm text-gray-900">
+                      <div className="min-w-0 flex-1 rounded-lg bg-slate-100 dark:bg-white/5 p-4 font-mono text-sm text-slate-900 dark:text-white">
                         {tokenModal.machine_token}
                       </div>
                       <button
@@ -3237,7 +3263,7 @@ function StaffManagementPanel({ openProfile }) {
                         onClick={() =>
                           copyTokenValue(tokenModal.machine_token, "token")
                         }
-                        className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                        className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
                       >
                         {copiedTokenField === "token" ? "Copied ✓" : "Copy Token"}
                       </button>
@@ -3245,11 +3271,11 @@ function StaffManagementPanel({ openProfile }) {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    <label className="mb-2 block text-sm font-semibold text-slate-600 dark:text-slate-300">
                       Staff ID:
                     </label>
                     <div className="flex gap-2">
-                      <div className="min-w-0 flex-1 rounded-lg bg-gray-100 p-4 font-mono text-sm text-gray-900">
+                      <div className="min-w-0 flex-1 rounded-lg bg-slate-100 dark:bg-white/5 p-4 font-mono text-sm text-slate-900 dark:text-white">
                         {tokenModal.staff_id}
                       </div>
                       <button
@@ -3257,7 +3283,7 @@ function StaffManagementPanel({ openProfile }) {
                         onClick={() =>
                           copyTokenValue(tokenModal.staff_id, "staff_id")
                         }
-                        className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                        className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
                       >
                         {copiedTokenField === "staff_id"
                           ? "Copied ✓"
@@ -3266,7 +3292,7 @@ function StaffManagementPanel({ openProfile }) {
                     </div>
                   </div>
                 </div>
-                <p className="mt-5 text-sm text-gray-600">
+                <p className="mt-5 text-sm text-slate-600 dark:text-slate-300">
                   Share these credentials with the staff member, or open a setup card they can use during installation.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
@@ -3282,14 +3308,14 @@ function StaffManagementPanel({ openProfile }) {
                         tokenModal.staff_id
                       );
                     }}
-                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                   >
                     Open Setup Card
                   </button>
                   <button
                     type="button"
                     onClick={() => setTokenModal(null)}
-                    className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                    className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
                   >
                     Close
                   </button>
@@ -3297,40 +3323,40 @@ function StaffManagementPanel({ openProfile }) {
               </>
             ) : (
               <>
-                <h3 className="text-xl font-bold text-gray-900">
+                <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
                   Existing Token
                 </h3>
-                <p className="mt-3 text-sm text-gray-700">
+                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
                   An agent token already exists for this staff member
                 </p>
-                <div className="mt-5 rounded-lg bg-gray-100 p-4 text-sm text-gray-800">
+                <div className="mt-5 rounded-lg bg-slate-100 dark:bg-white/5 p-4 text-sm text-slate-700 dark:text-slate-200">
                   Active token:{" "}
                   <span className="font-mono">{tokenModal.token_preview}</span>
                 </div>
-                <div className="mt-3 text-sm text-gray-600">
+                <div className="mt-3 text-sm text-slate-600 dark:text-slate-300">
                   Generated on: {formatDate(tokenModal.created_at)}
                 </div>
                 {tokenModal.agent_version && (
-                  <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                  <div className="mt-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                     <span>Agent version:</span>
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
                         currentAgentVersion &&
                         tokenModal.agent_version === currentAgentVersion
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
+                          ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
+                          : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
                       }`}
                     >
                       v{tokenModal.agent_version}
                     </span>
                     {tokenModal.agent_updated_at && (
-                      <span className="text-gray-400">
+                      <span className="text-slate-400">
                         · since {formatDate(tokenModal.agent_updated_at)}
                       </span>
                     )}
                   </div>
                 )}
-                <div className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-800">
+                <div className="mt-6 rounded-lg bg-rose-50 dark:bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
                   This will invalidate the existing agent installation. The
                   staff member will need to reinstall and enter the new
                   credentials in the setup wizard.
@@ -3339,14 +3365,14 @@ function StaffManagementPanel({ openProfile }) {
                   <button
                     type="button"
                     onClick={handleRegenerateToken}
-                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                    className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
                   >
                     Regenerate Token
                   </button>
                   <button
                     type="button"
                     onClick={() => setTokenModal(null)}
-                    className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                    className="focus-ring rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                   >
                     Cancel
                   </button>
@@ -3358,15 +3384,15 @@ function StaffManagementPanel({ openProfile }) {
       )}
 
       {salarySlipModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900">Download Salary Slip</h3>
-            <p className="mt-2 text-sm text-gray-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900/80 p-6 shadow-xl">
+            <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Download Salary Slip</h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               {salarySlipModal.full_name}
             </p>
             <div className="mt-5 grid grid-cols-2 gap-4">
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Month
                 </span>
                 <input
@@ -3380,11 +3406,11 @@ function StaffManagementPanel({ openProfile }) {
                       month: parseInt(event.target.value, 10) || 1,
                     }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Year
                 </span>
                 <input
@@ -3396,7 +3422,7 @@ function StaffManagementPanel({ openProfile }) {
                       year: parseInt(event.target.value, 10) || new Date().getFullYear(),
                     }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
             </div>
@@ -3404,7 +3430,7 @@ function StaffManagementPanel({ openProfile }) {
               <button
                 type="button"
                 onClick={() => setSalarySlipModal(null)}
-                className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                className="focus-ring rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
               >
                 Cancel
               </button>
@@ -3412,7 +3438,7 @@ function StaffManagementPanel({ openProfile }) {
                 type="button"
                 onClick={handleSalarySlipDownload}
                 disabled={downloadingSalarySlip}
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+                className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {downloadingSalarySlip ? "Downloading..." : "Download PDF"}
               </button>
@@ -3430,11 +3456,11 @@ function ToggleSwitch({ value, onChange }) {
       type="button"
       onClick={() => onChange(!value)}
       className={`flex h-7 w-12 items-center rounded-full p-1 transition ${
-        value ? "bg-blue-700" : "bg-gray-300"
+        value ? "bg-brand-600" : "bg-slate-300"
       }`}
     >
       <span
-        className={`h-5 w-5 rounded-full bg-white shadow transition ${
+        className={`h-5 w-5 rounded-full bg-white dark:bg-slate-900/80 shadow transition ${
           value ? "translate-x-5" : "translate-x-0"
         }`}
       />
@@ -3690,7 +3716,7 @@ function SettingsPanel() {
 
   const renderNumberInput = (label, field, state, setState, min, max) => (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">{label}</span>
       <input
         type="number"
         min={min}
@@ -3702,14 +3728,14 @@ function SettingsPanel() {
             [field]: parseInt(event.target.value, 10) || 0,
           }))
         }
-        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+        className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
     </label>
   );
 
   const renderTextInput = (label, field, state, setState, maxLength) => (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">{label}</span>
       <input
         type="text"
         maxLength={maxLength}
@@ -3717,28 +3743,28 @@ function SettingsPanel() {
         onChange={(event) =>
           setState((current) => ({ ...current, [field]: event.target.value }))
         }
-        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+        className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
     </label>
   );
 
   const renderTimeInput = (label, field, state, setState, fallback) => (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">{label}</span>
       <input
         type="time"
         value={state[field] || fallback}
         onChange={(event) =>
           setState((current) => ({ ...current, [field]: event.target.value }))
         }
-        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+        className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
     </label>
   );
 
   const renderToggleRow = (label, field, state, setState) => (
-    <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
+    <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/10 p-4">
+      <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{label}</span>
       <ToggleSwitch
         value={Boolean(state[field])}
         onChange={(value) =>
@@ -3750,7 +3776,7 @@ function SettingsPanel() {
 
   if (loading || !config) {
     return (
-      <div className="flex min-h-80 items-center justify-center text-gray-500">
+      <div className="flex min-h-80 items-center justify-center text-slate-400">
         Loading settings...
       </div>
     );
@@ -3758,7 +3784,7 @@ function SettingsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2 rounded-xl border border-gray-200 bg-white p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -3766,8 +3792,8 @@ function SettingsPanel() {
             onClick={() => setActiveTab(tab.id)}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
               activeTab === tab.id
-                ? "bg-blue-700 text-white"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-brand-600 text-white"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"
             }`}
           >
             {tab.label}
@@ -3775,7 +3801,7 @@ function SettingsPanel() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-900/10 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-white/15 dark:bg-slate-900/70">
         {activeTab === "monitoring" && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
@@ -3831,12 +3857,12 @@ function SettingsPanel() {
               )}
             </div>
             <div>
-              <div className="mb-2 text-sm font-medium text-gray-700">
+              <div className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">
                 Working days
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {days.map((day) => (
-                  <label key={day} className="flex items-center gap-2 text-sm text-gray-700">
+                  <label key={day} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                     <input
                       type="checkbox"
                       checked={(monitoringSettings.working_days || []).includes(day)}
@@ -3850,7 +3876,7 @@ function SettingsPanel() {
             <button
               type="button"
               onClick={() => saveSettings(monitoringSettings)}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+              className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
             >
               Save Changes
             </button>
@@ -3886,7 +3912,7 @@ function SettingsPanel() {
             <button
               type="button"
               onClick={() => saveSettings(securitySettings)}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+              className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
             >
               Save Changes
             </button>
@@ -3924,7 +3950,7 @@ function SettingsPanel() {
             <button
               type="button"
               onClick={() => saveSettings(chatSettings)}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+              className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
             >
               Save Changes
             </button>
@@ -3970,7 +3996,7 @@ function SettingsPanel() {
             <button
               type="button"
               onClick={() => saveSettings(attendanceSettings)}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+              className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
             >
               Save Changes
             </button>
@@ -3998,18 +4024,18 @@ function SettingsPanel() {
               {(config.leave_types || []).map((leaveType) => (
                 <div
                   key={leaveType.name}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
+                  className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/10 p-4"
                 >
                   <div>
-                    <div className="font-semibold text-gray-900">{leaveType.name}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="font-semibold text-slate-900 dark:text-white">{leaveType.name}</div>
+                    <div className="text-sm text-slate-400">
                       Annual limit: {leaveType.annual_limit}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => deleteLeaveType(leaveType.name)}
-                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                    className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
                   >
                     Delete
                   </button>
@@ -4017,7 +4043,7 @@ function SettingsPanel() {
               ))}
             </div>
 
-            <div className="grid grid-cols-4 gap-3 rounded-lg bg-gray-50 p-4">
+            <div className="grid grid-cols-4 gap-3 rounded-lg bg-slate-50 dark:bg-white/5 p-4">
               <input
                 type="text"
                 value={newLeaveType.name}
@@ -4028,7 +4054,7 @@ function SettingsPanel() {
                   }))
                 }
                 placeholder="Name"
-                className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
               <input
                 type="number"
@@ -4040,10 +4066,10 @@ function SettingsPanel() {
                   }))
                 }
                 placeholder="Annual limit"
-                className="rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
-              <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4">
-                <span className="text-sm text-gray-700">Carry forward</span>
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 px-4">
+                <span className="text-sm text-slate-600 dark:text-slate-300">Carry forward</span>
                 <ToggleSwitch
                   value={newLeaveType.carry_forward}
                   onChange={(value) =>
@@ -4057,7 +4083,7 @@ function SettingsPanel() {
               <button
                 type="button"
                 onClick={addLeaveType}
-                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
               >
                 Add Leave Type
               </button>
@@ -4066,7 +4092,7 @@ function SettingsPanel() {
             <button
               type="button"
               onClick={() => saveSettings(leaveSettings)}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+              className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
             >
               Save Changes
             </button>
@@ -4076,12 +4102,12 @@ function SettingsPanel() {
         {activeTab === "branding" && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-base font-semibold text-gray-900">Company Logo</h3>
-              <p className="mt-1 text-sm text-gray-500">Maximum 2MB. PNG or JPG.</p>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Company Logo</h3>
+              <p className="mt-1 text-sm text-slate-400">Maximum 2MB. PNG or JPG.</p>
             </div>
 
             <div className="flex items-center gap-6">
-              <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-gray-200 bg-gray-50">
+              <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                 {logoExists ? (
                   <img
                     key={logoTimestamp}
@@ -4090,27 +4116,27 @@ function SettingsPanel() {
                     className="h-full w-full object-contain"
                   />
                 ) : (
-                  <span className="text-2xl font-bold text-gray-400">
+                  <span className="text-2xl font-bold text-slate-400">
                     {(currentUser?.full_name || "Co").slice(0, 2).toUpperCase()}
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 {logoExists ? "Current logo" : "No logo uploaded yet"}
               </p>
             </div>
 
             {previewUrl && (
               <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">Preview</p>
-                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border-2 border-blue-200 bg-gray-50">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Preview</p>
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border-2 border-brand-300 dark:border-brand-400/30 bg-slate-50 dark:bg-white/5">
                   <img
                     src={previewUrl}
                     alt="Logo preview"
                     className="h-full w-full object-contain"
                   />
                 </div>
-                <p className="text-xs text-gray-500">{selectedFile?.name}</p>
+                <p className="text-xs text-slate-400">{selectedFile?.name}</p>
               </div>
             )}
 
@@ -4125,7 +4151,7 @@ function SettingsPanel() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-slate-300 dark:border-white/10 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
               >
                 Choose File
               </button>
@@ -4134,7 +4160,7 @@ function SettingsPanel() {
                   type="button"
                   onClick={handleLogoUpload}
                   disabled={uploading}
-                  className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {uploading ? "Uploading..." : "Upload Logo"}
                 </button>
@@ -4144,7 +4170,7 @@ function SettingsPanel() {
                   type="button"
                   onClick={handleLogoDelete}
                   disabled={deleting}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {deleting ? "Deleting..." : "Delete Logo"}
                 </button>
@@ -4256,10 +4282,10 @@ function ScreenshotsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-900/10 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-white/15 dark:bg-slate-900/70">
         <div className="grid gap-4 md:grid-cols-3">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-gray-700">
+            <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
               Staff member
             </span>
             <select
@@ -4270,7 +4296,7 @@ function ScreenshotsPanel() {
                 setTotal(0);
                 setPage(1);
               }}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+              className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
             >
               <option value="">Select staff member</option>
               {staffList.map((staff) => (
@@ -4284,7 +4310,7 @@ function ScreenshotsPanel() {
           {selectedUserId && (
             <>
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-700">
+                <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
                   Date
                 </span>
                 <input
@@ -4294,14 +4320,14 @@ function ScreenshotsPanel() {
                     setSelectedDate(event.target.value);
                     setPage(1);
                   }}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </label>
               <div className="flex items-end">
                 <button
                   type="button"
                   onClick={() => loadScreenshots(1)}
-                  className="w-full rounded-lg bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800"
+                  className="w-full rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700"
                 >
                   Load Screenshots
                 </button>
@@ -4311,25 +4337,25 @@ function ScreenshotsPanel() {
         </div>
 
         {!selectedUserId && (
-          <div className="mt-8 rounded-xl bg-gray-50 p-8 text-center text-gray-500">
+          <div className="mt-8 rounded-xl bg-slate-50 dark:bg-white/5 p-8 text-center text-slate-400">
             Select a staff member to view screenshots
           </div>
         )}
         {selectedStaff && (
-          <div className="mt-4 text-sm text-gray-500">
+          <div className="mt-4 text-sm text-slate-400">
             Viewing screenshots for {selectedStaff.full_name}
           </div>
         )}
       </div>
 
       {selectedUserId && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-slate-900/10 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-white/15 dark:bg-slate-900/70">
           {loading ? (
-            <div className="py-16 text-center text-gray-500">
+            <div className="py-16 text-center text-slate-400">
               Loading screenshots...
             </div>
           ) : screenshots.length === 0 ? (
-            <div className="py-16 text-center text-gray-500">
+            <div className="py-16 text-center text-slate-400">
               No screenshots found for this date
             </div>
           ) : (
@@ -4338,7 +4364,7 @@ function ScreenshotsPanel() {
                 {screenshots.map((screenshot, index) => (
                   <div
                     key={screenshot.id}
-                    className="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
+                    className="group overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5"
                   >
                     <button
                       type="button"
@@ -4351,9 +4377,9 @@ function ScreenshotsPanel() {
                         className="aspect-video w-full object-cover"
                       />
                     </button>
-                    <div className="flex items-center justify-between gap-3 p-3 text-xs text-gray-600">
+                    <div className="flex items-center justify-between gap-3 p-3 text-xs text-slate-600 dark:text-slate-300">
                       <div>
-                        <div className="font-semibold text-gray-900">
+                        <div className="font-semibold text-slate-900 dark:text-white">
                           {formatTime(screenshot.captured_at)}
                         </div>
                         <div>{screenshot.file_size_kb || 0} KB</div>
@@ -4361,7 +4387,7 @@ function ScreenshotsPanel() {
                       <button
                         type="button"
                         onClick={() => handleDelete(screenshot.id)}
-                        className="rounded-lg bg-red-600 px-3 py-2 text-white opacity-0 transition hover:bg-red-700 group-hover:opacity-100"
+                        className="rounded-lg bg-rose-600 px-3 py-2 text-white opacity-0 transition hover:bg-rose-700 group-hover:opacity-100"
                         title="Delete screenshot"
                       >
                         🗑
@@ -4371,7 +4397,7 @@ function ScreenshotsPanel() {
                 ))}
               </div>
 
-              <div className="mt-6 flex items-center justify-between gap-4 text-sm text-gray-600">
+              <div className="mt-6 flex items-center justify-between gap-4 text-sm text-slate-600 dark:text-slate-300">
                 <div>
                   Showing {showingStart}-{showingEnd} of {total} screenshots
                 </div>
@@ -4380,7 +4406,7 @@ function ScreenshotsPanel() {
                     type="button"
                     onClick={() => loadScreenshots(page - 1)}
                     disabled={page <= 1}
-                    className="rounded-lg bg-gray-100 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Previous
                   </button>
@@ -4388,7 +4414,7 @@ function ScreenshotsPanel() {
                     type="button"
                     onClick={() => loadScreenshots(page + 1)}
                     disabled={page >= totalPages}
-                    className="rounded-lg bg-gray-100 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Next
                   </button>
@@ -4411,7 +4437,7 @@ function ScreenshotsPanel() {
             <button
               type="button"
               onClick={() => setModalIndex(null)}
-              className="absolute right-0 top-0 z-10 rounded-bl-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+              className="absolute right-0 top-0 z-10 rounded-bl-lg bg-white dark:bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300"
             >
               Close
             </button>
@@ -4420,17 +4446,17 @@ function ScreenshotsPanel() {
               alt="Screenshot full size"
               className="max-h-[82vh] w-full rounded-lg object-contain"
             />
-            <div className="mt-3 flex items-center justify-between rounded-lg bg-white p-4 text-sm text-gray-700">
+            <div className="mt-3 flex items-center justify-between rounded-lg bg-white dark:bg-slate-900/80 p-4 text-sm text-slate-600 dark:text-slate-300">
               <button
                 type="button"
                 onClick={() => setModalIndex((current) => Math.max(0, current - 1))}
                 disabled={modalIndex <= 0}
-                className="rounded-lg bg-gray-100 px-4 py-2 font-semibold hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 font-semibold hover:bg-slate-200 dark:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Previous
               </button>
               <div className="text-center">
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-slate-900 dark:text-white">
                   {formatDateTime(modalScreenshot.captured_at)}
                 </div>
                 <div>
@@ -4446,7 +4472,7 @@ function ScreenshotsPanel() {
                   )
                 }
                 disabled={modalIndex >= screenshots.length - 1}
-                className="rounded-lg bg-gray-100 px-4 py-2 font-semibold hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 font-semibold hover:bg-slate-200 dark:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next
               </button>
@@ -4474,7 +4500,7 @@ function LogoDisplay({ user }) {
       onError={() => setLogoError(true)}
     />
   ) : (
-    <span className="text-lg font-semibold text-blue-100">
+    <span className="text-lg font-semibold text-brand-100">
       {user?.company_name || "Company"}
     </span>
   );
@@ -4498,9 +4524,9 @@ const TASK_STATUS_LABELS = {
 };
 
 const TASK_STATUS_COLORS = {
-  pending: "bg-yellow-100 text-yellow-800",
-  in_progress: "bg-blue-100 text-blue-800",
-  done: "bg-green-100 text-green-800",
+  pending: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  in_progress: "bg-brand-100 dark:bg-brand-500/15 text-brand-700 dark:text-brand-300",
+  done: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
 };
 
 function TasksPanel() {
@@ -4650,7 +4676,7 @@ function TasksPanel() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
           >
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
@@ -4660,7 +4686,7 @@ function TasksPanel() {
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+            className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
           >
             <option value="">All Staff</option>
             {staffList.map((s) => (
@@ -4671,42 +4697,42 @@ function TasksPanel() {
         <button
           type="button"
           onClick={openAssignModal}
-          className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+          className="focus-ring rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
         >
           + Assign Task
         </button>
       </div>
 
       {/* Task table */}
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading tasks...</div>
+          <div className="p-8 text-center text-slate-400">Loading tasks...</div>
         ) : tasks.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No tasks found.</div>
+          <div className="p-8 text-center text-slate-400">No tasks found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 bg-gray-50">
+              <thead className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                 <tr>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Task</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Assigned To</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Status</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Due Date</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Assigned By</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Created</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Actions</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Task</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Assigned To</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Status</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Due Date</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Assigned By</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Created</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {tasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-gray-50">
+                  <tr key={task.id} className="hover:bg-slate-50 dark:hover:bg-white/5">
                     <td className="px-5 py-4">
-                      <div className="font-medium text-gray-900">{task.title}</div>
-                      <div className="mt-0.5 max-w-xs truncate text-xs text-gray-500">{task.description}</div>
+                      <div className="font-medium text-slate-900 dark:text-white">{task.title}</div>
+                      <div className="mt-0.5 max-w-xs truncate text-xs text-slate-400">{task.description}</div>
                     </td>
-                    <td className="px-5 py-4 text-gray-700">
+                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
                       <div>{task.assigned_to_name}</div>
-                      <div className="text-xs text-gray-400">{task.assigned_to_employee_id}</div>
+                      <div className="text-xs text-slate-400">{task.assigned_to_employee_id}</div>
                     </td>
                     <td className="px-5 py-4">
                       <select
@@ -4720,17 +4746,17 @@ function TasksPanel() {
                         <option value="done">Done</option>
                       </select>
                     </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {task.due_date ? formatDate(task.due_date) : <span className="text-gray-400">—</span>}
+                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
+                      {task.due_date ? formatDate(task.due_date) : <span className="text-slate-400">—</span>}
                     </td>
-                    <td className="px-5 py-4 text-gray-600">{task.assigned_by_name}</td>
-                    <td className="px-5 py-4 text-gray-500">{formatDate(task.created_at)}</td>
+                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{task.assigned_by_name}</td>
+                    <td className="px-5 py-4 text-slate-400">{formatDate(task.created_at)}</td>
                     <td className="px-5 py-4">
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => openEditModal(task)}
-                          className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200"
+                          className="rounded-lg bg-slate-100 dark:bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
                         >
                           Edit
                         </button>
@@ -4738,7 +4764,7 @@ function TasksPanel() {
                           type="button"
                           onClick={() => handleDelete(task.id)}
                           disabled={deletingId === task.id}
-                          className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60"
+                          className="rounded-lg bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:bg-rose-500/15 disabled:opacity-60"
                         >
                           {deletingId === task.id ? "..." : "Delete"}
                         </button>
@@ -4754,16 +4780,16 @@ function TasksPanel() {
 
       {/* Assign Task Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-bold text-gray-900">Assign New Task</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900/80 p-6 shadow-xl">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Assign New Task</h2>
             <div className="mt-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Assign To</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Assign To</label>
                 <select
                   value={assignForm.assigned_to}
                   onChange={(e) => setAssignForm((f) => ({ ...f, assigned_to: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
                   <option value="">Select staff member...</option>
                   {staffList.map((s) => (
@@ -4772,43 +4798,43 @@ function TasksPanel() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Task Title</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Task Title</label>
                 <input
                   type="text"
                   value={assignForm.title}
                   onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))}
                   placeholder="e.g. Prepare monthly report"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Description</label>
                 <textarea
                   value={assignForm.description}
                   onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Describe what needs to be done..."
                   rows={4}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Due Date <span className="text-gray-400">(optional)</span>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">
+                  Due Date <span className="text-slate-400">(optional)</span>
                 </label>
                 <input
                   type="date"
                   value={assignForm.due_date}
                   onChange={(e) => setAssignForm((f) => ({ ...f, due_date: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
-              {assignError && <p className="text-sm text-red-600">{assignError}</p>}
+              {assignError && <p className="text-sm text-rose-600 dark:text-rose-400">{assignError}</p>}
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowAssignModal(false)}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+                className="rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
               >
                 Cancel
               </button>
@@ -4816,7 +4842,7 @@ function TasksPanel() {
                 type="button"
                 onClick={handleAssignSubmit}
                 disabled={submittingAssign}
-                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
                 {submittingAssign ? "Assigning..." : "Assign Task"}
               </button>
@@ -4827,58 +4853,58 @@ function TasksPanel() {
 
       {/* Edit Task Modal */}
       {editTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-bold text-gray-900">Edit Task</h2>
-            <p className="mt-1 text-sm text-gray-500">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900/80 p-6 shadow-xl">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Edit Task</h2>
+            <p className="mt-1 text-sm text-slate-400">
               Assigned to: <span className="font-medium">{editTask.assigned_to_name}</span>
             </p>
             <div className="mt-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Task Title</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Task Title</label>
                 <input
                   type="text"
                   value={editForm.title}
                   onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Description</label>
                 <textarea
                   value={editForm.description}
                   onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                   rows={4}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Due Date <span className="text-gray-400">(optional)</span>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">
+                  Due Date <span className="text-slate-400">(optional)</span>
                 </label>
                 <input
                   type="date"
                   value={editForm.due_date}
                   onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
                 {editForm.due_date && (
                   <button
                     type="button"
                     onClick={() => setEditForm((f) => ({ ...f, due_date: "" }))}
-                    className="mt-1 text-xs text-gray-400 hover:text-red-500"
+                    className="mt-1 text-xs text-slate-400 hover:text-rose-500"
                   >
                     Clear due date
                   </button>
                 )}
               </div>
-              {editError && <p className="text-sm text-red-600">{editError}</p>}
+              {editError && <p className="text-sm text-rose-600 dark:text-rose-400">{editError}</p>}
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setEditTask(null)}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+                className="rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
               >
                 Cancel
               </button>
@@ -4886,7 +4912,7 @@ function TasksPanel() {
                 type="button"
                 onClick={handleEditSubmit}
                 disabled={submittingEdit}
-                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
                 {submittingEdit ? "Saving..." : "Save Changes"}
               </button>
@@ -5057,24 +5083,24 @@ function MyDayPanel() {
     : 0;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-6 text-xl font-bold text-gray-900">My Day</h2>
+    <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 shadow-sm">
+      <h2 className="mb-6 text-xl font-bold text-slate-900 dark:text-white">My Day</h2>
 
       {loadingAttendance ? (
-        <div className="text-center text-gray-500">Loading work day...</div>
+        <div className="text-center text-slate-400">Loading work day...</div>
       ) : !attendance?.started ? (
         <div className="space-y-6">
-          <p className="text-gray-600">Start your monitored work session for today.</p>
+          <p className="text-slate-600 dark:text-slate-300">Start your monitored work session for today.</p>
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Work mode</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Work mode</label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setWorkMode("office")}
                 className={`rounded-lg px-4 py-3 text-sm font-semibold ${
                   workMode === "office"
-                    ? "bg-blue-700 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-brand-600 text-white"
+                    : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
                 }`}
               >
                 Office
@@ -5084,8 +5110,8 @@ function MyDayPanel() {
                 onClick={() => setWorkMode("wfh")}
                 className={`rounded-lg px-4 py-3 text-sm font-semibold ${
                   workMode === "wfh"
-                    ? "bg-blue-700 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-brand-600 text-white"
+                    : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
                 }`}
               >
                 WFH
@@ -5096,42 +5122,42 @@ function MyDayPanel() {
             type="button"
             onClick={handleStartDay}
             disabled={checkingAgentConnection}
-            className="w-full rounded-lg bg-green-600 px-5 py-4 text-lg font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-lg bg-emerald-600 px-5 py-4 text-lg font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {checkingAgentConnection ? "Checking agent connection..." : "Start My Day"}
           </button>
         </div>
       ) : attendance.logout_time ? (
         <div className="text-center">
-          <h3 className="text-2xl font-bold text-gray-900">Your day has ended!</h3>
-          <p className="mt-3 text-gray-600">
+          <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Your day has ended!</h3>
+          <p className="mt-3 text-slate-600 dark:text-slate-300">
             Working hours: {formatElapsedDuration(attendance.login_time, attendance.logout_time)}
           </p>
         </div>
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-4 gap-4">
-            <div className="rounded-xl bg-gray-50 p-4">
-              <div className="text-sm text-gray-500">Login time</div>
-              <div className="mt-1 font-bold text-gray-900">
+            <div className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+              <div className="text-sm text-slate-400">Login time</div>
+              <div className="mt-1 font-bold text-slate-900 dark:text-white">
                 {formatTime(attendance.login_time)}
               </div>
             </div>
-            <div className="rounded-xl bg-gray-50 p-4">
-              <div className="text-sm text-gray-500">Working hours so far</div>
-              <div className="mt-1 font-bold text-gray-900">
+            <div className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+              <div className="text-sm text-slate-400">Working hours so far</div>
+              <div className="mt-1 font-bold text-slate-900 dark:text-white">
                 {minutesToHours(attendance.working_minutes_so_far ?? 0)}
               </div>
             </div>
-            <div className="rounded-xl bg-gray-50 p-4">
-              <div className="text-sm text-gray-500">Work mode</div>
-              <div className="mt-1 font-bold text-gray-900">
+            <div className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+              <div className="text-sm text-slate-400">Work mode</div>
+              <div className="mt-1 font-bold text-slate-900 dark:text-white">
                 {attendance.work_mode?.toUpperCase() || "N/A"}
               </div>
             </div>
-            <div className="rounded-xl bg-gray-50 p-4">
-              <div className="text-sm text-gray-500">Idle time</div>
-              <div className="mt-1 font-bold text-gray-900">
+            <div className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+              <div className="text-sm text-slate-400">Idle time</div>
+              <div className="mt-1 font-bold text-slate-900 dark:text-white">
                 {minutesToHours(attendance.idle_minutes || 0)}
               </div>
             </div>
@@ -5141,7 +5167,7 @@ function MyDayPanel() {
             <button
               type="button"
               onClick={currentStatus === "break" ? handleEndBreak : handleStartBreak}
-              className="rounded-lg bg-orange-400 px-4 py-3 font-semibold text-orange-950 hover:bg-orange-500"
+              className="rounded-lg bg-amber-400 px-4 py-3 font-semibold text-amber-950 hover:bg-amber-500"
             >
               {currentStatus === "break"
                 ? `End Break (${breakDurationMinutes} min)`
@@ -5150,21 +5176,21 @@ function MyDayPanel() {
             <button
               type="button"
               onClick={currentStatus === "meeting" ? handleEndMeeting : handleStartMeeting}
-              className="rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
+              className="rounded-lg bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700"
             >
               {currentStatus === "meeting" ? "End Meeting" : "Start Meeting"}
             </button>
             <button
               type="button"
               onClick={() => setShowEndDayModal(true)}
-              className="rounded-lg bg-red-600 px-4 py-3 text-lg font-bold text-white hover:bg-red-700"
+              className="rounded-lg bg-rose-600 px-4 py-3 text-lg font-bold text-white hover:bg-rose-700"
             >
               End My Day
             </button>
           </div>
 
           {currentStatus === "meeting" && (
-            <span className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
+            <span className="inline-flex rounded-full bg-brand-100 dark:bg-brand-500/15 px-3 py-1 text-sm font-semibold text-brand-600 dark:text-brand-300">
               In Meeting
             </span>
           )}
@@ -5172,21 +5198,21 @@ function MyDayPanel() {
       )}
 
       {showEndDayModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-2xl font-bold text-gray-900">End My Day</h3>
-            <p className="mt-2 text-gray-600">Submit your daily report before ending.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl bg-white/95 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/95">
+            <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">End My Day</h3>
+            <p className="mt-2 text-slate-600 dark:text-slate-300">Submit your daily report before ending.</p>
             <textarea
               value={reportContent}
               onChange={(event) => setReportContent(event.target.value)}
               placeholder="What did you work on today? Any blockers?"
-              className="mt-5 min-h-40 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+              className="mt-5 min-h-40 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
             />
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowEndDayModal(false)}
-                className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                className="focus-ring rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
               >
                 Cancel
               </button>
@@ -5194,7 +5220,7 @@ function MyDayPanel() {
                 type="button"
                 onClick={handleEndDay}
                 disabled={submittingReport}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {submittingReport ? "Submitting..." : "Submit & End Day"}
               </button>
@@ -5207,15 +5233,27 @@ function MyDayPanel() {
 }
 
 const navItems = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "staff-management", label: "Staff" },
-  { id: "screenshots", label: "Screenshots", superAdminOnly: true },
-  { id: "reports", label: "Reports" },
-  { id: "leave", label: "Leave Requests" },
-  { id: "alerts", label: "Alerts" },
-  { id: "chat", label: "Chat" },
-  { id: "tasks", label: "Tasks" },
+  { id: "dashboard", label: "Dashboard", icon: Home },
+  { id: "staff-management", label: "Staff", icon: Users },
+  { id: "screenshots", label: "Screenshots", icon: Camera, superAdminOnly: true },
+  { id: "reports", label: "Reports", icon: ClipboardList },
+  { id: "leave", label: "Leave Requests", icon: CalendarDays },
+  { id: "alerts", label: "Alerts", icon: Bell },
+  { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "tasks", label: "Tasks", icon: ListChecks },
 ];
+
+const sectionTitles = {
+  dashboard: "Dashboard",
+  "staff-management": "Staff",
+  screenshots: "Screenshots",
+  reports: "Reports",
+  leave: "Leave Requests",
+  alerts: "Alerts",
+  chat: "Chat",
+  tasks: "Tasks",
+  settings: "Settings",
+};
 
 function SuperAdminDashboard() {
   const navigate = useNavigate();
@@ -5339,10 +5377,25 @@ function SuperAdminDashboard() {
     };
   }, []);
 
-  const activeItem = navItems.find((item) => item.id === activeSection);
-  const visibleNavItems = navItems.filter(
-    (item) => !item.superAdminOnly || user?.role === "super_admin"
-  );
+  const badgeCounts = {
+    chat: unreadCount,
+    reports: reportUnreadCount,
+    leave: leavePendingCount,
+    alerts: alertReplyCount,
+  };
+  const visibleNavItems = navItems
+    .filter((item) => !item.superAdminOnly || user?.role === "super_admin")
+    .map((item) => ({ ...item, badge: badgeCounts[item.id] ?? 0 }));
+  if (user?.role === "super_admin") {
+    visibleNavItems.push({ id: "settings", label: "Settings", icon: SettingsIcon });
+  }
+
+  const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  const [logoError, setLogoError] = useState(false);
+  const logoUrl =
+    user?.company_id && !logoError
+      ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}`
+      : null;
 
   const handleLogout = async () => {
     try {
@@ -5405,103 +5458,30 @@ function SuperAdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col bg-blue-900 text-white">
-        <div className="border-b border-blue-800 px-6 py-6">
-          <LogoDisplay user={user} />
-          <p className="mt-1 text-sm text-blue-200">Super Admin Console</p>
-        </div>
-
-        <nav className="flex-1 px-4 py-6">
-          <div className="space-y-2">
-            {visibleNavItems.map((item) => {
-              const badgeCounts = {
-                chat: unreadCount,
-                reports: reportUnreadCount,
-                leave: leavePendingCount,
-                alerts: alertReplyCount,
-                tasks: 0,
-              };
-              const badge = badgeCounts[item.id] ?? 0;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    if (item.id === "chat") setUnreadCount(0);
-                    else if (item.id === "reports") setReportUnreadCount(0);
-                    else if (item.id === "leave") setLeavePendingCount(0);
-                    else if (item.id === "alerts") setAlertReplyCount(0);
-                    setActiveSection(item.id);
-                  }}
-                  className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
-                    activeSection === item.id
-                      ? "bg-blue-700 text-white"
-                      : "text-blue-100 hover:bg-blue-800"
-                  }`}
-                >
-                  {badge > 0 ? (
-                    <div className="relative inline-block">
-                      {item.label}
-                      <span className="absolute -top-1 -right-6 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                        {badge > 99 ? "99+" : badge}
-                      </span>
-                    </div>
-                  ) : (
-                    item.label
-                  )}
-                </button>
-              );
-            })}
-            {user?.role === "super_admin" && (
-              <button
-                type="button"
-                onClick={() => setActiveSection("settings")}
-                className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
-                  activeSection === "settings"
-                    ? "bg-blue-700 text-white"
-                    : "text-blue-100 hover:bg-blue-800"
-                }`}
-              >
-                Settings
-              </button>
-            )}
-          </div>
-        </nav>
-
-        <div className="border-t border-blue-800 p-4">
-          <div className="mb-4">
-            <p className="truncate text-sm font-semibold">
-              {user?.full_name || "Admin User"}
-            </p>
-            <p className="mt-1 text-xs uppercase tracking-wide text-blue-200">
-              {user?.role || "admin"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full rounded-lg bg-blue-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      <main className="ml-64 min-h-screen">
-        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-8 py-5">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {activeItem?.label || "Dashboard"}
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              {formatDateTime(currentTime.toISOString())}
-            </p>
-          </div>
-        </header>
-
-        <section className="p-8">{renderContent()}</section>
-      </main>
+    <DashboardShell
+      brand="WorkFlow"
+      logoUrl={logoUrl}
+      onLogoError={() => setLogoError(true)}
+      navItems={visibleNavItems}
+      activeSection={activeSection}
+      onSectionChange={(id) => {
+        if (id === "chat") setUnreadCount(0);
+        else if (id === "reports") setReportUnreadCount(0);
+        else if (id === "leave") setLeavePendingCount(0);
+        else if (id === "alerts") setAlertReplyCount(0);
+        setActiveSection(id);
+      }}
+      sectionLabel={sectionTitles[activeSection] || "Dashboard"}
+      userName={user?.full_name || "Admin User"}
+      userSubtitle={user?.role ? user.role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Admin"}
+      onLogout={handleLogout}
+      headerExtra={
+        <span className="hidden text-sm font-medium text-slate-500 dark:text-slate-400 md:inline">
+          {formatDateTime(currentTime.toISOString())}
+        </span>
+      }
+    >
+      {renderContent()}
 
       {profileUser && (
         <StaffProfileModal
@@ -5509,7 +5489,7 @@ function SuperAdminDashboard() {
           onClose={() => setProfileUser(null)}
         />
       )}
-    </div>
+    </DashboardShell>
   );
 }
 

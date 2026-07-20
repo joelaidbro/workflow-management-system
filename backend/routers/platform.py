@@ -1,7 +1,9 @@
 from copy import deepcopy
 from datetime import datetime, time, timedelta
 import os
+import secrets
 import shutil
+import string
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,7 +28,13 @@ class CreateCompanyRequest(BaseModel):
     company_name: str
     admin_full_name: str
     admin_email: str
-    admin_password: str
+
+
+def generate_temp_password(length: int = 16) -> str:
+    """Server-generated credential — platform admins never choose or see
+    another account's password ahead of time, only relay this one-time value."""
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 class UpdateCompanyRequest(BaseModel):
@@ -143,6 +151,8 @@ def create_company(
     db.add(company)
     db.flush()
 
+    temp_password = generate_temp_password()
+
     super_admin = User(
         company_id=company.id,
         employee_id="SA-001",
@@ -150,7 +160,7 @@ def create_company(
         email=company_data.admin_email,
         role="super_admin",
         work_type="office",
-        password_hash=hash_password(company_data.admin_password),
+        password_hash=hash_password(temp_password),
         is_active=True,
     )
     db.add(super_admin)
@@ -161,6 +171,7 @@ def create_company(
     return {
         "company_id": str(company.id),
         "super_admin_id": str(super_admin.id),
+        "admin_password": temp_password,
         "message": "Company created",
     }
 

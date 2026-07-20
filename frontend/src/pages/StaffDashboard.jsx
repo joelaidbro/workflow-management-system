@@ -1,6 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import {
+  ArrowDown,
+  Bell,
+  CalendarClock,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Home,
+  ListChecks,
+  MessageSquare,
+  Plus,
+  Send,
+  UserRound,
+} from "lucide-react";
 
 import api from "../api.js";
 import { playMessageSound, playActionSound } from "../utils/sounds";
@@ -11,6 +27,13 @@ import {
   formatTime,
   minutesToHours,
 } from "../utils/dateUtils";
+import Button from "../components/ui/Button.jsx";
+import Card, { CardBody, CardHeader } from "../components/ui/Card.jsx";
+import Badge from "../components/ui/Badge.jsx";
+import Modal from "../components/ui/Modal.jsx";
+import TabBar from "../components/ui/TabBar.jsx";
+import { EmptyState, LoadingState } from "../components/ui/States.jsx";
+import DashboardShell from "../components/ui/DashboardShell.jsx";
 
 function formatElapsedDuration(startValue, endValue = new Date()) {
   if (!startValue) {
@@ -34,31 +57,44 @@ function truncate(value, length) {
   return value.length > length ? `${value.slice(0, length)}...` : value;
 }
 
-function LogoDisplay({ user }) {
-  const [logoError, setLogoError] = useState(false);
-  const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-  const logoSrc = user?.company_id
-    ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}`
-    : null;
+const STATUS_TONE = {
+  not_started: "neutral",
+  ended: "neutral",
+  active: "success",
+  break: "warning",
+  meeting: "info",
+  idle: "warning",
+};
 
-  if (logoSrc && !logoError) {
-    return (
-      <img
-        src={logoSrc}
-        alt="Company logo"
-        style={{ maxHeight: "40px" }}
-        className="object-contain"
-        onError={() => setLogoError(true)}
-      />
-    );
-  }
+const LEAVE_STATUS_TONE = {
+  pending: "pending",
+  approved: "success",
+  rejected: "danger",
+};
 
-  return (
-    <span className="text-2xl font-bold">
-      {user?.company_name || "Company"}
-    </span>
-  );
-}
+const ALERT_TYPE_TONE = {
+  urgent: "danger",
+  info: "info",
+};
+
+const TASK_STATUS_TONE = {
+  pending: "pending",
+  in_progress: "info",
+  done: "success",
+};
+
+const TASK_STATUS_LABEL = {
+  pending: "Pending",
+  in_progress: "In Progress",
+  done: "Done",
+};
+
+const TOOLTIP_HEADER_CLASS = {
+  "bg-emerald-500": "bg-emerald-500/25",
+  "bg-rose-500": "bg-rose-500/25",
+  "bg-sky-500": "bg-sky-500/25",
+  "bg-amber-400": "bg-amber-400/25",
+};
 
 function StaffDashboard() {
   const navigate = useNavigate();
@@ -67,6 +103,12 @@ function StaffDashboard() {
     return storedUser ? JSON.parse(storedUser) : null;
   }, []);
   const currentUserId = user?.user_id || user?.id;
+  const [logoError, setLogoError] = useState(false);
+  const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  const logoUrl =
+    user?.company_id && !logoError
+      ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}`
+      : null;
   const [unreadCount, setUnreadCount] = useState(0);
   const [reportReplyCount, setReportReplyCount] = useState(0);
   const [leaveDecisionCount, setLeaveDecisionCount] = useState(0);
@@ -195,6 +237,24 @@ function StaffDashboard() {
     x: 0,
     y: 0,
   });
+  const TOOLTIP_WIDTH = 208;
+  const TOOLTIP_HEIGHT = 190;
+  const showCalendarTooltip = (event, day) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const margin = 8;
+    const x = Math.min(
+      Math.max(margin, rect.left - TOOLTIP_WIDTH / 2 + rect.width / 2),
+      window.innerWidth - TOOLTIP_WIDTH - margin
+    );
+    const preferredY = rect.top - TOOLTIP_HEIGHT - 10;
+    const y =
+      preferredY < margin
+        ? Math.min(rect.bottom + 10, window.innerHeight - TOOLTIP_HEIGHT - margin)
+        : preferredY;
+    setCalendarTooltip({ visible: true, day, x, y });
+  };
+  const hideCalendarTooltip = () =>
+    setCalendarTooltip({ visible: false, day: null, x: 0, y: 0 });
   const [profileDetails, setProfileDetails] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [alertTab, setAlertTab] = useState("pending");
@@ -940,23 +1000,6 @@ function StaffDashboard() {
     meeting: "In Meeting",
     idle: "Idle",
   };
-  const statusClasses = {
-    not_started: "bg-blue-800",
-    ended: "bg-gray-700",
-    active: "bg-green-700",
-    break: "bg-orange-500 text-orange-950",
-    meeting: "bg-blue-600",
-    idle: "bg-yellow-400 text-yellow-950",
-  };
-  const leaveStatusClasses = {
-    pending: "bg-yellow-100 text-yellow-700",
-    approved: "bg-green-100 text-green-700",
-    rejected: "bg-red-100 text-red-700",
-  };
-  const alertTypeClasses = {
-    urgent: "bg-red-100 text-red-700",
-    info: "bg-blue-100 text-blue-700",
-  };
   const liveStatus = statusLabels[currentStatus] || "Active";
   const breakDurationMinutes = breakStartedAt
     ? Math.max(0, Math.floor((currentTime - new Date(breakStartedAt)) / 60000))
@@ -972,14 +1015,14 @@ function StaffDashboard() {
     profile: "Profile",
   };
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "🏠" },
-    { id: "reports", label: "Reports", icon: "📋" },
-    { id: "leave", label: "Leave Requests", icon: "🗓️" },
-    { id: "messages", label: "Messages", icon: "💬" },
-    { id: "attendance", label: "Attendance", icon: "📅" },
-    { id: "alerts", label: "Alerts", icon: "🔔" },
-    { id: "tasks", label: "My Tasks", icon: "✅" },
-    { id: "profile", label: "Profile", icon: "👤" },
+    { id: "dashboard", label: "Dashboard", icon: Home },
+    { id: "reports", label: "Reports", icon: ClipboardList, badge: reportReplyCount },
+    { id: "leave", label: "Leave Requests", icon: CalendarDays, badge: leaveDecisionCount },
+    { id: "messages", label: "Messages", icon: MessageSquare, badge: unreadCount },
+    { id: "attendance", label: "Attendance", icon: CalendarClock },
+    { id: "alerts", label: "Alerts", icon: Bell },
+    { id: "tasks", label: "My Tasks", icon: ListChecks },
+    { id: "profile", label: "Profile", icon: UserRound },
   ];
   const calendarDays = useMemo(() => {
     const selectedMonthNumber = selectedMonth.getMonth() + 1;
@@ -1010,18 +1053,24 @@ function StaffDashboard() {
         const isFuture = date > new Date();
         const publicHolidayDates = new Set((attendanceSummary?.public_holidays || []).map((h) => h.date));
         const isPublicHoliday = publicHolidayDates.has(dateKey);
-        let dotClass = "bg-white border border-gray-300";
+        let dotClass = "bg-white dark:bg-slate-900/80 border border-slate-300 dark:bg-white/5 dark:border-white/15";
+        let statusLabel = "No record";
 
         if (isPublicHoliday && !record) {
           dotClass = "bg-amber-400";
+          statusLabel = "Public holiday";
         } else if (isWeekend || isFuture) {
-          dotClass = "bg-gray-300";
+          dotClass = "bg-slate-300 dark:bg-white/10";
+          statusLabel = isFuture ? "Upcoming" : "Weekend";
         } else if (record?.work_mode === "leave") {
-          dotClass = "bg-blue-500";
+          dotClass = "bg-sky-500";
+          statusLabel = "On leave";
         } else if (record?.is_present) {
-          dotClass = "bg-green-500";
+          dotClass = "bg-emerald-500";
+          statusLabel = "Present";
         } else if (record) {
-          dotClass = "bg-red-500";
+          dotClass = "bg-rose-500";
+          statusLabel = "Absent";
         }
 
         return {
@@ -1029,6 +1078,7 @@ function StaffDashboard() {
           date: dateKey,
           day,
           dotClass,
+          statusLabel,
           work_mode: record?.work_mode || (isPublicHoliday ? "holiday" : "office"),
           working_minutes: record?.working_minutes || 0,
           break_minutes: record?.break_minutes || 0,
@@ -1040,12 +1090,6 @@ function StaffDashboard() {
     ];
   }, [selectedMonth, attendanceSummary]);
   const profile = attendanceSummary || profileDetails || user;
-
-  const changeSelectedMonth = (offset) => {
-    setSelectedMonth(
-      (current) => new Date(current.getFullYear(), current.getMonth() + offset, 1)
-    );
-  };
 
   const handleAcknowledgeAlert = async (alertRecipientId) => {
     setAcknowledgingAlertId(alertRecipientId);
@@ -1129,1061 +1173,873 @@ function StaffDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <aside className="fixed inset-y-0 left-0 flex w-64 flex-col bg-blue-900 text-white">
-        <div className="border-b border-blue-800 p-6">
-          <LogoDisplay user={user} />
-          <div className="mt-1 text-sm text-blue-200">Staff Portal</div>
-        </div>
-
-        <nav className="flex-1 space-y-1 p-4">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                if (item.id === "messages") setUnreadCount(0);
-                if (item.id === "reports") {
-                  setReportReplyCount(0);
-                  api.patch("/api/attendance/reports/mark-read").catch(() => {});
-                }
-                if (item.id === "leave") {
-                  setLeaveDecisionCount(0);
-                  api.patch("/api/leave/mark-read").catch(() => {});
-                }
-                setActiveSection(item.id);
-              }}
-              className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
-                activeSection === item.id
-                  ? "bg-blue-700 text-white"
-                  : "text-blue-100 hover:bg-blue-800"
-              }`}
-            >
-              <span>{item.icon}</span>
-              {item.id === "messages" ? (
-                <div className="relative inline-block">
-                  Messages
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-6 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  )}
-                </div>
-              ) : item.id === "reports" && reportReplyCount > 0 ? (
-                <div className="relative inline-block">
-                  <span>Reports</span>
-                  <span className="absolute -top-1 -right-6 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                    {reportReplyCount > 99 ? "99+" : reportReplyCount}
-                  </span>
-                </div>
-              ) : item.id === "leave" && leaveDecisionCount > 0 ? (
-                <div className="relative inline-block">
-                  <span>Leave Requests</span>
-                  <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-red-500" />
-                </div>
-              ) : (
-                <span>{item.label}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        <div className="border-t border-blue-800 p-4">
-          <div className="font-semibold">{user?.full_name || "Staff"}</div>
-          <span className="mt-2 inline-flex rounded-full bg-blue-700 px-3 py-1 text-xs font-bold uppercase text-white">
-            {user?.role || "staff"}
+    <DashboardShell
+      brand="WorkFlow"
+      logoUrl={logoUrl}
+      onLogoError={() => setLogoError(true)}
+      navItems={navItems}
+      activeSection={activeSection}
+      onSectionChange={(id) => {
+        if (id === "messages") setUnreadCount(0);
+        if (id === "reports") {
+          setReportReplyCount(0);
+          api.patch("/api/attendance/reports/mark-read").catch(() => {});
+        }
+        if (id === "leave") {
+          setLeaveDecisionCount(0);
+          api.patch("/api/leave/mark-read").catch(() => {});
+        }
+        setActiveSection(id);
+      }}
+      sectionLabel={sectionTitles[activeSection]}
+      userName={user?.full_name || "Staff"}
+      userSubtitle={user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Staff"}
+      onLogout={handleLogout}
+      headerExtra={
+        <>
+          <Badge tone={STATUS_TONE[currentStatus] || "success"} className="hidden sm:inline-flex">
+            {liveStatus}
+          </Badge>
+          <span className="hidden text-sm font-medium text-slate-500 dark:text-slate-400 md:inline">
+            {formatDateTime(currentTime.toISOString())}
           </span>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-4 w-full rounded-lg bg-blue-800 px-4 py-2 text-sm font-semibold hover:bg-blue-700"
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      <div className="ml-64 flex min-h-screen flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-8 py-4 shadow-sm">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {sectionTitles[activeSection]}
-            </h1>
-            <div
-              className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold text-white ${
-                statusClasses[currentStatus] || "bg-green-700"
-              }`}
-            >
-              {liveStatus}
-            </div>
-          </div>
-          <div className="text-right text-sm text-gray-600">
-            <div className="font-semibold text-gray-900">
-              {formatDateTime(currentTime.toISOString())}
-            </div>
-            <div>{user?.full_name || "Staff"}</div>
-          </div>
-        </header>
-
-      <main className="flex-1 space-y-6 p-8">
+        </>
+      }
+    >
+      <div className="space-y-6">
         {activeSection === "dashboard" && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          {loadingAttendance ? (
-            <div className="text-center text-gray-500">Loading work day...</div>
-          ) : !attendance?.started ? (
-            <div className="space-y-6">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Good morning, {user?.full_name || "there"}
-              </h1>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Work mode
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setWorkMode("office")}
-                    className={`rounded-lg px-4 py-3 text-sm font-semibold ${
-                      workMode === "office"
-                        ? "bg-blue-700 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    Office
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWorkMode("wfh")}
-                    className={`rounded-lg px-4 py-3 text-sm font-semibold ${
-                      workMode === "wfh"
-                        ? "bg-blue-700 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    WFH
-                  </button>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleStartDay}
-                disabled={checkingAgentConnection}
-                className="w-full rounded-lg bg-green-600 px-5 py-4 text-lg font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {checkingAgentConnection ? "Checking agent connection..." : "Start My Day"}
-              </button>
-            </div>
-          ) : attendance.logout_time ? (
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Your day has ended. See you tomorrow!
-              </h2>
-              <p className="mt-3 text-gray-600">
-                Working hours: {formatElapsedDuration(attendance.login_time, attendance.logout_time)}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid grid-cols-6 gap-4">
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <div className="text-sm text-gray-500">Login time</div>
-                  <div className="mt-1 font-bold text-gray-900">
-                    {formatTime(attendance.login_time)}
-                  </div>
-                </div>
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <div className="text-sm text-gray-500">Working hours so far</div>
-                  <div className="mt-1 font-bold text-gray-900">
-                    {minutesToHours(attendance.working_minutes_so_far ?? 0)}
-                  </div>
-                </div>
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <div className="text-sm text-gray-500">Work mode</div>
-                  <div className="mt-1 font-bold text-gray-900">
-                    {attendance.work_mode?.toUpperCase() || "N/A"}
-                  </div>
-                </div>
-                <div className="rounded-xl bg-orange-50 p-4">
-                  <div className="text-sm text-orange-600">Break Duration</div>
-                  <div className="mt-1 font-bold text-orange-900">
-                    {minutesToHours(attendance.break_minutes || 0)}
-                  </div>
-                </div>
-                <div className="rounded-xl bg-blue-50 p-4">
-                  <div className="text-sm text-blue-600">Meeting Duration</div>
-                  <div className="mt-1 font-bold text-blue-900">
-                    {minutesToHours(attendance.meeting_minutes || 0)}
-                  </div>
-                </div>
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <div className="text-sm text-gray-500">Idle Time</div>
-                  <div className="mt-1 font-bold text-gray-900">
-                    {minutesToHours(attendance.idle_minutes || 0)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={
-                    currentStatus === "break" ? handleEndBreak : handleStartBreak
-                  }
-                  className="rounded-lg bg-orange-400 px-4 py-3 font-semibold text-orange-950 hover:bg-orange-500"
-                >
-                  {currentStatus === "break"
-                    ? `End Break (${breakDurationMinutes} min)`
-                    : "Start Break"}
-                </button>
-                <button
-                  type="button"
-                  onClick={
-                    currentStatus === "meeting"
-                      ? handleEndMeeting
-                      : handleStartMeeting
-                  }
-                  className="rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
-                >
-                  {currentStatus === "meeting" ? "End Meeting" : "Start Meeting"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowEndDayModal(true)}
-                  className="rounded-lg bg-red-600 px-4 py-3 text-lg font-bold text-white hover:bg-red-700"
-                >
-                  End My Day
-                </button>
-              </div>
-              {currentStatus === "meeting" && (
-                <span className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
-                  In Meeting
-                </span>
-              )}
-            </div>
-          )}
-        </section>
-        )}
-
-        {activeSection === "reports" && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900">Recent Reports</h2>
-          <div className="mt-4 space-y-3">
-            {reports.length === 0 ? (
-              <div className="text-gray-500">No reports yet</div>
-            ) : (
-              reports.map((report) => (
-                <div key={report.id} className="rounded-xl bg-gray-50 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-gray-900">
-                      {formatDate(report.report_date)}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {report.admin_reply && (
-                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                          Replied
-                        </span>
-                      )}
+          <Card>
+            <CardBody>
+              {loadingAttendance ? (
+                <LoadingState label="Loading work day…" />
+              ) : !attendance?.started ? (
+                <div className="space-y-6">
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    Good morning, {user?.full_name || "there"}
+                  </h1>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Work mode
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        onClick={() => handleDownloadSalarySlip(report)}
-                        disabled={downloadingSalarySlip === report.id}
-                        className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+                        onClick={() => setWorkMode("office")}
+                        className={`focus-ring rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+                          workMode === "office"
+                            ? "bg-brand-600 text-white"
+                            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                        }`}
                       >
-                        {downloadingSalarySlip === report.id
-                          ? "Downloading..."
-                          : "Download Salary Slip"}
+                        Office
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWorkMode("wfh")}
+                        className={`focus-ring rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+                          workMode === "wfh"
+                            ? "bg-brand-600 text-white"
+                            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                        }`}
+                      >
+                        WFH
                       </button>
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-gray-700">
-                    {truncate(report.content, 100)}
-                  </p>
-                  {report.admin_reply && (
-                    <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-900">
-                      {report.admin_reply}
-                    </div>
-                  )}
+                  <Button
+                    onClick={handleStartDay}
+                    loading={checkingAgentConnection}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {checkingAgentConnection ? "Checking agent connection…" : "Start My Day"}
+                  </Button>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
+              ) : attendance.logout_time ? (
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    Your day has ended. See you tomorrow!
+                  </h2>
+                  <p className="mt-3 text-slate-500 dark:text-slate-400">
+                    Working hours: {formatElapsedDuration(attendance.login_time, attendance.logout_time)}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <div className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Login time</div>
+                      <div className="mt-1 font-bold text-slate-900 dark:text-white">
+                        {formatTime(attendance.login_time)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Working hours</div>
+                      <div className="mt-1 font-bold text-slate-900 dark:text-white">
+                        {minutesToHours(attendance.working_minutes_so_far ?? 0)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Work mode</div>
+                      <div className="mt-1 font-bold text-slate-900 dark:text-white">
+                        {attendance.work_mode?.toUpperCase() || "N/A"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-amber-200/60 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-500/10">
+                      <div className="text-xs font-medium text-amber-700 dark:text-amber-300">Break</div>
+                      <div className="mt-1 font-bold text-amber-900 dark:text-amber-200">
+                        {minutesToHours(attendance.break_minutes || 0)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-brand-200/60 bg-brand-50 p-4 dark:border-brand-400/20 dark:bg-brand-500/10">
+                      <div className="text-xs font-medium text-brand-700 dark:text-brand-300">Meeting</div>
+                      <div className="mt-1 font-bold text-brand-900 dark:text-brand-200">
+                        {minutesToHours(attendance.meeting_minutes || 0)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Idle time</div>
+                      <div className="mt-1 font-bold text-slate-900 dark:text-white">
+                        {minutesToHours(attendance.idle_minutes || 0)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={currentStatus === "break" ? handleEndBreak : handleStartBreak}
+                      className="focus-ring rounded-xl bg-amber-400 px-4 py-3 font-semibold text-amber-950 transition-colors hover:bg-amber-500"
+                    >
+                      {currentStatus === "break"
+                        ? `End Break (${breakDurationMinutes} min)`
+                        : "Start Break"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={currentStatus === "meeting" ? handleEndMeeting : handleStartMeeting}
+                      className="focus-ring rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-brand-700"
+                    >
+                      {currentStatus === "meeting" ? "End Meeting" : "Start Meeting"}
+                    </button>
+                    <Button variant="danger" size="lg" onClick={() => setShowEndDayModal(true)}>
+                      End My Day
+                    </Button>
+                  </div>
+                  {currentStatus === "meeting" && <Badge tone="info">In Meeting</Badge>}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
+
+        {activeSection === "reports" && (
+          <Card>
+            <CardHeader>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Recent Reports</h2>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {reports.length === 0 ? (
+                <EmptyState title="No reports yet" description="Your submitted daily reports will show up here." />
+              ) : (
+                reports.map((report) => (
+                  <div key={report.id} className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {formatDate(report.report_date)}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {report.admin_reply && <Badge tone="success">Replied</Badge>}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          loading={downloadingSalarySlip === report.id}
+                          onClick={() => handleDownloadSalarySlip(report)}
+                        >
+                          Salary Slip
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                      {truncate(report.content, 100)}
+                    </p>
+                    {report.admin_reply && (
+                      <div className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">
+                        {report.admin_reply}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </CardBody>
+          </Card>
         )}
 
         {activeSection === "leave" && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-bold text-gray-900">Leave Requests</h2>
-            <button
-              type="button"
-              onClick={() => {
-                setShowLeaveForm(true);
-                setLeaveError("");
-              }}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-            >
-              Request Leave
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {loadingLeaveRequests ? (
-              <div className="text-gray-500">Loading leave requests...</div>
-            ) : leaveRequests.length === 0 ? (
-              <div className="text-gray-500">No leave requests yet</div>
-            ) : (
-              leaveRequests.map((request) => (
-                <div key={request.id} className="rounded-xl bg-gray-50 p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="font-semibold text-gray-900">
-                        {request.leave_type}
+          <Card>
+            <CardHeader>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Leave Requests</h2>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setShowLeaveForm(true);
+                  setLeaveError("");
+                }}
+              >
+                Request Leave
+              </Button>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {loadingLeaveRequests ? (
+                <LoadingState label="Loading leave requests…" />
+              ) : leaveRequests.length === 0 ? (
+                <EmptyState title="No leave requests yet" />
+              ) : (
+                leaveRequests.map((request) => (
+                  <div key={request.id} className="rounded-xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-semibold text-slate-900 dark:text-white">
+                          {request.leave_type}
+                        </div>
+                        <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                          {formatDate(request.start_date)} - {formatDate(request.end_date)} ·{" "}
+                          {request.total_days} {request.total_days === 1 ? "day" : "days"}
+                        </div>
                       </div>
-                      <div className="mt-1 text-sm text-gray-600">
-                        {formatDate(request.start_date)} -{" "}
-                        {formatDate(request.end_date)} · {request.total_days}{" "}
-                        {request.total_days === 1 ? "day" : "days"}
-                      </div>
+                      <Badge tone={LEAVE_STATUS_TONE[request.status] || "neutral"}>
+                        {request.status}
+                      </Badge>
                     </div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        leaveStatusClasses[request.status] ||
-                        "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {request.status}
-                    </span>
+                    {request.admin_comment && (
+                      <div className="mt-3 rounded-lg bg-white dark:bg-slate-900/80 p-3 text-sm text-slate-700 dark:text-slate-300">
+                        {request.admin_comment}
+                      </div>
+                    )}
                   </div>
-                  {request.admin_comment && (
-                    <div className="mt-3 rounded-lg bg-white p-3 text-sm text-gray-700">
-                      {request.admin_comment}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-
-          {showLeaveForm && (
-            <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700">
-                    Leave Type
-                  </span>
-                  {configuredLeaveTypes.length > 0 ? (
-                    <select
-                      value={leaveForm.leave_type}
-                      onChange={(event) =>
-                        updateLeaveForm("leave_type", event.target.value)
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-                    >
-                      <option value="">Select leave type</option>
-                      {configuredLeaveTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <select
-                      disabled
-                      className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-400"
-                    >
-                      <option>No leave types configured</option>
-                    </select>
-                  )}
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700">
-                    Start Date
-                  </span>
-                  <input
-                    type="date"
-                    min={todayDate}
-                    value={leaveForm.start_date}
-                    onChange={(event) =>
-                      updateLeaveForm("start_date", event.target.value)
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700">
-                    End Date
-                  </span>
-                  <input
-                    type="date"
-                    min={leaveForm.start_date || todayDate}
-                    value={leaveForm.end_date}
-                    onChange={(event) =>
-                      updateLeaveForm("end_date", event.target.value)
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-                  />
-                </label>
-                <div className="flex items-end text-sm font-semibold text-gray-700">
-                  Total: {calculateLeaveDays()}{" "}
-                  {calculateLeaveDays() === 1 ? "day" : "days"}
-                </div>
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-gray-700">
-                    Reason
-                  </span>
-                  <textarea
-                    value={leaveForm.reason}
-                    onChange={(event) =>
-                      updateLeaveForm("reason", event.target.value)
-                    }
-                    className="min-h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-                  />
-                </label>
-              </div>
-
-              {leaveError && (
-                <div className="mt-4 text-sm font-medium text-red-600">
-                  {leaveError}
-                </div>
+                ))
               )}
-
-              <div className="mt-5 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLeaveForm(false);
-                    setLeaveError("");
-                  }}
-                  className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmitLeaveRequest}
-                  disabled={submittingLeave}
-                  className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submittingLeave ? "Submitting..." : "Submit Request"}
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
+            </CardBody>
+          </Card>
         )}
 
         {activeSection === "messages" && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-bold text-gray-900">Messages</h2>
-            <button
-              type="button"
-              onClick={fetchAvailableChatUsers}
-              className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
-            >
-              New Chat
-            </button>
-          </div>
-          {showNewChatSelector && (
-            <div className="mt-4">
-              <select
-                defaultValue=""
-                onChange={(event) => {
-                  const selectedUser = availableChatUsers.find(
-                    (item) => item.user_id === event.target.value
-                  );
-                  if (selectedUser) {
-                    handleOpenConversation(selectedUser);
-                    setShowNewChatSelector(false);
-                    event.target.value = "";
-                  }
-                }}
-                disabled={loadingChatUsers}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-              >
-                <option value="">
-                  {loadingChatUsers ? "Loading users..." : "Select person"}
-                </option>
-                {availableChatUsers.map((item) => (
-                  <option key={item.user_id} value={item.user_id}>
-                    {item.full_name}
-                    {item.department ? ` - ${item.department}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="mt-4 divide-y divide-gray-100">
-            {conversations.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">
-                No conversations yet
-              </div>
-            ) : (
-              conversations.map((conversation) => (
-                <button
-                  key={conversation.user_id}
-                  type="button"
-                  onClick={() => handleOpenConversation(conversation)}
-                  className="flex w-full items-center justify-between gap-4 py-4 text-left hover:bg-gray-50"
+          <Card>
+            <CardHeader>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Messages</h2>
+              <Button size="sm" onClick={fetchAvailableChatUsers}>
+                <Plus className="h-4 w-4" /> New Chat
+              </Button>
+            </CardHeader>
+            <CardBody>
+              {showNewChatSelector && (
+                <select
+                  defaultValue=""
+                  onChange={(event) => {
+                    const selectedUser = availableChatUsers.find(
+                      (item) => item.user_id === event.target.value
+                    );
+                    if (selectedUser) {
+                      handleOpenConversation(selectedUser);
+                      setShowNewChatSelector(false);
+                      event.target.value = "";
+                    }
+                  }}
+                  disabled={loadingChatUsers}
+                  className="focus-ring mb-4 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
-                  <div className="min-w-0">
-                    <div className="font-semibold text-gray-900">
-                      {conversation.full_name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {conversation.department || "No department"}
-                    </div>
-                    <div className="mt-1 truncate text-sm text-gray-600">
-                      {truncate(conversation.last_message, 40)}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">
-                      {formatTime(conversation.last_message_at)}
-                    </span>
-                    {conversation.unread_count > 0 && (
-                      <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-700 px-2 text-xs font-bold text-white">
-                        {conversation.unread_count}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </section>
+                  <option value="">{loadingChatUsers ? "Loading users..." : "Select person"}</option>
+                  {availableChatUsers.map((item) => (
+                    <option key={item.user_id} value={item.user_id}>
+                      {item.full_name}
+                      {item.department ? ` - ${item.department}` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
+                {conversations.length === 0 ? (
+                  <EmptyState title="No conversations yet" />
+                ) : (
+                  conversations.map((conversation) => (
+                    <button
+                      key={conversation.user_id}
+                      type="button"
+                      onClick={() => handleOpenConversation(conversation)}
+                      className="focus-ring flex w-full items-center justify-between gap-4 py-4 text-left transition-colors hover:bg-slate-50 dark:hover:bg-white/5"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-900 dark:text-white">
+                          {conversation.full_name}
+                        </div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                          {conversation.department || "No department"}
+                        </div>
+                        <div className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">
+                          {truncate(conversation.last_message, 40)}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className="text-xs text-slate-400">
+                          {formatTime(conversation.last_message_at)}
+                        </span>
+                        {conversation.unread_count > 0 && (
+                          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-brand-600 px-2 text-xs font-bold text-white">
+                            {conversation.unread_count}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </CardBody>
+          </Card>
         )}
 
         {activeSection === "attendance" && (
-          <section className="space-y-6">
-            <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
-                className="rounded-lg bg-gray-100 px-4 py-2 font-bold text-gray-700 hover:bg-gray-200"
-              >
-                &lt;
-              </button>
-              <div className="text-center">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {selectedMonth.toLocaleDateString([], {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </h2>
-                <p className="text-sm text-gray-500">Monthly attendance summary</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
-                className="rounded-lg bg-gray-100 px-4 py-2 font-bold text-gray-700 hover:bg-gray-200"
-              >
-                &gt;
-              </button>
-            </div>
+          <div className="space-y-6">
+            <Card>
+              <CardBody className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                  aria-label="Previous month"
+                  className="focus-ring rounded-lg bg-slate-100 p-2 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="text-center">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+                    {selectedMonth.toLocaleDateString([], { month: "long", year: "numeric" })}
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Monthly attendance summary</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                  aria-label="Next month"
+                  className="focus-ring rounded-lg bg-slate-100 p-2 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </CardBody>
+            </Card>
 
             {loadingSummary ? (
-              <div className="text-center text-gray-500">Loading attendance...</div>
+              <LoadingState label="Loading attendance…" />
             ) : (
-              <div className="grid gap-4 md:grid-cols-5">
-                <div className="rounded-xl bg-green-50 p-4">
-                  <div className="text-sm font-medium text-green-700">Days Present</div>
-                  <div className="mt-2 text-2xl font-bold text-green-900">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+                <div className="rounded-xl border border-emerald-200/60 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-500/10">
+                  <div className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Days Present</div>
+                  <div className="mt-2 text-2xl font-bold text-emerald-900 dark:text-emerald-200">
                     {attendanceSummary?.days_present || 0}
                   </div>
                 </div>
-                <div className="rounded-xl bg-red-50 p-4">
-                  <div className="text-sm font-medium text-red-700">Days Absent</div>
-                  <div className="mt-2 text-2xl font-bold text-red-900">
+                <div className="rounded-xl border border-rose-200/60 bg-rose-50 p-4 dark:border-rose-400/20 dark:bg-rose-500/10">
+                  <div className="text-xs font-medium text-rose-700 dark:text-rose-300">Days Absent</div>
+                  <div className="mt-2 text-2xl font-bold text-rose-900 dark:text-rose-200">
                     {attendanceSummary?.days_absent || 0}
                   </div>
                 </div>
-                <div className="rounded-xl bg-blue-50 p-4">
-                  <div className="text-sm font-medium text-blue-700">
-                    Total Working Hours
-                  </div>
-                  <div className="mt-2 text-2xl font-bold text-blue-900">
+                <div className="rounded-xl border border-brand-200/60 bg-brand-50 p-4 dark:border-brand-400/20 dark:bg-brand-500/10">
+                  <div className="text-xs font-medium text-brand-700 dark:text-brand-300">Total Working Hours</div>
+                  <div className="mt-2 text-2xl font-bold text-brand-900 dark:text-brand-200">
                     {minutesToHours(attendanceSummary?.total_working_minutes || 0)}
                   </div>
                 </div>
-                <div className="rounded-xl bg-orange-50 p-4">
-                  <div className="text-sm font-medium text-orange-700">
-                    Total Break Time
-                  </div>
-                  <div className="mt-2 text-2xl font-bold text-orange-900">
+                <div className="rounded-xl border border-amber-200/60 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-500/10">
+                  <div className="text-xs font-medium text-amber-700 dark:text-amber-300">Total Break Time</div>
+                  <div className="mt-2 text-2xl font-bold text-amber-900 dark:text-amber-200">
                     {minutesToHours(attendanceSummary?.total_break_minutes || 0)}
                   </div>
                 </div>
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <div className="text-sm font-medium text-gray-700">Total Idle Time</div>
-                  <div className="mt-2 text-2xl font-bold text-gray-900">
+                <div className="rounded-xl border border-slate-200/70 bg-slate-100 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="text-xs font-medium text-slate-600 dark:text-slate-300">Total Idle Time</div>
+                  <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                     {minutesToHours(attendanceSummary?.total_idle_minutes || 0)}
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-gray-500">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-                  <div key={day}>{day}</div>
-                ))}
-              </div>
-              <div className="mt-3 grid grid-cols-7 gap-2">
-                {calendarDays.map((day) =>
-                  day.blank ? (
-                    <div key={day.id} className="h-12" />
-                  ) : (
-                    <div
-                      key={day.id}
-                      className="flex h-14 flex-col items-center justify-center gap-1 rounded-lg bg-gray-50 text-xs text-gray-600"
-                    >
-                      <span>{day.day}</span>
-                      <span
-                        className={`h-6 w-6 cursor-pointer rounded-full ${day.dotClass}`}
-                        onMouseEnter={(event) => {
-                          const rect = event.currentTarget.getBoundingClientRect();
-                          setCalendarTooltip({
-                            visible: true,
-                            day,
-                            x: rect.left,
-                            y: rect.top,
-                          });
-                        }}
-                        onMouseLeave={() =>
-                          setCalendarTooltip({
-                            visible: false,
-                            day: null,
-                            x: 0,
-                            y: 0,
-                          })
-                        }
-                      />
-                    </div>
-                  )
-                )}
-              </div>
-              {calendarTooltip.visible && calendarTooltip.day && (
-                <div
-                  className="pointer-events-none fixed z-50 rounded-lg bg-gray-900 p-3 text-xs text-white shadow-xl"
-                  style={{ left: calendarTooltip.x + 10, top: calendarTooltip.y - 95 }}
-                >
-                  <div className="mb-1 font-bold">
-                    {formatDate(calendarTooltip.day.date)}
-                  </div>
-                  <div>
-                    Working: {minutesToHours(calendarTooltip.day.working_minutes)}
-                  </div>
-                  <div>Break: {minutesToHours(calendarTooltip.day.break_minutes)}</div>
-                  <div>Idle: {minutesToHours(calendarTooltip.day.idle_minutes)}</div>
-                  <div>Mode: {calendarTooltip.day.work_mode || "Office"}</div>
-                  {calendarTooltip.day.login_time && (
-                    <div>Login: {formatTime(calendarTooltip.day.login_time)}</div>
-                  )}
-                  {calendarTooltip.day.logout_time && (
-                    <div>Logout: {formatTime(calendarTooltip.day.logout_time)}</div>
+            <Card>
+              <CardBody>
+                <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-slate-400 sm:gap-2">
+                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                    <div key={day}>{day}</div>
+                  ))}
+                </div>
+                <div className="mt-3 grid grid-cols-7 gap-1 sm:gap-2">
+                  {calendarDays.map((day) =>
+                    day.blank ? (
+                      <div key={day.id} className="h-12" />
+                    ) : (
+                      <div
+                        key={day.id}
+                        className={`flex h-12 flex-col items-center justify-center gap-1 rounded-lg border text-xs text-slate-600 transition-colors dark:text-slate-300 sm:h-14 ${
+                          day.date === todayDate
+                            ? "border-brand-400/60 bg-brand-50 dark:border-brand-400/50 dark:bg-brand-500/10"
+                            : "border-slate-200/70 bg-slate-50/80 hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20"
+                        }`}
+                      >
+                        <span className={day.date === todayDate ? "font-bold text-brand-700 dark:text-brand-200" : ""}>
+                          {day.day}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`${formatDate(day.date)}: ${day.statusLabel}`}
+                          className={`focus-ring h-5 w-5 rounded-full ring-2 ring-black/5 transition-transform hover:scale-110 dark:ring-white/10 sm:h-6 sm:w-6 ${day.dotClass}`}
+                          onMouseEnter={(event) => showCalendarTooltip(event, day)}
+                          onMouseLeave={hideCalendarTooltip}
+                          onFocus={(event) => showCalendarTooltip(event, day)}
+                          onBlur={hideCalendarTooltip}
+                        />
+                      </div>
+                    )
                   )}
                 </div>
-              )}
-            </div>
-          </section>
+                {calendarTooltip.visible && calendarTooltip.day && createPortal(
+                  <div
+                    role="tooltip"
+                    className="pointer-events-none fixed z-50 w-52 overflow-hidden rounded-xl bg-slate-900 text-xs text-white shadow-2xl ring-1 ring-white/10"
+                    style={{ left: calendarTooltip.x, top: calendarTooltip.y }}
+                  >
+                    <div className={`flex items-center justify-between gap-2 px-3 py-2 ${TOOLTIP_HEADER_CLASS[calendarTooltip.day.dotClass] || "bg-white/10"}`}>
+                      <span className="font-bold">{formatDate(calendarTooltip.day.date)}</span>
+                      <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                        {calendarTooltip.day.statusLabel}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Working</span>
+                        <span className="font-semibold">{minutesToHours(calendarTooltip.day.working_minutes)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Break</span>
+                        <span className="font-semibold">{minutesToHours(calendarTooltip.day.break_minutes)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Idle</span>
+                        <span className="font-semibold">{minutesToHours(calendarTooltip.day.idle_minutes)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Mode</span>
+                        <span className="font-semibold capitalize">{calendarTooltip.day.work_mode || "Office"}</span>
+                      </div>
+                      {calendarTooltip.day.login_time && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">Login</span>
+                          <span className="font-semibold">{formatTime(calendarTooltip.day.login_time)}</span>
+                        </div>
+                      )}
+                      {calendarTooltip.day.logout_time && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">Logout</span>
+                          <span className="font-semibold">{formatTime(calendarTooltip.day.logout_time)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>,
+                  document.body
+                )}
+              </CardBody>
+            </Card>
+          </div>
         )}
 
         {activeSection === "alerts" && (
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex gap-2 rounded-xl bg-gray-100 p-1">
-              {[
-                { id: "pending", label: pendingAlerts.length > 0 ? `Pending (${pendingAlerts.length})` : "Pending" },
-                { id: "history", label: "History" },
-                { id: "send", label: "Send Alert" },
-              ].map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setAlertTab(id)}
-                  className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${
-                    alertTab === id
-                      ? "bg-blue-700 text-white"
-                      : "text-gray-600 hover:bg-white"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          <Card>
+            <CardBody>
+              <TabBar
+                tabs={[
+                  { id: "pending", label: "Pending", badge: pendingAlerts.length },
+                  { id: "history", label: "History" },
+                  { id: "send", label: "Send Alert" },
+                ]}
+                activeId={alertTab}
+                onChange={setAlertTab}
+              />
 
-            {(alertTab === "pending" || alertTab === "history") && (
-              <div className="mt-5 space-y-4">
-                {loadingAlerts ? (
-                  <div className="py-10 text-center text-gray-500">Loading alerts...</div>
-                ) : (alertTab === "pending" ? pendingAlerts : alertHistory).length === 0 ? (
-                  <div className="py-10 text-center text-gray-500">No alerts found</div>
-                ) : (
-                  (alertTab === "pending" ? pendingAlerts : alertHistory).map((alert) => (
-                    <div
-                      key={alert.alert_recipient_id}
-                      className="rounded-xl border border-gray-200 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
-                              alertTypeClasses[alert.alert_type] || alertTypeClasses.info
-                            }`}
-                          >
-                            {alert.alert_type}
-                          </span>
-                          <div className="mt-3 font-semibold text-gray-900">
-                            From: {alert.sender_name}
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-gray-700">
-                            {alert.message}
-                          </p>
-                          <div className="mt-3 text-xs text-gray-500">
-                            Sent: {formatDateTime(alert.created_at)}
-                          </div>
-                          {alert.acknowledged_at && (
-                            <div className="mt-1 text-xs text-gray-500">
-                              Acknowledged: {formatDateTime(alert.acknowledged_at)}
-                            </div>
-                          )}
-                          {alert.reply && (
-                            <div className="mt-2 rounded-lg bg-gray-50 p-2 text-sm text-gray-700">
-                              {alert.reply}
-                            </div>
-                          )}
-                          {replyAlertId === alert.alert_recipient_id && (
-                            <div className="mt-3 space-y-2">
-                              <textarea
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                placeholder="Type your reply message..."
-                                className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
-                                rows={2}
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleSendAlertReply(alert)}
-                                  className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800"
-                                >
-                                  Send Reply
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReplyAlertId(null);
-                                    setReplyText("");
-                                  }}
-                                  className="rounded-lg bg-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-300"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {alertTab === "pending" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleAcknowledgeAlert(alert.alert_recipient_id)
-                              }
-                              disabled={acknowledgingAlertId === alert.alert_recipient_id}
-                              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
-                            >
-                              {acknowledgingAlertId === alert.alert_recipient_id
-                                ? "Acknowledging..."
-                                : "Acknowledge"}
-                            </button>
-                          )}
-                          {replyAlertId !== alert.alert_recipient_id && !alert.reply && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setReplyAlertId(alert.alert_recipient_id);
-                                setReplyText("");
-                              }}
-                              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                            >
-                              Reply
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {alertTab === "send" && (
-              <div className="mt-5 grid gap-6 lg:grid-cols-5">
-                <div className="lg:col-span-2">
-                  <div className="rounded-xl border border-gray-200 p-5">
-                    <h4 className="text-base font-bold text-gray-900">New Alert</h4>
-                    <form onSubmit={handleSendAlert} className="mt-5 space-y-5">
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Alert type
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setSendAlertType("info")}
-                            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                              sendAlertType === "info"
-                                ? "bg-blue-700 text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                          >
-                            Info
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSendAlertType("urgent")}
-                            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                              sendAlertType === "urgent"
-                                ? "bg-red-600 text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                          >
-                            Urgent
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Recipient
-                        </label>
-                        <select
-                          value={sendRecipientId}
-                          onChange={(e) => setSendRecipientId(e.target.value)}
-                          disabled={loadingRecipients}
-                          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100"
-                        >
-                          <option value="">-- Select recipient --</option>
-                          {potentialRecipients.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.full_name} ({r.role})
-                            </option>
-                          ))}
-                          <option value="all">Broadcast to all team</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Message
-                        </label>
-                        <textarea
-                          value={sendAlertMessage}
-                          onChange={(e) => setSendAlertMessage(e.target.value.slice(0, 500))}
-                          placeholder="Type your alert message..."
-                          rows={4}
-                          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-                        />
-                        <div className="mt-1 text-right text-xs text-gray-400">
-                          {sendAlertMessage.length}/500
-                        </div>
-                      </div>
-                      {sendAlertError && (
-                        <div className="text-sm font-medium text-red-600">
-                          {sendAlertError}
-                        </div>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={sendingAlert}
-                        className={`w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70 ${
-                          sendAlertType === "urgent"
-                            ? "bg-red-600 hover:bg-red-700"
-                            : "bg-blue-700 hover:bg-blue-800"
-                        }`}
+              {(alertTab === "pending" || alertTab === "history") && (
+                <div className="mt-5 space-y-4">
+                  {loadingAlerts ? (
+                    <LoadingState label="Loading alerts…" />
+                  ) : (alertTab === "pending" ? pendingAlerts : alertHistory).length === 0 ? (
+                    <EmptyState title="No alerts found" />
+                  ) : (
+                    (alertTab === "pending" ? pendingAlerts : alertHistory).map((alert) => (
+                      <div
+                        key={alert.alert_recipient_id}
+                        className="rounded-xl border border-slate-200 p-4 dark:border-white/10"
                       >
-                        {sendingAlert ? "Sending..." : "Send Alert"}
-                      </button>
-                    </form>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-3">
-                  <div className="rounded-xl border border-gray-200 p-5">
-                    <h4 className="text-base font-bold text-gray-900">Sent Alerts</h4>
-
-                    {alertDeliveryReport ? (
-                      <div className="mt-5">
-                        <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-bold text-gray-800">Delivery Report</h5>
-                          <button
-                            type="button"
-                            onClick={() => setAlertDeliveryReport(null)}
-                            className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200"
-                          >
-                            Back to list
-                          </button>
-                        </div>
-                        <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
-                          <div className="rounded-lg bg-gray-50 p-3">
-                            <div className="font-bold text-gray-900">{alertDeliveryReport.total_recipients}</div>
-                            <div className="text-gray-500">Recipients</div>
-                          </div>
-                          <div className="rounded-lg bg-green-50 p-3">
-                            <div className="font-bold text-green-700">{alertDeliveryReport.acknowledged_count}</div>
-                            <div className="text-green-700">Acknowledged</div>
-                          </div>
-                          <div className="rounded-lg bg-orange-50 p-3">
-                            <div className="font-bold text-orange-700">{alertDeliveryReport.pending_count}</div>
-                            <div className="text-orange-700">Pending</div>
-                          </div>
-                        </div>
-                        <div className="mt-5">
-                          <h6 className="mb-2 text-xs font-bold uppercase text-gray-500">Recipients</h6>
-                          <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 max-h-64 overflow-y-auto">
-                            {alertDeliveryReport.recipients.map((r) => (
-                              <div key={r.recipient_id} className="flex items-start justify-between gap-4 p-4 text-sm">
-                                <div>
-                                  <div className="font-semibold text-gray-900">{r.full_name}</div>
-                                  {r.reply && (
-                                    <div className="mt-2 rounded-lg bg-gray-50 p-2 text-gray-700">{r.reply}</div>
-                                  )}
-                                </div>
-                                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${r.status === "acknowledged" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
-                                  {r.status}
-                                </span>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <Badge tone={ALERT_TYPE_TONE[alert.alert_type] || "info"}>
+                              {alert.alert_type}
+                            </Badge>
+                            <div className="mt-3 font-semibold text-slate-900 dark:text-white">
+                              From: {alert.sender_name}
+                            </div>
+                            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                              {alert.message}
+                            </p>
+                            <div className="mt-3 text-xs text-slate-400">
+                              Sent: {formatDateTime(alert.created_at)}
+                            </div>
+                            {alert.acknowledged_at && (
+                              <div className="mt-1 text-xs text-slate-400">
+                                Acknowledged: {formatDateTime(alert.acknowledged_at)}
                               </div>
-                            ))}
+                            )}
+                            {alert.reply && (
+                              <div className="mt-2 rounded-lg bg-slate-50 p-2 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                                {alert.reply}
+                              </div>
+                            )}
+                            {replyAlertId === alert.alert_recipient_id && (
+                              <div className="mt-3 space-y-2">
+                                <textarea
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  placeholder="Type your reply message..."
+                                  className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 p-2 text-sm dark:border-white/10 dark:bg-white/5 dark:text-white"
+                                  rows={2}
+                                />
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={() => handleSendAlertReply(alert)}>
+                                    Send Reply
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => {
+                                      setReplyAlertId(null);
+                                      setReplyText("");
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {alertTab === "pending" && (
+                              <Button
+                                size="sm"
+                                loading={acknowledgingAlertId === alert.alert_recipient_id}
+                                onClick={() => handleAcknowledgeAlert(alert.alert_recipient_id)}
+                              >
+                                Acknowledge
+                              </Button>
+                            )}
+                            {replyAlertId !== alert.alert_recipient_id && !alert.reply && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => {
+                                  setReplyAlertId(alert.alert_recipient_id);
+                                  setReplyText("");
+                                }}
+                              >
+                                Reply
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
-                    ) : (
-                      <div className="mt-5 space-y-3">
-                        {loadingAlerts ? (
-                          <div className="flex min-h-40 items-center justify-center text-gray-500">
-                            Loading...
+                    ))
+                  )}
+                </div>
+              )}
+
+              {alertTab === "send" && (
+                <div className="mt-5 grid gap-6 lg:grid-cols-5">
+                  <div className="lg:col-span-2">
+                    <div className="rounded-xl border border-slate-200 p-5 dark:border-white/10">
+                      <h4 className="text-base font-bold text-slate-900 dark:text-white">New Alert</h4>
+                      <form onSubmit={handleSendAlert} className="mt-5 space-y-5">
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                            Alert type
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setSendAlertType("info")}
+                              className={`focus-ring rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                                sendAlertType === "info"
+                                  ? "bg-brand-600 text-white"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                              }`}
+                            >
+                              Info
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSendAlertType("urgent")}
+                              className={`focus-ring rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                                sendAlertType === "urgent"
+                                  ? "bg-rose-600 text-white"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                              }`}
+                            >
+                              Urgent
+                            </button>
                           </div>
-                        ) : sentAlerts.length === 0 ? (
-                          <div className="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500">
-                            No alerts sent yet
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                            Recipient
+                          </label>
+                          <select
+                            value={sendRecipientId}
+                            onChange={(e) => setSendRecipientId(e.target.value)}
+                            disabled={loadingRecipients}
+                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none disabled:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                          >
+                            <option value="">-- Select recipient --</option>
+                            {potentialRecipients.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.full_name} ({r.role})
+                              </option>
+                            ))}
+                            <option value="all">Broadcast to all team</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                            Message
+                          </label>
+                          <textarea
+                            value={sendAlertMessage}
+                            onChange={(e) => setSendAlertMessage(e.target.value.slice(0, 500))}
+                            placeholder="Type your alert message..."
+                            rows={4}
+                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                          />
+                          <div className="mt-1 text-right text-xs text-slate-400">
+                            {sendAlertMessage.length}/500
                           </div>
-                        ) : (
-                          sentAlerts.map((alert) => {
-                            const progress =
-                              alert.total_recipients > 0
-                                ? Math.round((alert.acknowledged_count / alert.total_recipients) * 100)
-                                : 0;
-                            return (
-                              <div
-                                key={alert.id}
-                                className={`rounded-xl border p-4 ${alert.has_unread_replies ? "border-red-300 bg-red-50/40" : "border-gray-200"}`}
-                              >
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${alert.alert_type === "urgent" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
-                                        {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
-                                      </span>
-                                      {alert.has_unread_replies && (
-                                        <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">New replies</span>
-                                      )}
-                                      <span className="text-xs text-gray-500">{formatDateTime(alert.created_at)}</span>
-                                    </div>
-                                    <p className="mt-2 text-sm font-medium text-gray-900">{alert.message}</p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleViewAlertDeliveryReport(alert.id)}
-                                    disabled={loadingAlertReportId === alert.id}
-                                    className="shrink-0 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 disabled:opacity-70"
-                                  >
-                                    {loadingAlertReportId === alert.id ? "Loading..." : "View Report"}
-                                  </button>
-                                </div>
-                                <div className="mt-3">
-                                  <div className="flex items-center justify-between text-xs text-gray-600">
-                                    <span>{alert.acknowledged_count}/{alert.total_recipients} acknowledged</span>
-                                    {alert.pending_count > 0 && (
-                                      <span className="font-medium text-orange-600">{alert.pending_count} pending</span>
+                        </div>
+                        {sendAlertError && (
+                          <div className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                            {sendAlertError}
+                          </div>
+                        )}
+                        <Button
+                          type="submit"
+                          variant={sendAlertType === "urgent" ? "danger" : "primary"}
+                          loading={sendingAlert}
+                          className="w-full"
+                        >
+                          {sendingAlert ? "Sending..." : "Send Alert"}
+                        </Button>
+                      </form>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-3">
+                    <div className="rounded-xl border border-slate-200 p-5 dark:border-white/10">
+                      <h4 className="text-base font-bold text-slate-900 dark:text-white">Sent Alerts</h4>
+
+                      {alertDeliveryReport ? (
+                        <div className="mt-5">
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                              Delivery Report
+                            </h5>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setAlertDeliveryReport(null)}
+                            >
+                              Back to list
+                            </Button>
+                          </div>
+                          <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
+                            <div className="rounded-lg bg-slate-50 p-3 dark:bg-white/5">
+                              <div className="font-bold text-slate-900 dark:text-white">
+                                {alertDeliveryReport.total_recipients}
+                              </div>
+                              <div className="text-slate-500 dark:text-slate-400">Recipients</div>
+                            </div>
+                            <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-500/10">
+                              <div className="font-bold text-emerald-700 dark:text-emerald-300">
+                                {alertDeliveryReport.acknowledged_count}
+                              </div>
+                              <div className="text-emerald-700 dark:text-emerald-300">Acknowledged</div>
+                            </div>
+                            <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-500/10">
+                              <div className="font-bold text-amber-700 dark:text-amber-300">
+                                {alertDeliveryReport.pending_count}
+                              </div>
+                              <div className="text-amber-700 dark:text-amber-300">Pending</div>
+                            </div>
+                          </div>
+                          <div className="mt-5">
+                            <h6 className="mb-2 text-xs font-bold uppercase text-slate-400">Recipients</h6>
+                            <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">
+                              {alertDeliveryReport.recipients.map((r) => (
+                                <div key={r.recipient_id} className="flex items-start justify-between gap-4 p-4 text-sm">
+                                  <div>
+                                    <div className="font-semibold text-slate-900 dark:text-white">{r.full_name}</div>
+                                    {r.reply && (
+                                      <div className="mt-2 rounded-lg bg-slate-50 p-2 text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                                        {r.reply}
+                                      </div>
                                     )}
                                   </div>
-                                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200">
-                                    <div
-                                      className="h-full rounded-full bg-green-500 transition-all"
-                                      style={{ width: `${progress}%` }}
-                                    />
+                                  <Badge tone={r.status === "acknowledged" ? "success" : "warning"}>
+                                    {r.status}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-5 space-y-3">
+                          {loadingAlerts ? (
+                            <LoadingState />
+                          ) : sentAlerts.length === 0 ? (
+                            <EmptyState title="No alerts sent yet" />
+                          ) : (
+                            sentAlerts.map((alert) => {
+                              const progress =
+                                alert.total_recipients > 0
+                                  ? Math.round((alert.acknowledged_count / alert.total_recipients) * 100)
+                                  : 0;
+                              return (
+                                <div
+                                  key={alert.id}
+                                  className={`rounded-xl border p-4 ${
+                                    alert.has_unread_replies
+                                      ? "border-rose-300 bg-rose-50/40 dark:border-rose-500/30 dark:bg-rose-500/5"
+                                      : "border-slate-200 dark:border-white/10"
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Badge tone={alert.alert_type === "urgent" ? "danger" : "info"}>
+                                          {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
+                                        </Badge>
+                                        {alert.has_unread_replies && (
+                                          <span className="rounded-full bg-rose-500 px-2 py-0.5 text-xs font-bold text-white">
+                                            New replies
+                                          </span>
+                                        )}
+                                        <span className="text-xs text-slate-400">
+                                          {formatDateTime(alert.created_at)}
+                                        </span>
+                                      </div>
+                                      <p className="mt-2 text-sm font-medium text-slate-900 dark:text-white">
+                                        {alert.message}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      loading={loadingAlertReportId === alert.id}
+                                      onClick={() => handleViewAlertDeliveryReport(alert.id)}
+                                    >
+                                      View Report
+                                    </Button>
+                                  </div>
+                                  <div className="mt-3">
+                                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                      <span>{alert.acknowledged_count}/{alert.total_recipients} acknowledged</span>
+                                      {alert.pending_count > 0 && (
+                                        <span className="font-medium text-amber-600 dark:text-amber-400">
+                                          {alert.pending_count} pending
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                                      <div
+                                        className="h-full rounded-full bg-emerald-500 transition-all"
+                                        style={{ width: `${progress}%` }}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    )}
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </section>
+              )}
+            </CardBody>
+          </Card>
         )}
 
         {activeSection === "tasks" && (
-          <section className="space-y-6">
-            <div className="flex items-center justify-between">
-              <select
-                value={taskStatusFilter}
-                onChange={(e) => setTaskStatusFilter(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="done">Done</option>
-              </select>
-            </div>
+          <div className="space-y-4">
+            <select
+              value={taskStatusFilter}
+              onChange={(e) => setTaskStatusFilter(e.target.value)}
+              className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+            >
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
 
             {loadingTasks ? (
-              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-500 shadow-sm">
-                Loading tasks...
-              </div>
+              <Card><CardBody><LoadingState label="Loading tasks…" /></CardBody></Card>
             ) : myTasks.length === 0 ? (
-              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-500 shadow-sm">
-                No tasks assigned to you yet.
-              </div>
+              <Card><CardBody><EmptyState title="No tasks assigned to you yet" /></CardBody></Card>
             ) : (
               <div className="space-y-4">
-                {myTasks.map((task) => {
-                  const statusColors = {
-                    pending: "bg-yellow-100 text-yellow-800",
-                    in_progress: "bg-blue-100 text-blue-800",
-                    done: "bg-green-100 text-green-800",
-                  };
-                  return (
-                    <div
-                      key={task.id}
-                      className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
-                    >
+                {myTasks.map((task) => (
+                  <Card key={task.id}>
+                    <CardBody>
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="flex-1">
-                          <h3 className="text-base font-bold text-gray-900">{task.title}</h3>
-                          <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{task.description}</p>
-                          <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
-                            <span>Assigned by: <span className="font-medium text-gray-700">{task.assigned_by_name}</span></span>
-                            <span>Created: <span className="font-medium text-gray-700">{formatDate(task.created_at)}</span></span>
+                          <h3 className="text-base font-bold text-slate-900 dark:text-white">{task.title}</h3>
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">
+                            {task.description}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
+                            <span>
+                              Assigned by:{" "}
+                              <span className="font-medium text-slate-700 dark:text-slate-300">
+                                {task.assigned_by_name}
+                              </span>
+                            </span>
+                            <span>
+                              Created:{" "}
+                              <span className="font-medium text-slate-700 dark:text-slate-300">
+                                {formatDate(task.created_at)}
+                              </span>
+                            </span>
                             {task.due_date && (
-                              <span>Due: <span className="font-medium text-gray-700">{formatDate(task.due_date)}</span></span>
+                              <span>
+                                Due:{" "}
+                                <span className="font-medium text-slate-700 dark:text-slate-300">
+                                  {formatDate(task.due_date)}
+                                </span>
+                              </span>
                             )}
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[task.status]}`}
-                          >
-                            {task.status === "in_progress" ? "In Progress" : task.status === "done" ? "Done" : "Pending"}
-                          </span>
+                          <Badge tone={TASK_STATUS_TONE[task.status]}>
+                            {TASK_STATUS_LABEL[task.status]}
+                          </Badge>
                           {task.status !== "done" && (
                             <select
                               value={task.status}
                               disabled={updatingTaskStatusId === task.id}
                               onChange={(e) => handleTaskStatusUpdate(task.id, e.target.value)}
-                              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none disabled:opacity-60"
+                              className="focus-ring rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
                             >
                               <option value="pending">Mark Pending</option>
                               <option value="in_progress">Mark In Progress</option>
@@ -2192,176 +2048,160 @@ function StaffDashboard() {
                           )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    </CardBody>
+                  </Card>
+                ))}
               </div>
             )}
-          </section>
+          </div>
         )}
 
         {activeSection === "profile" && (
-          <section className="space-y-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {profile?.full_name || user?.full_name || "Staff"}
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {profile?.employee_id || "Employee ID not available"}
-              </p>
-              {loadingProfile ? (
-                <div className="mt-6 text-gray-500">Loading profile...</div>
-              ) : (
-                <div className="mt-6 grid gap-4 text-sm md:grid-cols-2">
-                  <div>
-                    <span className="text-gray-500">Department</span>
-                    <div className="font-semibold text-gray-900">
-                      {profile?.department || "N/A"}
+          <div className="space-y-6">
+            <Card>
+              <CardBody>
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  {profile?.full_name || user?.full_name || "Staff"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  {profile?.employee_id || "Employee ID not available"}
+                </p>
+                {loadingProfile ? (
+                  <LoadingState label="Loading profile…" />
+                ) : (
+                  <div className="mt-6 grid gap-4 text-sm md:grid-cols-2">
+                    <div>
+                      <span className="text-slate-400">Department</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {profile?.department || "N/A"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Job Title</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {profile?.job_title || "N/A"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Email</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {profile?.email || "N/A"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Phone</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {profile?.phone || "N/A"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Work Type</span>
+                      <div className="mt-1">
+                        <Badge tone={profile?.work_type === "wfh" ? "info" : "success"}>
+                          {profile?.work_type === "wfh" ? "WFH" : "Office"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Joining Date</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {formatDate(profile?.joining_date)}
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Job Title</span>
-                    <div className="font-semibold text-gray-900">
-                      {profile?.job_title || "N/A"}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Email</span>
-                    <div className="font-semibold text-gray-900">
-                      {profile?.email || "N/A"}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Phone</span>
-                    <div className="font-semibold text-gray-900">
-                      {profile?.phone || "N/A"}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Work Type</span>
-                    <div className="mt-1">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          profile?.work_type === "wfh"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {profile?.work_type === "wfh" ? "WFH" : "Office"}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Joining Date</span>
-                    <div className="font-semibold text-gray-900">
-                      {formatDate(profile?.joining_date)}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </CardBody>
+            </Card>
 
-            <div className="grid gap-4 md:grid-cols-5">
-              <div className="rounded-xl bg-green-50 p-4">
-                <div className="text-sm font-medium text-green-700">Days Present</div>
-                <div className="mt-2 text-2xl font-bold text-green-900">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+              <div className="rounded-xl border border-emerald-200/60 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-500/10">
+                <div className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Days Present</div>
+                <div className="mt-2 text-2xl font-bold text-emerald-900 dark:text-emerald-200">
                   {attendanceSummary?.days_present || 0}
                 </div>
               </div>
-              <div className="rounded-xl bg-red-50 p-4">
-                <div className="text-sm font-medium text-red-700">Days Absent</div>
-                <div className="mt-2 text-2xl font-bold text-red-900">
+              <div className="rounded-xl border border-rose-200/60 bg-rose-50 p-4 dark:border-rose-400/20 dark:bg-rose-500/10">
+                <div className="text-xs font-medium text-rose-700 dark:text-rose-300">Days Absent</div>
+                <div className="mt-2 text-2xl font-bold text-rose-900 dark:text-rose-200">
                   {attendanceSummary?.days_absent || 0}
                 </div>
               </div>
-              <div className="rounded-xl bg-blue-50 p-4">
-                <div className="text-sm font-medium text-blue-700">
-                  Total Working Hours
-                </div>
-                <div className="mt-2 text-2xl font-bold text-blue-900">
+              <div className="rounded-xl border border-brand-200/60 bg-brand-50 p-4 dark:border-brand-400/20 dark:bg-brand-500/10">
+                <div className="text-xs font-medium text-brand-700 dark:text-brand-300">Total Working Hours</div>
+                <div className="mt-2 text-2xl font-bold text-brand-900 dark:text-brand-200">
                   {minutesToHours(attendanceSummary?.total_working_minutes || 0)}
                 </div>
               </div>
-              <div className="rounded-xl bg-orange-50 p-4">
-                <div className="text-sm font-medium text-orange-700">
-                  Total Break Time
-                </div>
-                <div className="mt-2 text-2xl font-bold text-orange-900">
+              <div className="rounded-xl border border-amber-200/60 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-500/10">
+                <div className="text-xs font-medium text-amber-700 dark:text-amber-300">Total Break Time</div>
+                <div className="mt-2 text-2xl font-bold text-amber-900 dark:text-amber-200">
                   {minutesToHours(attendanceSummary?.total_break_minutes || 0)}
                 </div>
               </div>
-              <div className="rounded-xl bg-gray-50 p-4">
-                <div className="text-sm font-medium text-gray-700">Total Idle Time</div>
-                <div className="mt-2 text-2xl font-bold text-gray-900">
+              <div className="rounded-xl border border-slate-200/70 bg-slate-100 p-4 dark:border-white/10 dark:bg-white/5">
+                <div className="text-xs font-medium text-slate-600 dark:text-slate-300">Total Idle Time</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {minutesToHours(attendanceSummary?.total_idle_minutes || 0)}
                 </div>
               </div>
             </div>
-          </section>
+          </div>
         )}
-      </main>
       </div>
 
-      {showEndDayModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-2xl font-bold text-gray-900">End Your Day</h2>
-            <textarea
-              value={reportContent}
-              onChange={(event) => setReportContent(event.target.value)}
-              placeholder="Summarise what you worked on today..."
-              className="mt-5 min-h-40 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
-            />
-            <div className="mt-1 text-right text-xs text-gray-500">
-              {reportContent.length} characters
-            </div>
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowEndDayModal(false)}
-                className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleEndDay}
-                disabled={submittingReport}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submittingReport ? "Submitting..." : "Submit & Logout"}
-              </button>
-            </div>
-          </div>
+      <Modal
+        open={showEndDayModal}
+        onClose={() => setShowEndDayModal(false)}
+        title="End Your Day"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowEndDayModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" loading={submittingReport} onClick={handleEndDay}>
+              Submit & Logout
+            </Button>
+          </>
+        }
+      >
+        <textarea
+          value={reportContent}
+          onChange={(event) => setReportContent(event.target.value)}
+          placeholder="Summarise what you worked on today..."
+          className="focus-ring min-h-40 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+        />
+        <div className="mt-1 text-right text-xs text-slate-400">
+          {reportContent.length} characters
         </div>
-      )}
+      </Modal>
 
       {selectedConversation && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4">
-          <div className="relative flex h-[80vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-200 p-5">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-0 backdrop-blur-sm sm:p-4">
+          <div className="relative flex h-full w-full flex-col bg-white/95 shadow-xl backdrop-blur-xl dark:bg-slate-900/95 sm:h-[80vh] sm:max-w-3xl sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-white/10">
               <div>
-                <div className="font-bold text-gray-900">
+                <div className="font-bold text-slate-900 dark:text-white">
                   {selectedConversation.full_name}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-slate-500 dark:text-slate-400">
                   {selectedConversation.department || "No department"}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedConversation(null)}
-                className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200"
-              >
+              <Button variant="secondary" size="sm" onClick={() => setSelectedConversation(null)}>
                 Close
-              </button>
+              </Button>
             </div>
 
-            <div ref={chatMessagesContainerRef} onScroll={handleChatScroll} className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-5">
+            <div
+              ref={chatMessagesContainerRef}
+              onScroll={handleChatScroll}
+              className="flex flex-1 flex-col gap-4 overflow-y-auto bg-slate-50 p-5 dark:bg-black/20"
+            >
               {loadingMessages ? (
-                <div className="text-center text-gray-500">Loading messages...</div>
+                <LoadingState label="Loading messages…" />
               ) : chatMessages.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center text-gray-500">
+                <div className="flex flex-1 items-center justify-center text-slate-400">
                   Start a conversation with {selectedConversation.full_name}
                 </div>
               ) : (
@@ -2369,12 +2209,12 @@ function StaffDashboard() {
                   {hasMoreChatMessages && (
                     <div className="flex justify-center py-2">
                       {loadingOlderChat ? (
-                        <span className="text-xs text-gray-400">Loading older messages...</span>
+                        <span className="text-xs text-slate-400">Loading older messages...</span>
                       ) : (
                         <button
                           type="button"
                           onClick={loadOlderChatMessages}
-                          className="rounded-full bg-gray-200 px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-300"
+                          className="focus-ring rounded-full bg-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-300 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/15"
                         >
                           Load older messages
                         </button>
@@ -2382,37 +2222,30 @@ function StaffDashboard() {
                     </div>
                   )}
                   {chatMessages.map((message) => {
-                  const sentByMe = message.sender_id === currentUserId;
-                  return (
-                    <div
-                      key={message.message_id}
-                      className={`flex ${sentByMe ? "justify-end" : "justify-start"}`}
-                    >
-                      <div className="max-w-[70%]">
-                        {!sentByMe && (
-                          <div className="mb-1 text-xs font-semibold text-gray-500">
-                            {message.sender_name || selectedConversation.full_name}
+                    const sentByMe = message.sender_id === currentUserId;
+                    return (
+                      <div key={message.message_id} className={`flex ${sentByMe ? "justify-end" : "justify-start"}`}>
+                        <div className="max-w-[80%] sm:max-w-[70%]">
+                          {!sentByMe && (
+                            <div className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                              {message.sender_name || selectedConversation.full_name}
+                            </div>
+                          )}
+                          <div
+                            className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                              sentByMe
+                                ? "bg-brand-600 text-white"
+                                : "bg-white dark:bg-slate-900/80 text-slate-800 dark:bg-white/10 dark:text-slate-100"
+                            }`}
+                          >
+                            {message.content}
                           </div>
-                        )}
-                        <div
-                          className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
-                            sentByMe
-                              ? "bg-blue-700 text-white"
-                              : "bg-white text-gray-800"
-                          }`}
-                        >
-                          {message.content}
-                        </div>
-                        <div
-                          className={`mt-1 text-xs text-gray-500 ${
-                            sentByMe ? "text-right" : "text-left"
-                          }`}
-                        >
-                          {formatTime(message.created_at)}
+                          <div className={`mt-1 text-xs text-slate-400 ${sentByMe ? "text-right" : "text-left"}`}>
+                            {formatTime(message.created_at)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
+                    );
                   })}
                 </>
               )}
@@ -2422,14 +2255,15 @@ function StaffDashboard() {
               <button
                 type="button"
                 onClick={scrollChatToBottom}
+                aria-label="Scroll to latest message"
                 title="Scroll to latest message"
-                className="absolute bottom-24 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-lg text-white shadow-lg hover:bg-blue-800"
+                className="focus-ring absolute bottom-24 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700"
               >
-                ↓
+                <ArrowDown className="h-4 w-4" />
               </button>
             )}
 
-            <div className="border-t border-gray-200 p-4">
+            <div className="border-t border-slate-200 p-4 dark:border-white/10">
               <div className="flex gap-3">
                 <input
                   type="text"
@@ -2442,21 +2276,22 @@ function StaffDashboard() {
                     }
                   }}
                   placeholder="Type a message..."
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="focus-ring flex-1 rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
                 <button
                   type="button"
                   onClick={handleSendMessage}
-                  className="rounded-lg bg-blue-700 px-5 py-3 text-lg font-bold text-white hover:bg-blue-800"
+                  aria-label="Send message"
+                  className="focus-ring flex items-center justify-center rounded-lg bg-brand-600 px-5 py-3 text-white hover:bg-brand-700"
                 >
-                  →
+                  <Send className="h-5 w-5" />
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </DashboardShell>
   );
 }
 

@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import {
+  Bell,
+  CalendarDays,
+  ClipboardList,
+  Home,
+  ListChecks,
+  MessageSquare,
+  UserRound,
+  Users,
+} from "lucide-react";
 
 import api from "../api.js";
 import { playActionSound } from "../utils/sounds";
@@ -10,16 +21,29 @@ import {
   formatTime,
   minutesToHours,
 } from "../utils/dateUtils";
+import Button from "../components/ui/Button.jsx";
+import Card, { CardBody, CardHeader } from "../components/ui/Card.jsx";
+import Badge from "../components/ui/Badge.jsx";
+import Modal from "../components/ui/Modal.jsx";
+import TabBar from "../components/ui/TabBar.jsx";
+import { EmptyState, LoadingState } from "../components/ui/States.jsx";
+import DashboardShell from "../components/ui/DashboardShell.jsx";
 
 import {
   TeamStatusPanel,
   StaffManagementPanel,
   StaffProfileModal,
   ChatPanel,
-  LogoDisplay,
   MyDayPanel,
   TASK_STATUS_COLORS,
 } from "./AdminDashboard.jsx";
+
+const PROFILE_TOOLTIP_HEADER_CLASS = {
+  "bg-emerald-500": "bg-emerald-500/25",
+  "bg-rose-500": "bg-rose-500/25",
+  "bg-sky-500": "bg-sky-500/25",
+  "bg-amber-400": "bg-amber-400/25",
+};
 
 // ─── My Profile Panel ────────────────────────────────────────────────────────
 
@@ -32,10 +56,30 @@ function MyProfilePanel() {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
+  const todayKey = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10);
 
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState({ visible: false, day: null, x: 0, y: 0 });
+  const TOOLTIP_WIDTH = 208;
+  const TOOLTIP_HEIGHT = 190;
+  const showTooltip = (event, day) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const margin = 8;
+    const x = Math.min(
+      Math.max(margin, rect.left - TOOLTIP_WIDTH / 2 + rect.width / 2),
+      window.innerWidth - TOOLTIP_WIDTH - margin
+    );
+    const preferredY = rect.top - TOOLTIP_HEIGHT - 10;
+    const y =
+      preferredY < margin
+        ? Math.min(rect.bottom + 10, window.innerHeight - TOOLTIP_HEIGHT - margin)
+        : preferredY;
+    setTooltip({ visible: true, day, x, y });
+  };
+  const hideTooltip = () => setTooltip({ visible: false, day: null, x: 0, y: 0 });
 
   useEffect(() => {
     if (!user?.id && !user?.user_id) return;
@@ -75,20 +119,26 @@ function MyProfilePanel() {
         const isWeekend = !workingDays.includes(dayNames[date.getDay()]);
         const publicHolidayDates = new Set((summary?.public_holidays || []).map((h) => h.date));
         const isPublicHoliday = publicHolidayDates.has(dateKey);
-        let dotClass = "bg-red-500";
+        let dotClass = "bg-rose-500";
+        let statusLabel = "Absent";
         if (isPublicHoliday && !record) {
           dotClass = "bg-amber-400";
+          statusLabel = "Public holiday";
         } else if (isWeekend && !record) {
-          dotClass = "bg-gray-400";
+          dotClass = "bg-slate-300 dark:bg-white/10";
+          statusLabel = "Weekend";
         } else if (record?.work_mode === "leave") {
-          dotClass = "bg-blue-500";
+          dotClass = "bg-sky-500";
+          statusLabel = "On leave";
         } else if (record?.is_present) {
-          dotClass = "bg-green-500";
+          dotClass = "bg-emerald-500";
+          statusLabel = "Present";
         }
         return {
           day,
           date: dateKey,
           dotClass,
+          statusLabel,
           record,
           work_mode: record?.work_mode || (isPublicHoliday ? "holiday" : (isWeekend ? "weekend" : "office")),
           working_minutes: record?.working_minutes || 0,
@@ -102,125 +152,162 @@ function MyProfilePanel() {
   }, [currentYear, currentMonth, summary]);
 
   if (loading) {
-    return <div className="py-12 text-center text-gray-500">Loading profile...</div>;
+    return <LoadingState label="Loading profile…" />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-4">
-          <h3 className="text-2xl font-bold text-gray-900">{summary?.full_name || user?.full_name || "My Profile"}</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {summary?.employee_id || "N/A"} · {summary?.department || "No department"}
-          </p>
-        </div>
+      <Card>
+        <CardBody>
+          <div className="mb-4">
+            <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{summary?.full_name || user?.full_name || "My Profile"}</h3>
+            <p className="mt-1 text-sm text-slate-400">
+              {summary?.employee_id || "N/A"} · {summary?.department || "No department"}
+            </p>
+          </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-          <div className="grid gap-4 text-sm md:grid-cols-2">
-            <div>
-              <span className="text-gray-500">Employee ID</span>
-              <div className="font-semibold text-gray-900">{summary?.employee_id || "N/A"}</div>
-            </div>
-            <div>
-              <span className="text-gray-500">Department</span>
-              <div className="font-semibold text-gray-900">{summary?.department || "N/A"}</div>
-            </div>
-            <div>
-              <span className="text-gray-500">Job Title</span>
-              <div className="font-semibold text-gray-900">{summary?.job_title || "N/A"}</div>
-            </div>
-            <div>
-              <span className="text-gray-500">Work Type</span>
-              <div className="mt-1">
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${summary?.work_type === "wfh" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
-                  {summary?.work_type === "wfh" ? "WFH" : "Office"}
-                </span>
+          <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
+            <div className="grid gap-4 text-sm md:grid-cols-2">
+              <div>
+                <span className="text-slate-400">Employee ID</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.employee_id || "N/A"}</div>
+              </div>
+              <div>
+                <span className="text-slate-400">Department</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.department || "N/A"}</div>
+              </div>
+              <div>
+                <span className="text-slate-400">Job Title</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.job_title || "N/A"}</div>
+              </div>
+              <div>
+                <span className="text-slate-400">Work Type</span>
+                <div className="mt-1">
+                  <Badge tone={summary?.work_type === "wfh" ? "info" : "success"}>
+                    {summary?.work_type === "wfh" ? "WFH" : "Office"}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-400">Email</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.email || "N/A"}</div>
+              </div>
+              <div>
+                <span className="text-slate-400">Phone</span>
+                <div className="font-semibold text-slate-900 dark:text-white">{summary?.phone || "N/A"}</div>
               </div>
             </div>
-            <div>
-              <span className="text-gray-500">Email</span>
-              <div className="font-semibold text-gray-900">{summary?.email || "N/A"}</div>
-            </div>
-            <div>
-              <span className="text-gray-500">Phone</span>
-              <div className="font-semibold text-gray-900">{summary?.phone || "N/A"}</div>
-            </div>
           </div>
-        </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-4 text-sm md:grid-cols-5">
-          <div className="rounded-xl bg-green-50 p-4">
-            <div className="text-green-700">Days Present</div>
-            <div className="mt-1 text-2xl font-bold text-green-900">{summary?.days_present || 0}</div>
-          </div>
-          <div className="rounded-xl bg-red-50 p-4">
-            <div className="text-red-700">Days Absent</div>
-            <div className="mt-1 text-2xl font-bold text-red-900">{summary?.days_absent || 0}</div>
-          </div>
-          <div className="rounded-xl bg-blue-50 p-4">
-            <div className="text-blue-700">Working Hours</div>
-            <div className="mt-1 text-2xl font-bold text-blue-900">{minutesToHours(summary?.total_working_minutes || 0)}</div>
-          </div>
-          <div className="rounded-xl bg-orange-50 p-4">
-            <div className="text-orange-700">Break Time</div>
-            <div className="mt-1 text-2xl font-bold text-orange-900">{minutesToHours(summary?.total_break_minutes || 0)}</div>
-          </div>
-          <div className="rounded-xl bg-yellow-50 p-4">
-            <div className="text-yellow-700">Idle Time</div>
-            <div className="mt-1 text-2xl font-bold text-yellow-900">{minutesToHours(summary?.total_idle_minutes || 0)}</div>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h4 className="font-bold text-gray-900">Attendance Calendar</h4>
-            <div className="flex gap-3 text-xs text-gray-500">
-              <span>Green present</span>
-              <span>Red absent</span>
-              <span>Blue leave</span>
-              <span>Gray weekend</span>
+          <div className="mt-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 md:grid-cols-5">
+            <div className="rounded-xl border border-emerald-200/60 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-500/10">
+              <div className="text-emerald-700 dark:text-emerald-300">Days Present</div>
+              <div className="mt-1 text-2xl font-bold text-emerald-900 dark:text-emerald-200">{summary?.days_present || 0}</div>
+            </div>
+            <div className="rounded-xl border border-rose-200/60 bg-rose-50 p-4 dark:border-rose-400/20 dark:bg-rose-500/10">
+              <div className="text-rose-700 dark:text-rose-300">Days Absent</div>
+              <div className="mt-1 text-2xl font-bold text-rose-900 dark:text-rose-200">{summary?.days_absent || 0}</div>
+            </div>
+            <div className="rounded-xl border border-brand-200/60 bg-brand-50 p-4 dark:border-brand-400/20 dark:bg-brand-500/10">
+              <div className="text-brand-700 dark:text-brand-300">Working Hours</div>
+              <div className="mt-1 text-2xl font-bold text-brand-900 dark:text-brand-200">{minutesToHours(summary?.total_working_minutes || 0)}</div>
+            </div>
+            <div className="rounded-xl border border-amber-200/60 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-500/10">
+              <div className="text-amber-700 dark:text-amber-300">Break Time</div>
+              <div className="mt-1 text-2xl font-bold text-amber-900 dark:text-amber-200">{minutesToHours(summary?.total_break_minutes || 0)}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200/70 bg-slate-100 p-4 dark:border-white/10 dark:bg-white/5">
+              <div className="text-slate-600 dark:text-slate-300">Idle Time</div>
+              <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{minutesToHours(summary?.total_idle_minutes || 0)}</div>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-gray-500">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-              <div key={d}>{d}</div>
-            ))}
-          </div>
-          <div className="mt-2 grid grid-cols-7 gap-2 rounded-xl bg-gray-50 p-4">
-            {calendarDays.map((item) =>
-              item.blank ? (
-                <div key={item.id} className="h-12" />
-              ) : (
-                <div key={item.day} className="flex flex-col items-center gap-1 rounded-lg bg-white p-2 text-xs text-gray-600">
-                  <span>{item.day}</span>
-                  <span
-                    className={`h-3 w-3 cursor-pointer rounded-full ${item.dotClass}`}
-                    onMouseEnter={(event) => {
-                      const rect = event.currentTarget.getBoundingClientRect();
-                      setTooltip({ visible: true, day: item, x: rect.left, y: rect.top });
-                    }}
-                    onMouseLeave={() => setTooltip({ visible: false, day: null, x: 0, y: 0 })}
-                  />
+
+          <div className="mt-6">
+            <h4 className="mb-3 font-bold tracking-tight text-slate-900 dark:text-white">Attendance Calendar</h4>
+            <div className="rounded-2xl border border-slate-900/10 bg-white/80 p-5 backdrop-blur-xl dark:border-white/15 dark:bg-slate-900/70">
+              <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-slate-400 sm:gap-2">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                  <div key={d}>{d}</div>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-7 gap-1 sm:gap-2">
+                {calendarDays.map((item) =>
+                  item.blank ? (
+                    <div key={item.id} className="h-12" />
+                  ) : (
+                    <div
+                      key={item.day}
+                      className={`flex h-12 flex-col items-center justify-center gap-1 rounded-lg border text-xs text-slate-600 transition-colors dark:text-slate-300 sm:h-14 ${
+                        item.date === todayKey
+                          ? "border-brand-400/60 bg-brand-50 dark:border-brand-400/50 dark:bg-brand-500/10"
+                          : "border-slate-200/70 bg-slate-50/80 hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20"
+                      }`}
+                    >
+                      <span className={item.date === todayKey ? "font-bold text-brand-700 dark:text-brand-200" : ""}>
+                        {item.day}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`${formatDate(item.date)}: ${item.statusLabel}`}
+                        className={`focus-ring h-5 w-5 rounded-full ring-2 ring-black/5 transition-transform hover:scale-110 dark:ring-white/10 sm:h-6 sm:w-6 ${item.dotClass}`}
+                        onMouseEnter={(event) => showTooltip(event, item)}
+                        onMouseLeave={hideTooltip}
+                        onFocus={(event) => showTooltip(event, item)}
+                        onBlur={hideTooltip}
+                      />
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+            {tooltip.visible && tooltip.day && createPortal(
+              <div
+                role="tooltip"
+                className="pointer-events-none fixed z-50 w-52 overflow-hidden rounded-xl bg-slate-900 text-xs text-white shadow-2xl ring-1 ring-white/10"
+                style={{ left: tooltip.x, top: tooltip.y }}
+              >
+                <div className={`flex items-center justify-between gap-2 px-3 py-2 ${PROFILE_TOOLTIP_HEADER_CLASS[tooltip.day.dotClass] || "bg-white/10"}`}>
+                  <span className="font-bold">{formatDate(tooltip.day.date)}</span>
+                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                    {tooltip.day.statusLabel}
+                  </span>
                 </div>
-              )
+                <div className="space-y-1.5 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Working</span>
+                    <span className="font-semibold">{minutesToHours(tooltip.day.working_minutes)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Break</span>
+                    <span className="font-semibold">{minutesToHours(tooltip.day.break_minutes)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Idle</span>
+                    <span className="font-semibold">{minutesToHours(tooltip.day.idle_minutes)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Mode</span>
+                    <span className="font-semibold capitalize">{tooltip.day.work_mode || "Office"}</span>
+                  </div>
+                  {tooltip.day.login_time && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Login</span>
+                      <span className="font-semibold">{formatTime(tooltip.day.login_time)}</span>
+                    </div>
+                  )}
+                  {tooltip.day.logout_time && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Logout</span>
+                      <span className="font-semibold">{formatTime(tooltip.day.logout_time)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>,
+              document.body
             )}
           </div>
-          {tooltip.visible && tooltip.day && (
-            <div
-              className="pointer-events-none fixed z-50 rounded-lg bg-gray-900 p-3 text-xs text-white shadow-xl"
-              style={{ left: tooltip.x + 10, top: tooltip.y - 80 }}
-            >
-              <div className="mb-1 font-bold">{formatDate(tooltip.day.date)}</div>
-              <div>🕐 Working: {minutesToHours(tooltip.day.working_minutes)}</div>
-              <div>☕ Break: {minutesToHours(tooltip.day.break_minutes)}</div>
-              <div>💤 Idle: {minutesToHours(tooltip.day.idle_minutes)}</div>
-              <div>🔵 Mode: {tooltip.day.work_mode || "Office"}</div>
-              {tooltip.day.login_time && <div>⏰ Login: {formatTime(tooltip.day.login_time)}</div>}
-              {tooltip.day.logout_time && <div>⏰ Logout: {formatTime(tooltip.day.logout_time)}</div>}
-            </div>
-          )}
-        </div>
-      </div>
+        </CardBody>
+      </Card>
     </div>
   );
 }
@@ -255,52 +342,52 @@ function MyReportsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-600">Month</label>
+          <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Month</label>
           <input
             type="number"
             min="1"
             max="12"
             value={month}
             onChange={(e) => setMonth(parseInt(e.target.value, 10) || 1)}
-            className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-700 focus:outline-none"
+            className="w-24 rounded-lg border border-slate-300 dark:border-white/10 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-600">Year</label>
+          <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Year</label>
           <input
             type="number"
             value={year}
             onChange={(e) => setYear(parseInt(e.target.value, 10) || now.getFullYear())}
-            className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-700 focus:outline-none"
+            className="w-28 rounded-lg border border-slate-300 dark:border-white/10 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
           />
         </div>
       </div>
 
       {loading ? (
-        <div className="flex min-h-64 items-center justify-center text-gray-500">Loading reports...</div>
+        <div className="flex min-h-64 items-center justify-center text-slate-400">Loading reports...</div>
       ) : reports.length === 0 ? (
-        <div className="flex min-h-64 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
           No reports found for this period
         </div>
       ) : (
         <div className="space-y-4">
           {reports.map((report) => (
-            <div key={report.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div key={report.id} className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-5 shadow-sm">
               <div className="flex items-start justify-between gap-4">
-                <div className="font-bold text-gray-900">{formatDate(report.report_date)}</div>
-                <div className="text-sm text-gray-500">{formatTime(report.submitted_at)}</div>
+                <div className="font-bold text-slate-900 dark:text-white">{formatDate(report.report_date)}</div>
+                <div className="text-sm text-slate-400">{formatTime(report.submitted_at)}</div>
               </div>
-              <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm leading-6 text-gray-800">
+              <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-4 text-sm leading-6 text-slate-700 dark:text-slate-200">
                 {report.content}
               </div>
               {report.admin_reply && (
-                <div className="mt-4 rounded-lg bg-blue-50 p-4">
-                  <div className="text-sm font-semibold text-blue-900">Reply received:</div>
-                  <p className="mt-2 text-sm leading-6 text-blue-900">{report.admin_reply}</p>
+                <div className="mt-4 rounded-lg bg-brand-50 dark:bg-brand-500/10 p-4">
+                  <div className="text-sm font-semibold text-brand-800 dark:text-brand-200">Reply received:</div>
+                  <p className="mt-2 text-sm leading-6 text-brand-800 dark:text-brand-200">{report.admin_reply}</p>
                   {report.admin_reply_at && (
-                    <p className="mt-2 text-xs text-blue-600">{formatDateTime(report.admin_reply_at)}</p>
+                    <p className="mt-2 text-xs text-brand-600 dark:text-brand-300">{formatDateTime(report.admin_reply_at)}</p>
                   )}
                 </div>
               )}
@@ -374,20 +461,20 @@ function TeamReportsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-600">Report date</label>
+          <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Report date</label>
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-700 focus:outline-none"
+            className="rounded-lg border border-slate-300 dark:border-white/10 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
           />
         </div>
         <button
           type="button"
           onClick={() => setUnreadOnly((c) => !c)}
-          className={`mt-6 rounded-lg px-4 py-2 text-sm font-semibold transition ${unreadOnly ? "bg-blue-700 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+          className={`mt-6 rounded-lg px-4 py-2 text-sm font-semibold transition ${unreadOnly ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"}`}
         >
           Unread Only
         </button>
@@ -398,9 +485,9 @@ function TeamReportsTab() {
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${selectedDate === date ? "border-blue-700 bg-blue-700 text-white" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"}`}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${selectedDate === date ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 hover:border-brand-400 hover:bg-brand-50 dark:bg-brand-500/10"}`}
               >
-                <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />
                 {date}
               </button>
             ))}
@@ -408,38 +495,38 @@ function TeamReportsTab() {
         )}
       </div>
 
-      {error && <div className="text-sm font-medium text-red-600">{error}</div>}
+      {error && <div className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</div>}
 
       {loading ? (
-        <div className="flex min-h-64 items-center justify-center text-gray-500">Loading reports...</div>
+        <div className="flex min-h-64 items-center justify-center text-slate-400">Loading reports...</div>
       ) : reports.length === 0 ? (
-        <div className="flex min-h-64 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
           No reports found for this date
         </div>
       ) : (
         <div className="space-y-4">
           {reports.map((report) => (
-            <div key={report.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div key={report.id} className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-5 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-gray-900">{report.full_name}</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-white">{report.full_name}</h3>
                     {!report.is_read_by_admin && (
-                      <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">New</span>
+                      <span className="rounded-full bg-brand-100 dark:bg-brand-500/15 px-2 py-1 text-xs font-semibold text-brand-600 dark:text-brand-300">New</span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-gray-500">{report.employee_id || "No employee ID"}</p>
+                  <p className="mt-1 text-sm text-slate-400">{report.employee_id || "No employee ID"}</p>
                 </div>
-                <div className="text-right text-sm text-gray-500">
+                <div className="text-right text-sm text-slate-400">
                   <div>{formatDate(report.report_date)}</div>
                   <div>{formatTime(report.submitted_at)}</div>
                 </div>
               </div>
-              <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm leading-6 text-gray-800">{report.content}</div>
+              <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-4 text-sm leading-6 text-slate-700 dark:text-slate-200">{report.content}</div>
               {report.admin_reply ? (
-                <div className="mt-4 rounded-lg bg-blue-50 p-4">
-                  <div className="text-sm font-semibold text-blue-900">Your reply:</div>
-                  <p className="mt-2 text-sm leading-6 text-blue-900">{report.admin_reply}</p>
+                <div className="mt-4 rounded-lg bg-brand-50 dark:bg-brand-500/10 p-4">
+                  <div className="text-sm font-semibold text-brand-800 dark:text-brand-200">Your reply:</div>
+                  <p className="mt-2 text-sm leading-6 text-brand-800 dark:text-brand-200">{report.admin_reply}</p>
                 </div>
               ) : (
                 <div className="mt-5 space-y-3">
@@ -447,16 +534,16 @@ function TeamReportsTab() {
                     value={replyText[report.id] || ""}
                     onChange={(e) => setReplyText((c) => ({ ...c, [report.id]: e.target.value }))}
                     placeholder="Type a reply..."
-                    className="min-h-20 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                    className="min-h-20 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                   />
                   {replyErrors[report.id] && (
-                    <div className="text-sm text-red-600">{replyErrors[report.id]}</div>
+                    <div className="text-sm text-rose-600 dark:text-rose-400">{replyErrors[report.id]}</div>
                   )}
                   <button
                     type="button"
                     onClick={() => handleReplySubmit(report.id)}
                     disabled={submittingReplyId === report.id}
-                    className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {submittingReplyId === report.id ? "Replying..." : "Send Reply"}
                   </button>
@@ -475,18 +562,18 @@ function AdminReportsPanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-2">
+      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         <button
           type="button"
           onClick={() => setActiveTab("team")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "team" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "team" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
         >
           Team Reports
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("my")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "my" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "my" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
         >
           My Reports
         </button>
@@ -560,9 +647,9 @@ function MyLeaveTab() {
   };
 
   const statusBadgeClasses = {
-    pending: "bg-yellow-100 text-yellow-800",
-    approved: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800",
+    pending: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    approved: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    rejected: "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300",
   };
 
   return (
@@ -571,23 +658,23 @@ function MyLeaveTab() {
         <button
           type="button"
           onClick={() => setShowForm((c) => !c)}
-          className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
         >
           {showForm ? "Cancel" : "+ New Leave Request"}
         </button>
       </div>
 
       {showForm && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-5 text-lg font-bold text-gray-900">Submit Leave Request</h3>
+        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 shadow-sm">
+          <h3 className="mb-5 text-lg font-bold text-slate-900 dark:text-white">Submit Leave Request</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Leave Type</label>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Leave Type</label>
               {configuredLeaveTypes.length > 0 ? (
                 <select
                   value={leaveType}
                   onChange={(e) => setLeaveType(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                 >
                   <option value="">Select leave type</option>
                   {configuredLeaveTypes.map((type) => (
@@ -597,7 +684,7 @@ function MyLeaveTab() {
               ) : (
                 <select
                   disabled
-                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-400"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-white/5 px-4 py-3 text-sm text-slate-400"
                 >
                   <option>No leave types configured</option>
                 </select>
@@ -605,38 +692,38 @@ function MyLeaveTab() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Start Date</label>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Start Date</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">End Date</label>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">End Date</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Reason (optional)</label>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Reason (optional)</label>
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Briefly describe the reason..."
-                className="min-h-24 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                className="min-h-24 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
               />
             </div>
-            {submitError && <div className="text-sm font-medium text-red-600">{submitError}</div>}
+            {submitError && <div className="text-sm font-medium text-rose-600 dark:text-rose-400">{submitError}</div>}
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+              className="w-full rounded-lg bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {submitting ? "Submitting..." : "Submit Request"}
             </button>
@@ -645,19 +732,19 @@ function MyLeaveTab() {
       )}
 
       {loading ? (
-        <div className="flex min-h-64 items-center justify-center text-gray-500">Loading...</div>
+        <div className="flex min-h-64 items-center justify-center text-slate-400">Loading...</div>
       ) : requests.length === 0 ? (
-        <div className="flex min-h-64 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
           No leave requests found
         </div>
       ) : (
         <div className="space-y-4">
           {requests.map((request) => (
-            <div key={request.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div key={request.id} className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-5 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="font-bold text-gray-900">{request.leave_type}</div>
-                  <div className="mt-1 text-sm text-gray-500">
+                  <div className="font-bold text-slate-900 dark:text-white">{request.leave_type}</div>
+                  <div className="mt-1 text-sm text-slate-400">
                     {formatDate(request.start_date)} → {formatDate(request.end_date)} · {request.total_days} days
                   </div>
                 </div>
@@ -666,15 +753,15 @@ function MyLeaveTab() {
                 </span>
               </div>
               {request.reason && (
-                <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">{request.reason}</div>
+                <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-3 text-sm text-slate-600 dark:text-slate-300">{request.reason}</div>
               )}
               {request.admin_comment && (
-                <div className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+                <div className="mt-3 rounded-lg bg-brand-50 dark:bg-brand-500/10 p-3 text-sm text-brand-700 dark:text-brand-300">
                   <span className="font-semibold">Comment: </span>{request.admin_comment}
                 </div>
               )}
               {request.reviewed_at && (
-                <div className="mt-2 text-xs text-gray-500">Reviewed {formatDateTime(request.reviewed_at)}</div>
+                <div className="mt-2 text-xs text-slate-400">Reviewed {formatDateTime(request.reviewed_at)}</div>
               )}
             </div>
           ))}
@@ -734,32 +821,32 @@ function TeamLeaveTab() {
   ];
 
   const statusBadgeClasses = {
-    pending: "bg-yellow-100 text-yellow-800",
-    approved: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800",
+    pending: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    approved: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    rejected: "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300",
   };
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-2">
+      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveStatus(tab.id)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeStatus === tab.id ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeStatus === tab.id ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
           >
             {tab.label}
           </button>
         ))}
       </div>
 
-      {error && <div className="text-sm font-medium text-red-600">{error}</div>}
+      {error && <div className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</div>}
 
       {loading ? (
-        <div className="flex min-h-64 items-center justify-center text-gray-500">Loading leave requests...</div>
+        <div className="flex min-h-64 items-center justify-center text-slate-400">Loading leave requests...</div>
       ) : leaveRequests.length === 0 ? (
-        <div className="flex min-h-64 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
           No leave requests found
         </div>
       ) : (
@@ -767,57 +854,57 @@ function TeamLeaveTab() {
           {leaveRequests.map((request) => {
             const isReviewing = reviewingRequest?.requestId === request.id;
             return (
-              <div key={request.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div key={request.id} className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="font-bold text-gray-900">{request.full_name}</div>
-                    <div className="mt-1 text-sm text-gray-500">{request.employee_id || "No employee ID"}</div>
+                    <div className="font-bold text-slate-900 dark:text-white">{request.full_name}</div>
+                    <div className="mt-1 text-sm text-slate-400">{request.employee_id || "No employee ID"}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">{request.leave_type}</span>
+                    <span className="rounded-full bg-brand-100 dark:bg-brand-500/15 px-3 py-1 text-xs font-semibold text-brand-700 dark:text-brand-300">{request.leave_type}</span>
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses[request.status]}`}>{request.status}</span>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Date range</span>
-                    <div className="mt-1 font-medium text-gray-900">{formatDate(request.start_date)} → {formatDate(request.end_date)}</div>
+                    <span className="text-slate-400">Date range</span>
+                    <div className="mt-1 font-medium text-slate-900 dark:text-white">{formatDate(request.start_date)} → {formatDate(request.end_date)}</div>
                   </div>
                   <div>
-                    <span className="text-gray-500">Total days</span>
-                    <div className="mt-1 font-medium text-gray-900">{request.total_days} days</div>
+                    <span className="text-slate-400">Total days</span>
+                    <div className="mt-1 font-medium text-slate-900 dark:text-white">{request.total_days} days</div>
                   </div>
                 </div>
                 {request.reason && (
-                  <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">{request.reason}</div>
+                  <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-4 text-sm text-slate-600 dark:text-slate-300">{request.reason}</div>
                 )}
                 {request.status === "pending" ? (
                   <div className="mt-5">
                     {!isReviewing ? (
                       <div className="flex gap-3">
-                        <button type="button" onClick={() => { setReviewingRequest({ requestId: request.id, decision: "approved" }); setReviewComment(""); }} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">Approve</button>
-                        <button type="button" onClick={() => { setReviewingRequest({ requestId: request.id, decision: "rejected" }); setReviewComment(""); }} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Reject</button>
+                        <button type="button" onClick={() => { setReviewingRequest({ requestId: request.id, decision: "approved" }); setReviewComment(""); }} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Approve</button>
+                        <button type="button" onClick={() => { setReviewingRequest({ requestId: request.id, decision: "rejected" }); setReviewComment(""); }} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">Reject</button>
                       </div>
                     ) : (
-                      <div className="space-y-3 rounded-lg bg-gray-50 p-4">
+                      <div className="space-y-3 rounded-lg bg-slate-50 dark:bg-white/5 p-4">
                         <textarea
                           value={reviewComment}
                           onChange={(e) => setReviewComment(e.target.value)}
                           placeholder="Optional comment..."
-                          className="min-h-24 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                          className="min-h-24 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                         />
                         <div className="flex gap-3">
-                          <button type="button" onClick={handleReviewSubmit} disabled={submittingReview} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-70">
+                          <button type="button" onClick={handleReviewSubmit} disabled={submittingReview} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-70">
                             {submittingReview ? "Submitting..." : `Confirm ${reviewingRequest.decision}`}
                           </button>
-                          <button type="button" onClick={() => setReviewingRequest(null)} className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300">Cancel</button>
+                          <button type="button" onClick={() => setReviewingRequest(null)} className="rounded-lg bg-slate-200 dark:bg-white/10 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-white/15">Cancel</button>
                         </div>
                       </div>
                     )}
                   </div>
                 ) : (
                   request.admin_comment && (
-                    <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+                    <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-4 text-sm text-slate-600 dark:text-slate-300">
                       <span className="font-semibold">Comment:</span> {request.admin_comment}
                     </div>
                   )
@@ -843,11 +930,11 @@ function PublicHolidaysReadonlyTab() {
   }, []);
 
   if (loading) {
-    return <div className="flex min-h-40 items-center justify-center text-gray-500">Loading holidays...</div>;
+    return <div className="flex min-h-40 items-center justify-center text-slate-400">Loading holidays...</div>;
   }
   if (holidays.length === 0) {
     return (
-      <div className="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+      <div className="flex min-h-40 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
         No public holidays configured
       </div>
     );
@@ -857,8 +944,8 @@ function PublicHolidaysReadonlyTab() {
       {holidays.map((holiday) => (
         <div key={holiday.date} className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div>
-            <div className="font-semibold text-gray-900">{holiday.name}</div>
-            <div className="mt-1 text-sm text-gray-500">{holiday.date}</div>
+            <div className="font-semibold text-slate-900 dark:text-white">{holiday.name}</div>
+            <div className="mt-1 text-sm text-slate-400">{holiday.date}</div>
           </div>
         </div>
       ))}
@@ -877,13 +964,13 @@ function AdminLeavePanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-2">
+      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === tab.id ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === tab.id ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
           >
             {tab.label}
           </button>
@@ -974,90 +1061,90 @@ function SentAlertsTab() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-5">
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
-        <h3 className="text-xl font-bold text-gray-900">Send Alert</h3>
+      <section className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 shadow-sm lg:col-span-2">
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Send Alert</h3>
         <form onSubmit={handleSendAlert} className="mt-6 space-y-5">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Alert type</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Alert type</label>
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setAlertType("info")} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${alertType === "info" ? "bg-blue-700 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>Info</button>
-              <button type="button" onClick={() => setAlertType("urgent")} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${alertType === "urgent" ? "bg-red-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>Urgent</button>
+              <button type="button" onClick={() => setAlertType("info")} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${alertType === "info" ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"}`}>Info</button>
+              <button type="button" onClick={() => setAlertType("urgent")} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${alertType === "urgent" ? "bg-rose-600 text-white" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"}`}>Urgent</button>
             </div>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Recipient</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Recipient</label>
             <select
               value={recipientId}
               onChange={(e) => setRecipientId(e.target.value)}
               disabled={loadingStaff}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100"
+              className="w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200 disabled:bg-slate-100 dark:bg-white/5"
             >
               <option value="">Broadcast to all team</option>
               {staffList.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.role})</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Message</label>
+            <label className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Message</label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value.slice(0, 500))}
               placeholder="Type your message here..."
-              className="min-h-40 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+              className="min-h-40 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
             />
-            <div className="mt-1 text-right text-xs text-gray-500">{message.length}/500</div>
+            <div className="mt-1 text-right text-xs text-slate-400">{message.length}/500</div>
           </div>
-          {error && <div className="text-sm font-medium text-red-600">{error}</div>}
+          {error && <div className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</div>}
           <button
             type="submit"
             disabled={sending}
-            className={`w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:opacity-70 ${alertType === "urgent" ? "bg-red-600 hover:bg-red-700" : "bg-blue-700 hover:bg-blue-800"}`}
+            className={`w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:opacity-70 ${alertType === "urgent" ? "bg-rose-600 hover:bg-rose-700" : "bg-brand-600 hover:bg-brand-700"}`}
           >
             {sending ? "Sending..." : "Send Alert"}
           </button>
         </form>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-3">
-        <h3 className="text-xl font-bold text-gray-900">Sent Alerts</h3>
+      <section className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 shadow-sm lg:col-span-3">
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Sent Alerts</h3>
         <div className="mt-6 space-y-4">
           {loadingSentAlerts ? (
-            <div className="flex min-h-64 items-center justify-center text-gray-500">Loading sent alerts...</div>
+            <div className="flex min-h-64 items-center justify-center text-slate-400">Loading sent alerts...</div>
           ) : sentAlerts.length === 0 ? (
-            <div className="flex min-h-64 items-center justify-center text-gray-500">No alerts sent yet</div>
+            <div className="flex min-h-64 items-center justify-center text-slate-400">No alerts sent yet</div>
           ) : (
             sentAlerts.map((alert) => {
               const progress = alert.total_recipients > 0 ? Math.round((alert.acknowledged_count / alert.total_recipients) * 100) : 0;
               return (
-                <div key={alert.id} className={`rounded-xl border p-4 ${alert.has_unread_replies ? "border-red-300 bg-red-50/40" : "border-gray-200"}`}>
+                <div key={alert.id} className={`rounded-xl border p-4 ${alert.has_unread_replies ? "border-rose-300 dark:border-rose-400/30 bg-rose-50/60 dark:bg-rose-500/10" : "border-slate-200 dark:border-white/10"}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${alert.alert_type === "urgent" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${alert.alert_type === "urgent" ? "bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-brand-100 dark:bg-brand-500/15 text-brand-600 dark:text-brand-300"}`}>
                           {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
                         </span>
                         {alert.has_unread_replies && (
-                          <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">New replies</span>
+                          <span className="rounded-full bg-rose-500 px-2 py-0.5 text-xs font-bold text-white">New replies</span>
                         )}
-                        <span className="text-xs text-gray-500">{formatDateTime(alert.created_at)}</span>
+                        <span className="text-xs text-slate-400">{formatDateTime(alert.created_at)}</span>
                       </div>
-                      <p className="mt-3 text-sm font-medium text-gray-900">{alert.message}</p>
+                      <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">{alert.message}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleViewDeliveryReport(alert.id)}
                       disabled={loadingReportId === alert.id}
-                      className="shrink-0 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 disabled:opacity-70"
+                      className="shrink-0 rounded-lg bg-slate-100 dark:bg-white/5 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 disabled:opacity-70"
                     >
                       {loadingReportId === alert.id ? "Loading..." : "View Report"}
                     </button>
                   </div>
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-gray-700">{alert.acknowledged_count}/{alert.total_recipients} acknowledged</span>
-                      {alert.pending_count > 0 && <span className="font-medium text-orange-600">{alert.pending_count} pending</span>}
+                      <span className="font-medium text-slate-600 dark:text-slate-300">{alert.acknowledged_count}/{alert.total_recipients} acknowledged</span>
+                      {alert.pending_count > 0 && <span className="font-medium text-amber-600 dark:text-amber-300">{alert.pending_count} pending</span>}
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
-                      <div className="h-full rounded-full bg-green-500" style={{ width: `${progress}%` }} />
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
                     </div>
                   </div>
                 </div>
@@ -1069,31 +1156,31 @@ function SentAlertsTab() {
 
       {deliveryReport && (
         <div className="fixed inset-0 z-50 col-span-5 flex items-center justify-center bg-black/50 px-4">
-          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white dark:bg-slate-900/80 p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Delivery Report</h3>
-                <div className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-800 border border-gray-100">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Delivery Report</h3>
+                <div className="mt-3 rounded-lg bg-slate-50 dark:bg-white/5 p-3 text-sm text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-white/5">
                   {deliveryReport.message}
                 </div>
               </div>
-              <button type="button" onClick={() => setDeliveryReport(null)} className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Close</button>
+              <button type="button" onClick={() => setDeliveryReport(null)} className="rounded-lg bg-slate-100 dark:bg-white/5 px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10">Close</button>
             </div>
             <div className="mt-5 grid grid-cols-3 gap-3 text-center text-sm">
-              <div className="rounded-lg bg-gray-50 p-3"><div className="font-bold text-gray-900">{deliveryReport.total_recipients}</div><div className="text-gray-500">Recipients</div></div>
-              <div className="rounded-lg bg-green-50 p-3"><div className="font-bold text-green-700">{deliveryReport.acknowledged_count}</div><div className="text-green-700">Acknowledged</div></div>
-              <div className="rounded-lg bg-orange-50 p-3"><div className="font-bold text-orange-700">{deliveryReport.pending_count}</div><div className="text-orange-700">Pending</div></div>
+              <div className="rounded-lg bg-slate-50 dark:bg-white/5 p-3"><div className="font-bold text-slate-900 dark:text-white">{deliveryReport.total_recipients}</div><div className="text-slate-400">Recipients</div></div>
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 p-3"><div className="font-bold text-emerald-600 dark:text-emerald-300">{deliveryReport.acknowledged_count}</div><div className="text-emerald-600 dark:text-emerald-300">Acknowledged</div></div>
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-500/10 p-3"><div className="font-bold text-amber-700 dark:text-amber-300">{deliveryReport.pending_count}</div><div className="text-amber-700 dark:text-amber-300">Pending</div></div>
             </div>
             <div className="mt-6">
-              <h4 className="text-sm font-bold text-gray-700 mb-2">Recipients</h4>
-              <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 max-h-60 overflow-y-auto">
+              <h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">Recipients</h4>
+              <div className="divide-y divide-slate-100 dark:divide-white/5 rounded-xl border border-slate-200 dark:border-white/10 max-h-60 overflow-y-auto">
                 {deliveryReport.recipients.map((recipient) => (
                   <div key={recipient.recipient_id} className="flex items-start justify-between gap-4 p-4 text-sm">
                     <div>
-                      <div className="font-semibold text-gray-900">{recipient.full_name}</div>
-                      {recipient.reply && <div className="mt-2 rounded-lg bg-gray-50 p-2 text-gray-700">{recipient.reply}</div>}
+                      <div className="font-semibold text-slate-900 dark:text-white">{recipient.full_name}</div>
+                      {recipient.reply && <div className="mt-2 rounded-lg bg-slate-50 dark:bg-white/5 p-2 text-slate-600 dark:text-slate-300">{recipient.reply}</div>}
                     </div>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${recipient.status === "acknowledged" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>{recipient.status}</span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${recipient.status === "acknowledged" ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"}`}>{recipient.status}</span>
                   </div>
                 ))}
               </div>
@@ -1153,30 +1240,30 @@ function ReceivedAlertsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-2">
+      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         <button
           type="button"
           onClick={() => setView("pending")}
-          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${view === "pending" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${view === "pending" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
         >
           Pending
           {pendingAlerts.length > 0 && (
-            <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{pendingAlerts.length}</span>
+            <span className="rounded-full bg-rose-500 px-2 py-0.5 text-xs text-white">{pendingAlerts.length}</span>
           )}
         </button>
         <button
           type="button"
           onClick={() => setView("history")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${view === "history" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${view === "history" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
         >
           History
         </button>
       </div>
 
       {loading ? (
-        <div className="flex min-h-64 items-center justify-center text-gray-500">Loading alerts...</div>
+        <div className="flex min-h-64 items-center justify-center text-slate-400">Loading alerts...</div>
       ) : currentAlerts.length === 0 ? (
-        <div className="flex min-h-64 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500">
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-slate-400">
           No {view === "pending" ? "pending" : ""} alerts
         </div>
       ) : (
@@ -1184,23 +1271,23 @@ function ReceivedAlertsTab() {
           {currentAlerts.map((alert) => (
             <div
               key={alert.alert_recipient_id}
-              className={`rounded-xl border p-5 shadow-sm ${alert.alert_type === "urgent" ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"}`}
+              className={`rounded-xl border p-5 shadow-sm ${alert.alert_type === "urgent" ? "border-rose-200 dark:border-rose-400/20 bg-rose-50 dark:bg-rose-500/10" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80"}`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${alert.alert_type === "urgent" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${alert.alert_type === "urgent" ? "bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-brand-100 dark:bg-brand-500/15 text-brand-600 dark:text-brand-300"}`}>
                       {alert.alert_type === "urgent" ? "URGENT" : "INFO"}
                     </span>
-                    <span className="text-sm text-gray-500">from {alert.sender_name}</span>
+                    <span className="text-sm text-slate-400">from {alert.sender_name}</span>
                   </div>
-                  <p className="mt-3 text-sm font-medium text-gray-900">{alert.message}</p>
+                  <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">{alert.message}</p>
                 </div>
-                <div className="shrink-0 text-right text-xs text-gray-500">{formatDateTime(alert.created_at)}</div>
+                <div className="shrink-0 text-right text-xs text-slate-400">{formatDateTime(alert.created_at)}</div>
               </div>
 
               {alert.reply && (
-                <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+                <div className="mt-4 rounded-lg bg-slate-50 dark:bg-white/5 p-3 text-sm text-slate-600 dark:text-slate-300">
                   <span className="font-semibold">Your reply: </span>{alert.reply}
                 </div>
               )}
@@ -1211,13 +1298,13 @@ function ReceivedAlertsTab() {
                     value={replyText[alert.alert_recipient_id] || ""}
                     onChange={(e) => setReplyText((c) => ({ ...c, [alert.alert_recipient_id]: e.target.value }))}
                     placeholder="Optional reply..."
-                    className="min-h-20 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-200"
+                    className="min-h-20 w-full rounded-lg border border-slate-300 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
                   />
                   <button
                     type="button"
                     onClick={() => handleAcknowledge(alert.alert_recipient_id)}
                     disabled={acknowledging === alert.alert_recipient_id}
-                    className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-70"
+                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-70"
                   >
                     {acknowledging === alert.alert_recipient_id ? "Acknowledging..." : "Acknowledge"}
                   </button>
@@ -1225,7 +1312,7 @@ function ReceivedAlertsTab() {
               )}
 
               {alert.status === "acknowledged" && (
-                <div className="mt-3 text-xs text-gray-500">
+                <div className="mt-3 text-xs text-slate-400">
                   Acknowledged {alert.acknowledged_at ? formatDateTime(alert.acknowledged_at) : ""}
                 </div>
               )}
@@ -1242,18 +1329,18 @@ function AdminAlertsPanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-2">
+      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         <button
           type="button"
           onClick={() => setActiveTab("sent")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "sent" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "sent" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
         >
           Sent
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("received")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "received" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "received" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
         >
           Received
         </button>
@@ -1305,7 +1392,7 @@ function MyTasksTab() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+          className="rounded-lg border border-slate-300 dark:border-white/10 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 focus:border-brand-500 focus:outline-none"
         >
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
@@ -1314,31 +1401,31 @@ function MyTasksTab() {
         </select>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading tasks...</div>
+          <div className="p-8 text-center text-slate-400">Loading tasks...</div>
         ) : tasks.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No tasks assigned to you.</div>
+          <div className="p-8 text-center text-slate-400">No tasks assigned to you.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 bg-gray-50">
+              <thead className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                 <tr>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Task</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Assigned By</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Status</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Due Date</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Created</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Task</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Assigned By</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Status</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Due Date</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Created</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {tasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-gray-50">
+                  <tr key={task.id} className="hover:bg-slate-50 dark:hover:bg-white/5">
                     <td className="px-5 py-4">
-                      <div className="font-medium text-gray-900">{task.title}</div>
-                      <div className="mt-0.5 max-w-xs truncate text-xs text-gray-500">{task.description}</div>
+                      <div className="font-medium text-slate-900 dark:text-white">{task.title}</div>
+                      <div className="mt-0.5 max-w-xs truncate text-xs text-slate-400">{task.description}</div>
                     </td>
-                    <td className="px-5 py-4 text-gray-700">{task.assigned_by_name}</td>
+                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{task.assigned_by_name}</td>
                     <td className="px-5 py-4">
                       <select
                         value={task.status}
@@ -1351,10 +1438,10 @@ function MyTasksTab() {
                         <option value="done">Done</option>
                       </select>
                     </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {task.due_date ? formatDate(task.due_date) : <span className="text-gray-400">—</span>}
+                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
+                      {task.due_date ? formatDate(task.due_date) : <span className="text-slate-400">—</span>}
                     </td>
-                    <td className="px-5 py-4 text-gray-500">{formatDate(task.created_at)}</td>
+                    <td className="px-5 py-4 text-slate-400">{formatDate(task.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1481,50 +1568,50 @@ function TeamTasksTab() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-3">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="done">Done</option>
           </select>
-          <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+          <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="focus-ring rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
             <option value="">All Staff</option>
             {staffList.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
           </select>
         </div>
-        <button type="button" onClick={() => { setAssignForm({ title: "", description: "", assigned_to: "", due_date: "" }); setAssignError(""); setShowAssignModal(true); }} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">
+        <button type="button" onClick={() => { setAssignForm({ title: "", description: "", assigned_to: "", due_date: "" }); setAssignError(""); setShowAssignModal(true); }} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">
           + Assign Task
         </button>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading tasks...</div>
+          <div className="p-8 text-center text-slate-400">Loading tasks...</div>
         ) : tasks.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No tasks found.</div>
+          <div className="p-8 text-center text-slate-400">No tasks found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 bg-gray-50">
+              <thead className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                 <tr>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Task</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Assigned To</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Status</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Due Date</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Assigned By</th>
-                  <th className="px-5 py-3 text-left font-semibold text-gray-600">Actions</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Task</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Assigned To</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Status</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Due Date</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Assigned By</th>
+                  <th className="px-5 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {tasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-gray-50">
+                  <tr key={task.id} className="hover:bg-slate-50 dark:hover:bg-white/5">
                     <td className="px-5 py-4">
-                      <div className="font-medium text-gray-900">{task.title}</div>
-                      <div className="mt-0.5 max-w-xs truncate text-xs text-gray-500">{task.description}</div>
+                      <div className="font-medium text-slate-900 dark:text-white">{task.title}</div>
+                      <div className="mt-0.5 max-w-xs truncate text-xs text-slate-400">{task.description}</div>
                     </td>
-                    <td className="px-5 py-4 text-gray-700">
+                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
                       <div>{task.assigned_to_name}</div>
-                      <div className="text-xs text-gray-400">{task.assigned_to_employee_id}</div>
+                      <div className="text-xs text-slate-400">{task.assigned_to_employee_id}</div>
                     </td>
                     <td className="px-5 py-4">
                       <select
@@ -1538,12 +1625,12 @@ function TeamTasksTab() {
                         <option value="done">Done</option>
                       </select>
                     </td>
-                    <td className="px-5 py-4 text-gray-600">{task.due_date ? formatDate(task.due_date) : <span className="text-gray-400">—</span>}</td>
-                    <td className="px-5 py-4 text-gray-600">{task.assigned_by_name}</td>
+                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{task.due_date ? formatDate(task.due_date) : <span className="text-slate-400">—</span>}</td>
+                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{task.assigned_by_name}</td>
                     <td className="px-5 py-4">
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => { setEditTask(task); setEditForm({ title: task.title, description: task.description, due_date: task.due_date || "" }); setEditError(""); }} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200">Edit</button>
-                        <button type="button" onClick={() => handleDelete(task.id)} disabled={deletingId === task.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60">{deletingId === task.id ? "..." : "Delete"}</button>
+                        <button type="button" onClick={() => { setEditTask(task); setEditForm({ title: task.title, description: task.description, due_date: task.due_date || "" }); setEditError(""); }} className="rounded-lg bg-slate-100 dark:bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10">Edit</button>
+                        <button type="button" onClick={() => handleDelete(task.id)} disabled={deletingId === task.id} className="rounded-lg bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:bg-rose-500/15 disabled:opacity-60">{deletingId === task.id ? "..." : "Delete"}</button>
                       </div>
                     </td>
                   </tr>
@@ -1556,33 +1643,33 @@ function TeamTasksTab() {
 
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-bold text-gray-900">Assign New Task</h2>
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900/80 p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Assign New Task</h2>
             <div className="mt-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Assign To</label>
-                <select value={assignForm.assigned_to} onChange={(e) => setAssignForm((f) => ({ ...f, assigned_to: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Assign To</label>
+                <select value={assignForm.assigned_to} onChange={(e) => setAssignForm((f) => ({ ...f, assigned_to: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white">
                   <option value="">Select staff member...</option>
                   {staffList.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.employee_id})</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Task Title</label>
-                <input type="text" value={assignForm.title} onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Prepare monthly report" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Task Title</label>
+                <input type="text" value={assignForm.title} onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Prepare monthly report" className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Description</label>
-                <textarea value={assignForm.description} onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))} rows={3} placeholder="Describe what needs to be done..." className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Description</label>
+                <textarea value={assignForm.description} onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))} rows={3} placeholder="Describe what needs to be done..." className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Due Date <span className="text-gray-400">(optional)</span></label>
-                <input type="date" value={assignForm.due_date} onChange={(e) => setAssignForm((f) => ({ ...f, due_date: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Due Date <span className="text-slate-400">(optional)</span></label>
+                <input type="date" value={assignForm.due_date} onChange={(e) => setAssignForm((f) => ({ ...f, due_date: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
-              {assignError && <p className="text-sm text-red-600">{assignError}</p>}
+              {assignError && <p className="text-sm text-rose-600 dark:text-rose-400">{assignError}</p>}
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setShowAssignModal(false)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Cancel</button>
-              <button type="button" onClick={handleAssignSubmit} disabled={submittingAssign} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{submittingAssign ? "Assigning..." : "Assign Task"}</button>
+              <button type="button" onClick={() => setShowAssignModal(false)} className="rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10">Cancel</button>
+              <button type="button" onClick={handleAssignSubmit} disabled={submittingAssign} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{submittingAssign ? "Assigning..." : "Assign Task"}</button>
             </div>
           </div>
         </div>
@@ -1590,28 +1677,28 @@ function TeamTasksTab() {
 
       {editTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-bold text-gray-900">Edit Task</h2>
-            <p className="mt-1 text-sm text-gray-500">Assigned to: <span className="font-medium">{editTask.assigned_to_name}</span></p>
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900/80 p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Edit Task</h2>
+            <p className="mt-1 text-sm text-slate-400">Assigned to: <span className="font-medium">{editTask.assigned_to_name}</span></p>
             <div className="mt-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Task Title</label>
-                <input type="text" value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Task Title</label>
+                <input type="text" value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Description</label>
-                <textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Description</label>
+                <textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Due Date <span className="text-gray-400">(optional)</span></label>
-                <input type="date" value={editForm.due_date} onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-                {editForm.due_date && <button type="button" onClick={() => setEditForm((f) => ({ ...f, due_date: "" }))} className="mt-1 text-xs text-gray-400 hover:text-red-500">Clear due date</button>}
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Due Date <span className="text-slate-400">(optional)</span></label>
+                <input type="date" value={editForm.due_date} onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))} className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-900/80 px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                {editForm.due_date && <button type="button" onClick={() => setEditForm((f) => ({ ...f, due_date: "" }))} className="mt-1 text-xs text-slate-400 hover:text-rose-500">Clear due date</button>}
               </div>
-              {editError && <p className="text-sm text-red-600">{editError}</p>}
+              {editError && <p className="text-sm text-rose-600 dark:text-rose-400">{editError}</p>}
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setEditTask(null)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Cancel</button>
-              <button type="button" onClick={handleEditSubmit} disabled={submittingEdit} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">{submittingEdit ? "Saving..." : "Save Changes"}</button>
+              <button type="button" onClick={() => setEditTask(null)} className="rounded-lg bg-slate-100 dark:bg-white/5 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10">Cancel</button>
+              <button type="button" onClick={handleEditSubmit} disabled={submittingEdit} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{submittingEdit ? "Saving..." : "Save Changes"}</button>
             </div>
           </div>
         </div>
@@ -1625,18 +1712,18 @@ function AdminTasksPanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-2">
+      <div className="flex gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-2">
         <button
           type="button"
           onClick={() => setActiveTab("team")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "team" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "team" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
         >
           Team Tasks
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("my")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "my" ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeTab === "my" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"}`}
         >
           My Tasks
         </button>
@@ -1649,15 +1736,26 @@ function AdminTasksPanel() {
 // ─── Nav config ───────────────────────────────────────────────────────────────
 
 const adminNavItems = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "my-profile", label: "My Profile" },
-  { id: "staff-management", label: "Staff" },
-  { id: "reports", label: "Reports" },
-  { id: "leave", label: "Leave Requests" },
-  { id: "alerts", label: "Alerts" },
-  { id: "tasks", label: "Tasks" },
-  { id: "chat", label: "Chat" },
+  { id: "dashboard", label: "Dashboard", icon: Home },
+  { id: "my-profile", label: "My Profile", icon: UserRound },
+  { id: "staff-management", label: "Staff", icon: Users },
+  { id: "reports", label: "Reports", icon: ClipboardList },
+  { id: "leave", label: "Leave Requests", icon: CalendarDays },
+  { id: "alerts", label: "Alerts", icon: Bell },
+  { id: "tasks", label: "Tasks", icon: ListChecks },
+  { id: "chat", label: "Chat", icon: MessageSquare },
 ];
+
+const adminSectionTitles = {
+  dashboard: "Dashboard",
+  "my-profile": "My Profile",
+  "staff-management": "Staff",
+  reports: "Reports",
+  leave: "Leave Requests",
+  alerts: "Alerts",
+  tasks: "Tasks",
+  chat: "Chat",
+};
 
 // ─── Main NormalAdminDashboard ────────────────────────────────────────────────
 
@@ -1728,7 +1826,23 @@ function NormalAdminDashboard() {
     return () => clearInterval(intervalId);
   }, []);
 
-  const activeItem = adminNavItems.find((item) => item.id === activeSection);
+  const badgeCounts = {
+    chat: unreadCount,
+    reports: reportUnreadCount,
+    leave: leavePendingCount,
+    alerts: alertReplyCount,
+  };
+  const visibleNavItems = adminNavItems.map((item) => ({
+    ...item,
+    badge: badgeCounts[item.id] ?? 0,
+  }));
+
+  const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  const [logoError, setLogoError] = useState(false);
+  const logoUrl =
+    user?.company_id && !logoError
+      ? `${apiBase}/api/settings/logo/file?company_id=${user.company_id}`
+      : null;
 
   const handleLogout = async () => {
     try {
@@ -1771,83 +1885,30 @@ function NormalAdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col bg-blue-900 text-white">
-        <div className="border-b border-blue-800 px-6 py-6">
-          <LogoDisplay user={user} />
-          <p className="mt-1 text-sm text-blue-200">Admin Console</p>
-        </div>
-
-        <nav className="flex-1 px-4 py-6">
-          <div className="space-y-2">
-            {adminNavItems.map((item) => {
-              const badgeCounts = {
-                chat: unreadCount,
-                reports: reportUnreadCount,
-                leave: leavePendingCount,
-                alerts: alertReplyCount,
-              };
-              const badge = badgeCounts[item.id] ?? 0;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    if (item.id === "chat") setUnreadCount(0);
-                    else if (item.id === "reports") setReportUnreadCount(0);
-                    else if (item.id === "leave") setLeavePendingCount(0);
-                    else if (item.id === "alerts") setAlertReplyCount(0);
-                    setActiveSection(item.id);
-                  }}
-                  className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
-                    activeSection === item.id ? "bg-blue-700 text-white" : "text-blue-100 hover:bg-blue-800"
-                  }`}
-                >
-                  {badge > 0 ? (
-                    <div className="relative inline-block">
-                      {item.label}
-                      <span className="absolute -top-1 -right-6 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                        {badge > 99 ? "99+" : badge}
-                      </span>
-                    </div>
-                  ) : (
-                    item.label
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-        <div className="border-t border-blue-800 p-4">
-          <div className="mb-4">
-            <p className="truncate text-sm font-semibold">{user?.full_name || "Admin User"}</p>
-            <p className="mt-1 text-xs uppercase tracking-wide text-blue-200">admin</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full rounded-lg bg-blue-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      <main className="ml-64 min-h-screen">
-        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-8 py-5">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {activeItem?.label || "Dashboard"}
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              {formatDateTime(currentTime.toISOString())}
-            </p>
-          </div>
-        </header>
-
-        <section className="p-8">{renderContent()}</section>
-      </main>
+    <DashboardShell
+      brand="WorkFlow"
+      logoUrl={logoUrl}
+      onLogoError={() => setLogoError(true)}
+      navItems={visibleNavItems}
+      activeSection={activeSection}
+      onSectionChange={(id) => {
+        if (id === "chat") setUnreadCount(0);
+        else if (id === "reports") setReportUnreadCount(0);
+        else if (id === "leave") setLeavePendingCount(0);
+        else if (id === "alerts") setAlertReplyCount(0);
+        setActiveSection(id);
+      }}
+      sectionLabel={adminSectionTitles[activeSection] || "Dashboard"}
+      userName={user?.full_name || "Admin User"}
+      userSubtitle="Admin"
+      onLogout={handleLogout}
+      headerExtra={
+        <span className="hidden text-sm font-medium text-slate-500 dark:text-slate-400 md:inline">
+          {formatDateTime(currentTime.toISOString())}
+        </span>
+      }
+    >
+      {renderContent()}
 
       {profileUser && (
         <StaffProfileModal
@@ -1855,7 +1916,7 @@ function NormalAdminDashboard() {
           onClose={() => setProfileUser(null)}
         />
       )}
-    </div>
+    </DashboardShell>
   );
 }
 

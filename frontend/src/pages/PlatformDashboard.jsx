@@ -1,8 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import {
+  Activity,
+  AlertTriangle,
+  Bell,
+  Building2,
+  LayoutGrid,
+  MessageSquare,
+  Plus,
+  Search,
+  Trash2,
+  UserCheck,
+  Users,
+} from "lucide-react";
 
 import api from "../api.js";
+import Button from "../components/ui/Button.jsx";
+import Card, { CardBody, CardHeader } from "../components/ui/Card.jsx";
+import Badge from "../components/ui/Badge.jsx";
+import Modal from "../components/ui/Modal.jsx";
+import { EmptyState } from "../components/ui/States.jsx";
+import DashboardShell from "../components/ui/DashboardShell.jsx";
 
 function formatLastActive(value) {
   if (!value) {
@@ -35,11 +54,11 @@ function PlatformDashboard() {
     company_name: "",
     admin_full_name: "",
     admin_email: "",
-    admin_password: "",
   });
   const [creating, setCreating] = useState(false);
   const [requestDeletionModal, setRequestDeletionModal] = useState(null);
   const [executeDeletionModal, setExecuteDeletionModal] = useState(null);
+  const [toggleModal, setToggleModal] = useState(null);
   const [confirmName, setConfirmName] = useState("");
 
   const fetchStats = async () => {
@@ -87,14 +106,9 @@ function PlatformDashboard() {
     }
   };
 
-  const handleToggleCompany = async (company, isActive) => {
-    const confirmed = window.confirm(
-      isActive ? "Activate this company?" : "Suspend this company?"
-    );
-    if (!confirmed) {
-      return;
-    }
-
+  const handleToggleCompany = async () => {
+    if (!toggleModal) return;
+    const { company, isActive } = toggleModal;
     try {
       const response = await api.patch(`/api/platform/companies/${company.id}`, {
         is_active: isActive,
@@ -107,13 +121,12 @@ function PlatformDashboard() {
       toast.success(isActive ? "Company activated" : "Company suspended");
     } catch (error) {
       toast.error("Could not update company");
+    } finally {
+      setToggleModal(null);
     }
   };
 
   const handleCancelDeletion = async (company) => {
-    const confirmed = window.confirm(`Cancel deletion and restore ${company.name}?`);
-    if (!confirmed) return;
-
     try {
       await api.post(`/api/platform/companies/${company.id}/cancel-deletion`);
       toast.success("Deletion cancelled. Company restored.");
@@ -174,14 +187,16 @@ function PlatformDashboard() {
     setCreating(true);
 
     try {
-      await api.post("/api/platform/companies", createForm);
+      const response = await api.post("/api/platform/companies", createForm);
       toast.success("Company created successfully");
-      setCreatedCompanyModal({ ...createForm });
+      setCreatedCompanyModal({
+        ...createForm,
+        admin_password: response.data.admin_password,
+      });
       setCreateForm({
         company_name: "",
         admin_full_name: "",
         admin_email: "",
-        admin_password: "",
       });
       setActiveSection("companies");
       fetchCompanies();
@@ -208,304 +223,301 @@ function PlatformDashboard() {
   );
 
   const navItems = [
-    { id: "overview", label: "Overview" },
-    { id: "companies", label: "Companies" },
-    { id: "create-company", label: "Create Company" },
+    { id: "overview", label: "Overview", icon: LayoutGrid },
+    { id: "companies", label: "Companies", icon: Building2 },
+    { id: "create-company", label: "Create Company", icon: Plus },
   ];
 
+  const sectionTitles = {
+    overview: "Overview",
+    companies: "Companies",
+    "create-company": "Onboard New Company",
+  };
+
+  const statTiles = [
+    { label: "Total Companies", value: stats?.total_companies ?? 0, icon: Building2, tone: "brand" },
+    { label: "Active Companies", value: stats?.active_companies ?? 0, icon: UserCheck, tone: "emerald" },
+    { label: "Total Users", value: stats?.total_users ?? 0, icon: Users, tone: "sky" },
+    { label: "Active Users", value: stats?.active_users ?? 0, icon: Activity, tone: "teal" },
+    { label: "Messages Today", value: stats?.total_messages_today ?? 0, icon: MessageSquare, tone: "amber" },
+    { label: "Alerts Today", value: stats?.total_alerts_today ?? 0, icon: Bell, tone: "rose" },
+  ];
+
+  const STAT_TILE_CLASS = {
+    brand: "border-brand-200/60 bg-brand-50 text-brand-700 dark:border-brand-400/20 dark:bg-brand-500/10 dark:text-brand-300",
+    emerald: "border-emerald-200/60 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300",
+    sky: "border-sky-200/60 bg-sky-50 text-sky-700 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-300",
+    teal: "border-teal-200/60 bg-teal-50 text-teal-700 dark:border-teal-400/20 dark:bg-teal-500/10 dark:text-teal-300",
+    amber: "border-amber-200/60 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-300",
+    rose: "border-rose-200/60 bg-rose-50 text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-300",
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col bg-gray-900 text-white">
-        <div className="border-b border-gray-800 px-6 py-6">
-          <h1 className="text-2xl font-bold">WorkFlow Platform</h1>
-        </div>
-
-        <nav className="flex-1 px-4 py-6">
-          <div className="space-y-2">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveSection(item.id)}
-                className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
-                  activeSection === item.id
-                    ? "bg-gray-700 text-white"
-                    : "text-gray-200 hover:bg-gray-800"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </nav>
-
-        <div className="border-t border-gray-800 p-4">
-          <p className="mb-4 truncate text-sm font-semibold">
-            {user?.full_name || "Platform Admin"}
-          </p>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold hover:bg-gray-700"
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      <main className="ml-64 min-h-screen p-8">
+    <DashboardShell
+      brand="WorkFlow"
+      navItems={navItems}
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
+      sectionLabel={sectionTitles[activeSection]}
+      userName={user?.full_name || "Platform Admin"}
+      userSubtitle="Platform Admin"
+      onLogout={handleLogout}
+    >
+      <div className="space-y-6">
         {activeSection === "overview" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Overview</h2>
-            <div className="mt-6 grid grid-cols-3 gap-4">
-              {[
-                ["Total Companies", stats?.total_companies ?? 0, "bg-blue-50"],
-                ["Active Companies", stats?.active_companies ?? 0, "bg-green-50"],
-                ["Total Users", stats?.total_users ?? 0, "bg-purple-50"],
-                ["Active Users", stats?.active_users ?? 0, "bg-emerald-50"],
-                ["Messages Today", stats?.total_messages_today ?? 0, "bg-yellow-50"],
-                ["Alerts Today", stats?.total_alerts_today ?? 0, "bg-red-50"],
-              ].map(([label, value, className]) => (
-                <div key={label} className={`rounded-xl p-5 shadow-sm ${className}`}>
-                  <div className="text-3xl font-bold text-gray-900">{value}</div>
-                  <div className="mt-2 text-sm font-medium text-gray-600">{label}</div>
-                </div>
-              ))}
-            </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {statTiles.map(({ label, value, icon: Icon, tone }) => (
+              <div key={label} className={`rounded-xl border p-5 ${STAT_TILE_CLASS[tone]}`}>
+                <Icon className="h-5 w-5 opacity-70" />
+                <div className="mt-3 text-3xl font-bold tracking-tight">{value}</div>
+                <div className="mt-1 text-sm font-medium opacity-80">{label}</div>
+              </div>
+            ))}
           </div>
         )}
 
         {activeSection === "companies" && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Companies</h2>
-              <input
-                type="text"
-                value={companySearch}
-                onChange={(event) => setCompanySearch(event.target.value)}
-                placeholder="Search companies..."
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-700 focus:ring-2 focus:ring-gray-200"
-              />
-            </div>
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                  <tr>
-                    <th className="px-4 py-3">Company Name</th>
-                    <th className="px-4 py-3">Staff Count</th>
-                    <th className="px-4 py-3">Admin Count</th>
-                    <th className="px-4 py-3">Last Active</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredCompanies.map((company) => (
-                    <tr key={company.id}>
-                      <td className="px-4 py-3 font-semibold text-gray-900">
-                        {company.name}
-                      </td>
-                      <td className="px-4 py-3">{company.staff_count}</td>
-                      <td className="px-4 py-3">{company.admin_count}</td>
-                      <td className="px-4 py-3">{formatLastActive(company.last_active)}</td>
-                      <td className="px-4 py-3">
-                        {company.is_deletion_pending ? (
-                          <div className="flex flex-col items-start">
-                            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                              Pending Deletion
-                            </span>
-                            <span className="mt-1 text-[11px] font-medium text-red-600">
-                              Deletes on: {new Date(company.deletion_scheduled_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        ) : (
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              company.is_active
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
-                            }`}
-                          >
-                            {company.is_active ? "Active" : "Suspended"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => handleViewUsers(company)}
-                            className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200"
-                          >
-                            View Users
-                          </button>
-                          {company.is_deletion_pending ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleCancelDeletion(company)}
-                                className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700"
-                              >
-                                Cancel Deletion
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenExecuteDeletionModal(company)}
-                                className="rounded-lg bg-red-850 px-3 py-2 text-xs font-semibold text-white hover:bg-red-950"
-                              >
-                                Delete Now
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              {company.is_active ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleCompany(company, false)}
-                                  className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
-                                >
-                                  Suspend
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleCompany(company, true)}
-                                  className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700"
-                                >
-                                  Activate
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRequestDeletionModal(company)}
-                                className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 flex items-center gap-1"
-                              >
-                                <span>🗑️</span>
-                                <span>Delete</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
+          <Card>
+            <CardHeader className="flex-wrap gap-3">
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Companies</h2>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={companySearch}
+                  onChange={(event) => setCompanySearch(event.target.value)}
+                  placeholder="Search companies..."
+                  className="focus-ring w-56 rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                />
+              </div>
+            </CardHeader>
+            {filteredCompanies.length === 0 ? (
+              <CardBody>
+                <EmptyState title="No companies found" />
+              </CardBody>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-xs uppercase text-slate-400">
+                    <tr>
+                      <th className="px-5 py-3">Company Name</th>
+                      <th className="px-5 py-3">Staff</th>
+                      <th className="px-5 py-3">Admins</th>
+                      <th className="px-5 py-3">Last Active</th>
+                      <th className="px-5 py-3">Status</th>
+                      <th className="px-5 py-3">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                    {filteredCompanies.map((company) => (
+                      <tr key={company.id}>
+                        <td className="px-5 py-3 font-semibold text-slate-900 dark:text-white">
+                          {company.name}
+                        </td>
+                        <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{company.staff_count}</td>
+                        <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{company.admin_count}</td>
+                        <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{formatLastActive(company.last_active)}</td>
+                        <td className="px-5 py-3">
+                          {company.is_deletion_pending ? (
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge tone="danger">Pending Deletion</Badge>
+                              <span className="text-[11px] font-medium text-rose-500 dark:text-rose-400">
+                                Deletes on: {new Date(company.deletion_scheduled_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          ) : (
+                            <Badge tone={company.is_active ? "success" : "danger"}>
+                              {company.is_active ? "Active" : "Suspended"}
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => handleViewUsers(company)}>
+                              View Users
+                            </Button>
+                            {company.is_deletion_pending ? (
+                              <>
+                                <Button size="sm" onClick={() => handleCancelDeletion(company)}>
+                                  Cancel Deletion
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => handleOpenExecuteDeletionModal(company)}
+                                >
+                                  Delete Now
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                {company.is_active ? (
+                                  <Button
+                                    size="sm"
+                                    variant="danger"
+                                    onClick={() => setToggleModal({ company, isActive: false })}
+                                  >
+                                    Suspend
+                                  </Button>
+                                ) : (
+                                  <Button size="sm" onClick={() => setToggleModal({ company, isActive: true })}>
+                                    Activate
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => handleOpenRequestDeletionModal(company)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         )}
 
         {activeSection === "create-company" && (
-          <div className="max-w-2xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-bold text-gray-900">Onboard New Company</h2>
-            <form onSubmit={handleCreateCompany} className="mt-6 space-y-4">
-              {[
-                ["company_name", "Company Name", "text"],
-                ["admin_full_name", "Super Admin Full Name", "text"],
-                ["admin_email", "Super Admin Email", "email"],
-                ["admin_password", "Super Admin Password", "password"],
-              ].map(([field, placeholder, type]) => (
-                <input
-                  key={field}
-                  type={type}
-                  required
-                  value={createForm[field]}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({
-                      ...current,
-                      [field]: event.target.value,
-                    }))
-                  }
-                  placeholder={placeholder}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-700 focus:ring-2 focus:ring-gray-200"
-                />
-              ))}
-              <button
-                type="submit"
-                disabled={creating}
-                className="w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {creating ? "Creating..." : "Create Company"}
-              </button>
-            </form>
+          <Card className="max-w-2xl">
+            <CardBody>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Onboard New Company</h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                A secure temporary password is generated automatically — you'll see it once after creation to share with the company.
+              </p>
+              <form onSubmit={handleCreateCompany} className="mt-6 space-y-4">
+                {[
+                  ["company_name", "Company Name", "text"],
+                  ["admin_full_name", "Super Admin Full Name", "text"],
+                  ["admin_email", "Super Admin Email", "email"],
+                ].map(([field, placeholder, type]) => (
+                  <div key={field}>
+                    <label htmlFor={field} className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                      {placeholder}
+                    </label>
+                    <input
+                      id={field}
+                      type={type}
+                      required
+                      value={createForm[field]}
+                      onChange={(event) =>
+                        setCreateForm((current) => ({
+                          ...current,
+                          [field]: event.target.value,
+                        }))
+                      }
+                      className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    />
+                  </div>
+                ))}
+                <Button type="submit" loading={creating} className="w-full" size="lg">
+                  {creating ? "Creating..." : "Create Company"}
+                </Button>
+              </form>
+            </CardBody>
+          </Card>
+        )}
+      </div>
+
+      <Modal open={!!usersModal} onClose={() => setUsersModal(null)} title={usersModal ? `${usersModal.company.name} Users` : ""} size="lg">
+        {usersModal && (
+          <div className="space-y-5">
+            {Object.entries(usersModal.users).map(([role, users]) => (
+              <div key={role}>
+                <h4 className="font-semibold capitalize text-slate-900 dark:text-white">{role}</h4>
+                <div className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-white/5 dark:border-white/10">
+                  {users.map((item) => (
+                    <div key={item.id} className="p-3 text-sm text-slate-600 dark:text-slate-300">
+                      {item.full_name} - {item.email}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </main>
+      </Modal>
 
-      {usersModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900">
-              {usersModal.company.name} Users
-            </h3>
-            <div className="mt-5 space-y-5">
-              {Object.entries(usersModal.users).map(([role, users]) => (
-                <div key={role}>
-                  <h4 className="font-semibold text-gray-900">{role}</h4>
-                  <div className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200">
-                    {users.map((item) => (
-                      <div key={item.id} className="p-3 text-sm text-gray-700">
-                        {item.full_name} - {item.email}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setUsersModal(null)}
-              className="mt-6 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {createdCompanyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900">Company created</h3>
-            <p className="mt-3 text-sm text-gray-600">
-              Share these credentials with the client:
-            </p>
-            <div className="mt-5 rounded-lg bg-gray-100 p-4 text-sm text-gray-800">
+      <Modal
+        open={!!createdCompanyModal}
+        onClose={() => setCreatedCompanyModal(null)}
+        title="Company created"
+        footer={
+          <>
+            <Button variant="secondary" onClick={copyCreatedCredentials}>
+              Copy All
+            </Button>
+            <Button onClick={() => setCreatedCompanyModal(null)}>Close</Button>
+          </>
+        }
+      >
+        {createdCompanyModal && (
+          <>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Share these credentials with the client:</p>
+            <div className="mt-4 space-y-1 rounded-lg bg-slate-100 p-4 text-sm text-slate-800 dark:bg-white/5 dark:text-slate-200">
               <div>Company: {createdCompanyModal.company_name}</div>
               <div>Login Email: {createdCompanyModal.admin_email}</div>
               <div>Password: {createdCompanyModal.admin_password}</div>
             </div>
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={copyCreatedCredentials}
-                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-              >
-                Copy All
-              </button>
-              <button
-                type="button"
-                onClick={() => setCreatedCompanyModal(null)}
-                className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
-      {requestDeletionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900">
-              Delete Company — This cannot be undone
-            </h3>
-            <div className="mt-4 rounded-lg bg-red-50 p-4 border border-red-200 text-sm text-red-800">
+      <Modal
+        open={!!toggleModal}
+        onClose={() => setToggleModal(null)}
+        title={toggleModal?.isActive ? "Activate company?" : "Suspend company?"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setToggleModal(null)}>
+              Cancel
+            </Button>
+            <Button variant={toggleModal?.isActive ? "primary" : "danger"} onClick={handleToggleCompany}>
+              {toggleModal?.isActive ? "Activate" : "Suspend"}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          {toggleModal?.isActive
+            ? `${toggleModal?.company.name} and its users will regain access immediately.`
+            : `${toggleModal?.company.name} and its users will lose access immediately.`}
+        </p>
+      </Modal>
+
+      <Modal
+        open={!!requestDeletionModal}
+        onClose={() => setRequestDeletionModal(null)}
+        title="Delete Company — This cannot be undone"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRequestDeletionModal(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={confirmName !== requestDeletionModal?.name}
+              onClick={() => handleRequestDeletion(requestDeletionModal)}
+            >
+              Schedule Deletion
+            </Button>
+          </>
+        }
+      >
+        {requestDeletionModal && (
+          <>
+            <div className="flex gap-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
               This will schedule the company for permanent deletion in 30 days. All staff accounts, attendance records, messages, and screenshots will be permanently deleted. The company will be immediately deactivated.
             </div>
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">
                 Type the company name to confirm:
               </label>
               <input
@@ -513,41 +525,40 @@ function PlatformDashboard() {
                 value={confirmName}
                 onChange={(e) => setConfirmName(e.target.value)}
                 placeholder={requestDeletionModal.name}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-700"
+                className="focus-ring mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
             </div>
-            <div className="mt-6 flex justify-end gap-2 text-sm">
-              <button
-                type="button"
-                onClick={() => setRequestDeletionModal(null)}
-                className="rounded-lg bg-gray-100 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRequestDeletion(requestDeletionModal)}
-                disabled={confirmName !== requestDeletionModal.name}
-                className="rounded-lg bg-red-800 px-4 py-2 font-semibold text-white hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Schedule Deletion
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
-      {executeDeletionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900">
-              Permanently Delete Now
-            </h3>
-            <div className="mt-4 rounded-lg bg-red-50 p-4 border border-red-200 text-sm text-red-800">
+      <Modal
+        open={!!executeDeletionModal}
+        onClose={() => setExecuteDeletionModal(null)}
+        title="Permanently Delete Now"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setExecuteDeletionModal(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={confirmName !== executeDeletionModal?.name}
+              onClick={() => handleExecuteDeletion(executeDeletionModal)}
+            >
+              Permanently Delete
+            </Button>
+          </>
+        }
+      >
+        {executeDeletionModal && (
+          <>
+            <div className="flex gap-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
               This will immediately and permanently delete all company data. This cannot be recovered.
             </div>
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">
                 Type the company name again to confirm:
               </label>
               <input
@@ -555,30 +566,13 @@ function PlatformDashboard() {
                 value={confirmName}
                 onChange={(e) => setConfirmName(e.target.value)}
                 placeholder={executeDeletionModal.name}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-700"
+                className="focus-ring mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
             </div>
-            <div className="mt-6 flex justify-end gap-2 text-sm">
-              <button
-                type="button"
-                onClick={() => setExecuteDeletionModal(null)}
-                className="rounded-lg bg-gray-100 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleExecuteDeletion(executeDeletionModal)}
-                disabled={confirmName !== executeDeletionModal.name}
-                className="rounded-lg bg-red-800 px-4 py-2 font-semibold text-white hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Permanently Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+          </>
+        )}
+      </Modal>
+    </DashboardShell>
   );
 }
 

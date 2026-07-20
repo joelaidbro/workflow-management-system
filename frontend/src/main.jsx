@@ -4,11 +4,14 @@ import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 
 import App from "./App.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <BrowserRouter>
-    <App />
-    <Toaster position="top-right" />
-  </BrowserRouter>
+  <ThemeProvider>
+    <BrowserRouter>
+      <App />
+      <Toaster position="top-right" />
+    </BrowserRouter>
+  </ThemeProvider>
 );
