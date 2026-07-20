@@ -199,14 +199,48 @@ def show_setup_wizard() -> None:
     server_var = tk.StringVar(value=PRODUCTION_SERVER_URL)
     ttk.Entry(container, textvariable=server_var, width=52).pack(fill="x", pady=(2, 10))
 
-    ttk.Label(container, text="Machine Token").pack(anchor="w")
-    token_var = tk.StringVar()
-    token_entry = ttk.Entry(container, textvariable=token_var, width=52)
-    token_entry.pack(fill="x", pady=(2, 10))
+    ttk.Label(container, text="Setup Code (from your setup card)").pack(anchor="w")
+    setup_code_var = tk.StringVar()
+    setup_code_entry = ttk.Entry(container, textvariable=setup_code_var, width=52)
+    setup_code_entry.pack(fill="x", pady=(2, 10))
 
-    ttk.Label(container, text="Staff ID").pack(anchor="w")
+    manual_frame = ttk.Frame(container)
+
+    ttk.Label(manual_frame, text="Machine Token").pack(anchor="w")
+    token_var = tk.StringVar()
+    ttk.Entry(manual_frame, textvariable=token_var, width=52).pack(fill="x", pady=(2, 10))
+
+    ttk.Label(manual_frame, text="Staff ID").pack(anchor="w")
     staff_id_var = tk.StringVar()
-    ttk.Entry(container, textvariable=staff_id_var, width=52).pack(fill="x", pady=(2, 16))
+    ttk.Entry(manual_frame, textvariable=staff_id_var, width=52).pack(fill="x", pady=(2, 6))
+
+    manual_mode = tk.BooleanVar(value=False)
+
+    def toggle_manual_mode():
+        if manual_mode.get():
+            setup_code_entry.pack_forget()
+            manual_frame.pack(fill="x", pady=(0, 10), before=toggle_link)
+        else:
+            manual_frame.pack_forget()
+            setup_code_entry.pack(fill="x", pady=(2, 10), before=toggle_link)
+        manual_mode.set(not manual_mode.get())
+        toggle_link.config(
+            text=(
+                "Use manual token entry instead"
+                if not manual_mode.get()
+                else "Use setup code instead"
+            )
+        )
+
+    toggle_link = tk.Label(
+        container,
+        text="Use manual token entry instead",
+        fg="#1d4ed8",
+        cursor="hand2",
+        font=("Segoe UI", 8, "underline"),
+    )
+    toggle_link.pack(anchor="w", pady=(0, 12))
+    toggle_link.bind("<Button-1>", lambda e: toggle_manual_mode())
 
     status_var = tk.StringVar()
     status_label = tk.Label(
@@ -219,13 +253,53 @@ def show_setup_wizard() -> None:
     )
     connect_btn.pack(anchor="e")
 
+    def save_and_verify(server_url: str, machine_token: str, staff_id: str) -> None:
+        resp = http_session.post(
+            f"{server_url}/api/agent/verify",
+            json={
+                "staff_id": staff_id,
+                "machine_token": machine_token,
+                "agent_version": AGENT_VERSION,
+            },
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            name = resp.json().get("full_name", "")
+            new_config = {
+                "server_url": server_url,
+                "machine_token": machine_token,
+                "staff_id": staff_id,
+                "screenshot_enabled": True,
+                "screenshot_interval_seconds": 600,
+            }
+            with CONFIG_PATH.open("w", encoding="utf-8") as f:
+                json.dump(new_config, f, indent=4)
+            root.after(0, lambda: on_success(name))
+        else:
+            root.after(
+                0,
+                lambda: on_error(
+                    "Invalid token or Staff ID. Please check with your administrator."
+                ),
+            )
+
     def on_connect():
         server_url = server_var.get().strip().rstrip("/")
+        using_manual = manual_mode.get()
+        setup_code = setup_code_var.get().strip()
         machine_token = token_var.get().strip()
         staff_id = staff_id_var.get().strip()
 
-        if not server_url or not machine_token or not staff_id:
-            status_var.set("All fields are required.")
+        if not server_url:
+            status_var.set("Server URL is required.")
+            status_label.config(fg="#dc2626")
+            return
+        if using_manual and (not machine_token or not staff_id):
+            status_var.set("Machine Token and Staff ID are required.")
+            status_label.config(fg="#dc2626")
+            return
+        if not using_manual and not setup_code:
+            status_var.set("Setup Code is required.")
             status_label.config(fg="#dc2626")
             return
 
@@ -236,30 +310,26 @@ def show_setup_wizard() -> None:
 
         def do_validate():
             try:
-                resp = http_session.post(
-                    f"{server_url}/api/agent/verify",
-                    json={"staff_id": staff_id, "machine_token": machine_token},
+                if using_manual:
+                    save_and_verify(server_url, machine_token, staff_id)
+                    return
+
+                redeem_resp = http_session.post(
+                    f"{server_url}/api/agent/redeem-setup-code",
+                    json={"setup_code": setup_code},
                     timeout=10,
                 )
-                if resp.status_code == 200:
-                    name = resp.json().get("full_name", "")
-                    new_config = {
-                        "server_url": server_url,
-                        "machine_token": machine_token,
-                        "staff_id": staff_id,
-                        "screenshot_enabled": True,
-                        "screenshot_interval_seconds": 600,
-                    }
-                    with CONFIG_PATH.open("w", encoding="utf-8") as f:
-                        json.dump(new_config, f, indent=4)
-                    root.after(0, lambda: on_success(name))
-                else:
-                    root.after(
-                        0,
-                        lambda: on_error(
-                            "Invalid token or Staff ID. Please check with your administrator."
-                        ),
-                    )
+                if redeem_resp.status_code != 200:
+                    detail = redeem_resp.json().get("detail", "Invalid or expired setup code.")
+                    root.after(0, lambda: on_error(detail))
+                    return
+
+                redeemed = redeem_resp.json()
+                save_and_verify(
+                    server_url,
+                    redeemed["machine_token"],
+                    redeemed["staff_id"],
+                )
             except requests.exceptions.ConnectionError:
                 root.after(
                     0,
@@ -289,7 +359,7 @@ def show_setup_wizard() -> None:
     y = (root.winfo_screenheight() - h) // 2
     root.geometry(f"{w}x{h}+{x}+{y}")
 
-    token_entry.focus()
+    setup_code_entry.focus()
     root.mainloop()
 
 

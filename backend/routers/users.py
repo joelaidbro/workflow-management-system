@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from datetime import date as date_type, datetime
+from datetime import date as date_type, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,6 +15,15 @@ router = APIRouter()
 
 VALID_CREATE_ROLES = {"staff", "admin"}
 VALID_WORK_TYPES = {"office", "wfh"}
+
+SETUP_CODE_TTL = timedelta(hours=24)
+# Excludes visually ambiguous characters (0/O, 1/I/L) so staff can type it by hand.
+SETUP_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+
+
+def generate_setup_code() -> str:
+    raw = "".join(secrets.choice(SETUP_CODE_ALPHABET) for _ in range(10))
+    return f"{raw[:5]}-{raw[5:]}"
 
 
 class CreateUserRequest(BaseModel):
@@ -333,6 +342,9 @@ def generate_agent_token(
         )
 
     new_token = secrets.token_hex(32)
+    new_setup_code = generate_setup_code()
+    now = datetime.utcnow()
+    setup_code_expires_at = now + SETUP_CODE_TTL
 
     existing_token = (
         db.query(MachineToken)
@@ -342,7 +354,6 @@ def generate_agent_token(
 
     if existing_token:
         if existing_token.session_active:
-            now = datetime.utcnow()
             cs = db.query(CurrentStatus).filter(CurrentStatus.user_id == user.id).first()
             if cs and cs.status != "offline":
                 db.add(ActivityLog(
@@ -358,13 +369,18 @@ def generate_agent_token(
 
         existing_token.token = new_token
         existing_token.is_active = True
-        existing_token.created_at = datetime.utcnow()
+        existing_token.created_at = now
+        existing_token.setup_code = new_setup_code
+        existing_token.setup_code_expires_at = setup_code_expires_at
+        existing_token.setup_code_used_at = None
     else:
         machine_token = MachineToken(
             company_id=user.company_id,
             user_id=user.id,
             token=new_token,
             is_active=True,
+            setup_code=new_setup_code,
+            setup_code_expires_at=setup_code_expires_at,
         )
         db.add(machine_token)
 
@@ -374,6 +390,8 @@ def generate_agent_token(
         "machine_token": new_token,
         "staff_id": str(user.id),
         "token_preview": f"********{new_token[-8:]}",
+        "setup_code": new_setup_code,
+        "setup_code_expires_at": setup_code_expires_at,
         "message": "Save this token now. It will not be shown again in full.",
     }
 

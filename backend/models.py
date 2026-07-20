@@ -206,6 +206,9 @@ class MachineToken(Base):
     last_seen_at = Column(DateTime, nullable=True)
     agent_version = Column(String(20), nullable=True)
     agent_updated_at = Column(DateTime, nullable=True)
+    setup_code = Column(String(16), unique=True, nullable=True)
+    setup_code_expires_at = Column(DateTime, nullable=True)
+    setup_code_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="machine_token")

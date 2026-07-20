@@ -2518,12 +2518,18 @@ function StaffManagementPanel({ openProfile }) {
     });
   };
 
-  const downloadSetupCard = (staffName, machineToken, staffId) => {
+  const downloadSetupCard = (staffName, setupCode, expiresAt) => {
     const date = new Date().toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
+    const expiryText = expiresAt
+      ? new Date(expiresAt).toLocaleString("en-US", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : "24 hours from generation";
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2538,9 +2544,11 @@ function StaffManagementPanel({ openProfile }) {
     .meta{font-size:12px;color:#6b7280;margin-top:4px}
     hr{border:none;border-top:1px solid #e5e7eb;margin:20px 0}
     .lbl{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-    .val{background:#f3f4f6;border-radius:6px;padding:10px 14px;font-family:'Courier New',monospace;font-size:13px;word-break:break-all;margin-bottom:16px}
-    .dl{text-align:center;margin:20px 0}
-    .dl a{display:inline-block;background:#1d4ed8;color:white;text-decoration:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600}
+    .val{background:#f3f4f6;border-radius:6px;padding:10px 14px;font-family:'Courier New',monospace;font-size:18px;font-weight:700;letter-spacing:.03em;word-break:break-all;margin-bottom:6px;text-align:center}
+    .expiry{font-size:11px;color:#b45309;margin-bottom:16px}
+    .dl{text-align:center;margin:20px 0;display:flex;flex-direction:column;gap:8px;align-items:center}
+    .dl a{display:inline-block;background:#1d4ed8;color:white;text-decoration:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;min-width:220px}
+    .dl a.secondary{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:500;font-size:12px;padding:8px 20px}
     .steps{background:#eff6ff;border-radius:8px;padding:16px 20px;margin-top:20px}
     .steps h4{font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:10px}
     .steps ol{padding-left:18px}
@@ -2555,23 +2563,24 @@ function StaffManagementPanel({ openProfile }) {
     <div class="title">Agent Setup Card</div>
     <div class="meta">For: <strong>${staffName}</strong> &nbsp;·&nbsp; Generated ${date}</div>
     <hr>
-    <div class="lbl">Machine Token</div>
-    <div class="val">${machineToken}</div>
-    <div class="lbl">Staff ID</div>
-    <div class="val">${staffId}</div>
+    <div class="lbl">Setup Code</div>
+    <div class="val">${setupCode}</div>
+    <div class="expiry">⏱ Expires ${expiryText} · single-use only</div>
     <div class="dl">
       <a href="https://teams.aidbro.com/downloads/WorkFlowAgent.exe">&#8595; Download WorkFlow Agent</a>
+      <a class="secondary" href="https://teams.aidbro.com/downloads/install_agent.bat">&#8595; install_agent.bat</a>
+      <a class="secondary" href="https://teams.aidbro.com/downloads/uninstall_agent.bat">&#8595; uninstall_agent.bat</a>
     </div>
     <div class="steps">
       <h4>Setup Instructions</h4>
       <ol>
-        <li>Download the agent using the button above</li>
+        <li>Download the agent and <strong>install_agent.bat</strong> using the buttons above</li>
         <li>Right-click <strong>install_agent.bat</strong> and choose <strong>Run as administrator</strong></li>
-        <li>A setup window will appear — paste the <strong>Machine Token</strong> and <strong>Staff ID</strong> from above</li>
+        <li>A setup window will appear — paste the <strong>Setup Code</strong> from above</li>
         <li>Click <strong>Connect &amp; Save</strong> — the agent will start automatically</li>
       </ol>
     </div>
-    <div class="footer">Keep this card confidential. Do not share outside your organisation.</div>
+    <div class="footer">This code expires after first use or ${expiryText}. Do not share outside your organisation.</div>
   </div>
 </body>
 </html>`;
@@ -3312,7 +3321,10 @@ function StaffManagementPanel({ openProfile }) {
                   </div>
                 </div>
                 <p className="mt-5 text-sm text-slate-600 dark:text-slate-300">
-                  Share these credentials with the staff member, or open a setup card they can use during installation.
+                  Prefer not to hand over the raw token directly? Open a setup
+                  card instead — it contains a short-lived, single-use setup
+                  code that the agent exchanges for the real credentials, so
+                  nothing permanent is exposed if the card is forwarded or saved.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
@@ -3323,8 +3335,8 @@ function StaffManagementPanel({ openProfile }) {
                       );
                       downloadSetupCard(
                         staffUser?.full_name ?? "Staff Member",
-                        tokenModal.machine_token,
-                        tokenModal.staff_id
+                        tokenModal.setup_code,
+                        tokenModal.setup_code_expires_at
                       );
                     }}
                     className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"

@@ -30,6 +30,10 @@ class VerifyAgentRequest(BaseModel):
     agent_version: str | None = None
 
 
+class RedeemSetupCodeRequest(BaseModel):
+    setup_code: str
+
+
 def verify_machine_token(staff_id, machine_token, db):
     try:
         staff_uuid = uuid.UUID(str(staff_id))
@@ -159,6 +163,45 @@ def heartbeat(
 
     db.commit()
     return {"received": True}
+
+
+@router.post("/agent/redeem-setup-code")
+def redeem_setup_code(
+    redeem_data: RedeemSetupCodeRequest,
+    db: Session = Depends(get_db),
+):
+    code = redeem_data.setup_code.strip().upper()
+    machine_token_row = (
+        db.query(MachineToken)
+        .filter(MachineToken.setup_code == code)
+        .first()
+    )
+    if not machine_token_row or not machine_token_row.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or unrecognised setup code",
+        )
+    if machine_token_row.setup_code_used_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This setup code has already been used",
+        )
+    if (
+        not machine_token_row.setup_code_expires_at
+        or machine_token_row.setup_code_expires_at < datetime.utcnow()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This setup code has expired — ask your admin for a new one",
+        )
+
+    machine_token_row.setup_code_used_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "machine_token": machine_token_row.token,
+        "staff_id": str(machine_token_row.user_id),
+    }
 
 
 @router.post("/agent/verify")

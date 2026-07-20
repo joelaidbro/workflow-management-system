@@ -94,6 +94,8 @@ jobs:
                 CHECKSUM=$(sha256sum "$AGENT_EXE" | awk '{print $1}')
                 mkdir -p /home/teams.aidbro.com/public_html/downloads
                 cp "$AGENT_EXE" /home/teams.aidbro.com/public_html/downloads/WorkFlowAgent.exe
+                [ -f agent/dist/install_agent.bat ] && cp agent/dist/install_agent.bat /home/teams.aidbro.com/public_html/downloads/install_agent.bat
+                [ -f agent/dist/uninstall_agent.bat ] && cp agent/dist/uninstall_agent.bat /home/teams.aidbro.com/public_html/downloads/uninstall_agent.bat
                 printf '{"version":"%s","checksum":"%s","download_url":"https://teams.aidbro.com/downloads/WorkFlowAgent.exe"}' \
                   "$VERSION" "$CHECKSUM" > agent_release.json
                 echo "Agent release published: v$VERSION"

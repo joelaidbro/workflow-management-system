@@ -18,6 +18,11 @@ export default function Modal({
 }) {
   const dialogRef = useRef(null);
   const previouslyFocused = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -31,7 +36,7 @@ export default function Modal({
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (event.key === "Tab" && focusable?.length) {
@@ -52,7 +57,12 @@ export default function Modal({
       document.removeEventListener("keydown", handleKeyDown);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+    // Intentionally only re-run on `open` transitions — `onClose` is read via
+    // ref so a fresh inline callback identity from a re-rendering parent
+    // (e.g. a ticking clock elsewhere in the dashboard) doesn't re-fire this
+    // and steal focus/scroll position from whatever the user is doing inside.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!open) return null;
 
