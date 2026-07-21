@@ -354,6 +354,14 @@ def generate_agent_token(
 
     if existing_token:
         if existing_token.session_active:
+            # Mark the old machine's live status offline immediately (it will
+            # fail auth on its next heartbeat once the token below changes),
+            # but do NOT touch session_active here — that flag mirrors whether
+            # today's Attendance row is open. Regenerating a token mid-shift
+            # (e.g. rotating credentials) must not silently end the staff
+            # member's day; a new agent install with the new token should
+            # resume as "working" immediately via session-status's existing
+            # cross-validation against the open Attendance row.
             cs = db.query(CurrentStatus).filter(CurrentStatus.user_id == user.id).first()
             if cs and cs.status != "offline":
                 db.add(ActivityLog(
@@ -365,7 +373,6 @@ def generate_agent_token(
                 ))
                 cs.status = "offline"
                 cs.updated_at = now
-            existing_token.session_active = False
 
         existing_token.token = new_token
         existing_token.is_active = True
