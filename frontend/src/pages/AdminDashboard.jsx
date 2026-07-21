@@ -2157,18 +2157,17 @@ function ChatPanel({
 
     setLoadingChatUsers(true);
     try {
-      const response = await api.get("/api/users/list");
+      const response = await api.get("/api/users/chat-members");
       setAvailableChatUsers(
-        response.data
-          .filter((item) => item.role === "staff")
-          .map((item) => ({
-            user_id: item.id,
-            full_name: item.full_name,
-            department: item.department,
-          }))
+        response.data.map((item) => ({
+          user_id: item.id,
+          full_name: item.full_name,
+          department: item.department,
+          role: item.role,
+        }))
       );
     } catch (err) {
-      toast.error("Could not load staff");
+      toast.error("Could not load users");
     } finally {
       setLoadingChatUsers(false);
     }
@@ -2276,6 +2275,7 @@ function ChatPanel({
                   <option key={item.user_id} value={item.user_id}>
                     {item.full_name}
                     {item.department ? ` - ${item.department}` : ""}
+                    {item.role ? ` (${item.role.replace("_", " ")})` : ""}
                   </option>
                 ))}
               </select>
