@@ -2556,6 +2556,13 @@ function StaffManagementPanel({ openProfile }) {
     .steps h4{font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:10px}
     .steps ol{padding-left:18px}
     .steps li{font-size:13px;color:#374151;line-height:1.8}
+    .notice{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 18px;margin-top:16px}
+    .notice h4{font-size:12px;font-weight:700;color:#b45309;margin-bottom:8px}
+    .notice p{font-size:12px;color:#78350f;line-height:1.7}
+    .uninstall{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;margin-top:16px}
+    .uninstall h4{font-size:12px;font-weight:700;color:#374151;margin-bottom:8px}
+    .uninstall p{font-size:12px;color:#4b5563;line-height:1.7}
+    .uninstall code{background:#e5e7eb;border-radius:4px;padding:1px 5px;font-family:'Courier New',monospace;font-size:11px}
     .footer{margin-top:20px;font-size:11px;color:#9ca3af;text-align:center}
     @media print{body{background:white;padding:0}.card{box-shadow:none}.copy-btn{display:none}}
   </style>
@@ -2584,6 +2591,31 @@ function StaffManagementPanel({ openProfile }) {
         <li>A setup window will appear — paste the <strong>Setup Code</strong> from above (use the Copy Code button)</li>
         <li>Click <strong>Connect &amp; Save</strong> — the agent will start automatically</li>
       </ol>
+    </div>
+    <div class="notice">
+      <h4>⚠ If Windows shows a security warning</h4>
+      <p>
+        Since this file was downloaded from the internet, Windows may show a
+        warning before it will run (e.g. "These files can't be opened" or
+        "Windows protected your PC"). This is a normal one-time check, not a
+        sign anything is wrong:
+      </p>
+      <p>
+        Right-click <strong>install_agent.bat</strong> → <strong>Properties</strong>
+        → check the <strong>Unblock</strong> box near the bottom → <strong>OK</strong>.
+        Then try <strong>Run as administrator</strong> again. You only need to do
+        this once.
+      </p>
+    </div>
+    <div class="uninstall">
+      <h4>Uninstalling the agent</h4>
+      <p>
+        The installer automatically saves an uninstaller to
+        <code>%PROGRAMDATA%\\WorkFlowAgent\\uninstall_agent.bat</code>.
+        To remove the agent, open that folder, right-click
+        <strong>uninstall_agent.bat</strong>, choose <strong>Run as administrator</strong>,
+        and follow the prompts.
+      </p>
     </div>
     <div class="footer">This code expires after first use or ${expiryText}. Do not share outside your organisation.</div>
   </div>

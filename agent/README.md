@@ -45,3 +45,22 @@ If a setup code has expired or was already used, generating a new agent
 token (or clicking "Regenerate Token") issues a fresh one. For support
 cases, the wizard also has a "Use manual token entry instead" link that
 accepts the raw Machine Token + Staff ID directly.
+
+### Security warning on first install
+Because `install_agent.bat` is downloaded from a browser, Windows may show
+a one-time warning before allowing it to run (Mark of the Web) — e.g.
+"These files can't be opened" or "Windows protected your PC". This is
+normal for any newly downloaded script/executable and is not specific to
+this agent. The setup card includes instructions for staff:
+right-click `install_agent.bat` → **Properties** → check **Unblock** →
+**OK**, then try **Run as administrator** again. This only needs to happen
+once per machine — auto-updates afterward are downloaded directly by the
+running agent process (not through a browser), so they never trigger this
+warning.
+
+### Uninstalling
+`install_agent.bat` automatically saves `uninstall_agent.bat` into
+`%PROGRAMDATA%\WorkFlowAgent\` during install. To remove the agent later,
+open that folder, right-click `uninstall_agent.bat`, and choose **Run as
+administrator**. This is also documented on the setup card so staff (or
+IT) can find it without contacting an admin.
