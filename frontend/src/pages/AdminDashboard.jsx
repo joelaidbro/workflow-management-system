@@ -1967,18 +1967,35 @@ function ChatPanel({
             },
           ]);
         } else {
-          setConversations((current) =>
-            current.map((conversation) =>
-              conversation.user_id === data.sender_id
-                ? {
-                    ...conversation,
-                    last_message: data.content,
-                    last_message_at: data.created_at,
-                    unread_count: (conversation.unread_count || 0) + 1,
-                  }
-                : conversation
-            )
-          );
+          setConversations((current) => {
+            const exists = current.some(
+              (conversation) => conversation.user_id === data.sender_id
+            );
+            if (exists) {
+              return current.map((conversation) =>
+                conversation.user_id === data.sender_id
+                  ? {
+                      ...conversation,
+                      last_message: data.content,
+                      last_message_at: data.created_at,
+                      unread_count: (conversation.unread_count || 0) + 1,
+                    }
+                  : conversation
+              );
+            }
+
+            return [
+              {
+                user_id: data.sender_id,
+                full_name: data.sender_name,
+                department: null,
+                last_message: data.content,
+                last_message_at: data.created_at,
+                unread_count: 1,
+              },
+              ...current,
+            ];
+          });
         }
       }
 
