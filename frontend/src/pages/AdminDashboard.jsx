@@ -2544,17 +2544,20 @@ function StaffManagementPanel({ openProfile }) {
     .meta{font-size:12px;color:#6b7280;margin-top:4px}
     hr{border:none;border-top:1px solid #e5e7eb;margin:20px 0}
     .lbl{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-    .val{background:#f3f4f6;border-radius:6px;padding:10px 14px;font-family:'Courier New',monospace;font-size:18px;font-weight:700;letter-spacing:.03em;word-break:break-all;margin-bottom:6px;text-align:center}
+    .code-row{display:flex;align-items:center;gap:10px;background:#f3f4f6;border-radius:6px;padding:10px 14px;margin-bottom:6px}
+    .code-row span{flex:1;font-family:'Courier New',monospace;font-size:18px;font-weight:700;letter-spacing:.03em;word-break:break-all}
+    .copy-btn{flex-shrink:0;background:#1d4ed8;color:white;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer}
+    .copy-btn:active{background:#1e40af}
     .expiry{font-size:11px;color:#b45309;margin-bottom:16px}
-    .dl{text-align:center;margin:20px 0;display:flex;flex-direction:column;gap:8px;align-items:center}
-    .dl a{display:inline-block;background:#1d4ed8;color:white;text-decoration:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;min-width:220px}
-    .dl a.secondary{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:500;font-size:12px;padding:8px 20px}
+    .dl{text-align:center;margin:20px 0}
+    .dl a{display:inline-block;background:#1d4ed8;color:white;text-decoration:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;min-width:260px}
+    .dl .hint{margin-top:8px;font-size:11px;color:#6b7280}
     .steps{background:#eff6ff;border-radius:8px;padding:16px 20px;margin-top:20px}
     .steps h4{font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:10px}
     .steps ol{padding-left:18px}
     .steps li{font-size:13px;color:#374151;line-height:1.8}
     .footer{margin-top:20px;font-size:11px;color:#9ca3af;text-align:center}
-    @media print{body{background:white;padding:0}.card{box-shadow:none}}
+    @media print{body{background:white;padding:0}.card{box-shadow:none}.copy-btn{display:none}}
   </style>
 </head>
 <body>
@@ -2564,29 +2567,66 @@ function StaffManagementPanel({ openProfile }) {
     <div class="meta">For: <strong>${staffName}</strong> &nbsp;·&nbsp; Generated ${date}</div>
     <hr>
     <div class="lbl">Setup Code</div>
-    <div class="val">${setupCode}</div>
+    <div class="code-row">
+      <span id="setupCode">${setupCode}</span>
+      <button type="button" class="copy-btn" id="copyBtn" onclick="copyCode()">Copy Code</button>
+    </div>
     <div class="expiry">⏱ Expires ${expiryText} · single-use only</div>
     <div class="dl">
-      <a href="https://teams.aidbro.com/downloads/WorkFlowAgent.exe">&#8595; Download WorkFlow Agent</a>
-      <a class="secondary" href="https://teams.aidbro.com/downloads/install_agent.bat">&#8595; install_agent.bat</a>
-      <a class="secondary" href="https://teams.aidbro.com/downloads/uninstall_agent.bat">&#8595; uninstall_agent.bat</a>
+      <a href="https://teams.aidbro.com/downloads/install_agent.bat">&#8595; Download &amp; Run Setup (install_agent.bat)</a>
+      <div class="hint">This one file installs the agent automatically — no other downloads needed.</div>
     </div>
     <div class="steps">
       <h4>Setup Instructions</h4>
       <ol>
-        <li>Download the agent and <strong>install_agent.bat</strong> using the buttons above</li>
-        <li>Right-click <strong>install_agent.bat</strong> and choose <strong>Run as administrator</strong></li>
-        <li>A setup window will appear — paste the <strong>Setup Code</strong> from above</li>
+        <li>Download <strong>install_agent.bat</strong> using the button above</li>
+        <li>Right-click it and choose <strong>Run as administrator</strong> — it installs everything by itself</li>
+        <li>A setup window will appear — paste the <strong>Setup Code</strong> from above (use the Copy Code button)</li>
         <li>Click <strong>Connect &amp; Save</strong> — the agent will start automatically</li>
       </ol>
     </div>
     <div class="footer">This code expires after first use or ${expiryText}. Do not share outside your organisation.</div>
   </div>
+  <script>
+    function copyCode() {
+      var text = document.getElementById('setupCode').textContent.trim();
+      var btn = document.getElementById('copyBtn');
+      function done(ok) {
+        btn.textContent = ok ? 'Copied ✓' : 'Copy failed';
+        setTimeout(function () { btn.textContent = 'Copy Code'; }, 2000);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }).catch(function () { fallbackCopy(text, done); });
+      } else {
+        fallbackCopy(text, done);
+      }
+    }
+    function fallbackCopy(text, cb) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      cb(ok);
+    }
+  </script>
 </body>
 </html>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    const safeName = staffName.replace(/[^a-z0-9]+/gi, "_");
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `WorkFlowAgent_Setup_${safeName}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
   const handleAgentTokenClick = async (userId) => {
@@ -3321,10 +3361,11 @@ function StaffManagementPanel({ openProfile }) {
                   </div>
                 </div>
                 <p className="mt-5 text-sm text-slate-600 dark:text-slate-300">
-                  Prefer not to hand over the raw token directly? Open a setup
-                  card instead — it contains a short-lived, single-use setup
-                  code that the agent exchanges for the real credentials, so
-                  nothing permanent is exposed if the card is forwarded or saved.
+                  Prefer not to hand over the raw token directly? Download a
+                  setup card instead — it contains a short-lived, single-use
+                  setup code that the agent exchanges for the real
+                  credentials, so nothing permanent is exposed if the card is
+                  forwarded or saved.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
@@ -3341,7 +3382,7 @@ function StaffManagementPanel({ openProfile }) {
                     }}
                     className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                   >
-                    Open Setup Card
+                    Download Setup Card
                   </button>
                   <button
                     type="button"
