@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_admin
 from database import get_db
 from models import Task, User
+from team_scope import get_assigned_staff_ids
 
 router = APIRouter()
 
@@ -68,6 +69,11 @@ def get_task_in_company(task_id: str, company_id, db: Session) -> Task:
     return task
 
 
+def assert_admin_can_manage_task(task: Task, current_user: User, db: Session) -> None:
+    if current_user.role == "admin" and task.assigned_to not in get_assigned_staff_ids(current_user.id, db):
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+
 @router.post("/tasks/")
 def create_task(
     body: TaskCreateBody,
@@ -97,16 +103,15 @@ def create_task(
             detail="Invalid assignee",
         )
 
-    assignee = (
-        db.query(User)
-        .filter(
-            User.id == assignee_uuid,
-            User.company_id == current_user.company_id,
-            User.is_active.is_(True),
-            User.role == "staff",
-        )
-        .first()
+    assignee_query = db.query(User).filter(
+        User.id == assignee_uuid,
+        User.company_id == current_user.company_id,
+        User.is_active.is_(True),
+        User.role == "staff",
     )
+    if current_user.role == "admin":
+        assignee_query = assignee_query.filter(User.id.in_(get_assigned_staff_ids(current_user.id, db)))
+    assignee = assignee_query.first()
     if not assignee:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
@@ -148,6 +153,9 @@ def list_tasks(
         )
 
     query = db.query(Task).filter(Task.company_id == current_user.company_id)
+
+    if current_user.role == "admin":
+        query = query.filter(Task.assigned_to.in_(get_assigned_staff_ids(current_user.id, db)))
 
     if status:
         query = query.filter(Task.status == status)
@@ -197,6 +205,7 @@ def edit_task(
     require_admin(current_user)
 
     task = get_task_in_company(task_id, current_user.company_id, db)
+    assert_admin_can_manage_task(task, current_user, db)
 
     if body.title is not None:
         title = body.title.strip()
@@ -243,7 +252,10 @@ def update_task_status(
 
     task = get_task_in_company(task_id, current_user.company_id, db)
 
-    is_admin = current_user.role in {"admin", "super_admin"}
+    is_admin = current_user.role == "super_admin" or (
+        current_user.role == "admin"
+        and task.assigned_to in get_assigned_staff_ids(current_user.id, db)
+    )
     is_assignee = task.assigned_to == current_user.id
 
     if not is_admin and not is_assignee:
@@ -269,6 +281,7 @@ def delete_task(
     require_admin(current_user)
 
     task = get_task_in_company(task_id, current_user.company_id, db)
+    assert_admin_can_manage_task(task, current_user, db)
     db.delete(task)
     db.commit()
 

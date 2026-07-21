@@ -8,6 +8,7 @@ from auth import get_current_user, require_admin, require_staff_or_admin
 from utils import compute_working_minutes, format_utc_datetime
 from database import get_db
 from models import ActivityLog, Attendance, CurrentStatus, User
+from team_scope import get_assigned_staff_ids
 
 router = APIRouter()
 
@@ -128,7 +129,8 @@ def get_team_status(
     if current_user.role == "super_admin":
         query = query.filter(User.role.in_(["staff", "admin"]))
     else:
-        query = query.filter(User.role == "staff")
+        assigned_ids = get_assigned_staff_ids(current_user.id, db)
+        query = query.filter(User.role == "staff", User.id.in_(assigned_ids))
 
     users_with_status = query.all()
 
@@ -193,6 +195,13 @@ def get_user_status(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
         )
+
+    if current_user.role == "admin" and user.role == "staff":
+        if user.id not in get_assigned_staff_ids(current_user.id, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden",
+            )
 
     current_status = (
         db.query(CurrentStatus)
@@ -437,15 +446,15 @@ def set_team_meeting(
         except ValueError:
             skipped += 1
 
-    users = (
-        db.query(User)
-        .filter(
-            User.id.in_(parsed_ids),
-            User.company_id == current_user.company_id,
-            User.is_active.is_(True),
-        )
-        .all()
+    users_query = db.query(User).filter(
+        User.id.in_(parsed_ids),
+        User.company_id == current_user.company_id,
+        User.is_active.is_(True),
     )
+    if current_user.role == "admin":
+        assigned_ids = get_assigned_staff_ids(current_user.id, db)
+        users_query = users_query.filter(User.id.in_(assigned_ids))
+    users = users_query.all()
     skipped += len(parsed_ids) - len(users)
 
     valid_user_ids = [u.id for u in users]

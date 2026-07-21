@@ -15,6 +15,7 @@ from database import get_db
 from limiter import limiter
 from models import Alert, AlertRecipient, Company, User
 from routers.agent import verify_machine_token
+from team_scope import get_assigned_staff_ids
 
 router = APIRouter()
 
@@ -81,8 +82,11 @@ def send_alert(
         )
 
         if current_user.role == "admin":
-            # admin broadcasts to their staff only.
-            recipients_query = recipients_query.filter(User.role == "staff")
+            # admin broadcasts to their assigned staff only.
+            assigned_ids = get_assigned_staff_ids(current_user.id, db)
+            recipients_query = recipients_query.filter(
+                User.role == "staff", User.id.in_(assigned_ids)
+            )
         # super_admin and staff broadcast to all staff+admin (already filtered above).
 
         recipients = recipients_query.all()
@@ -113,6 +117,16 @@ def send_alert(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This user cannot receive alerts",
+            )
+
+        if (
+            current_user.role == "admin"
+            and recipient.role == "staff"
+            and recipient.id not in get_assigned_staff_ids(current_user.id, db)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recipient not found",
             )
 
         recipients = [recipient]
@@ -515,17 +529,16 @@ def get_potential_recipients(
     db: Session = Depends(get_db),
 ):
     """Returns the list of users the current user can send an alert to."""
-    users = (
-        db.query(User)
-        .filter(
-            User.company_id == current_user.company_id,
-            User.is_active.is_(True),
-            User.role.notin_(ROLES_CANNOT_RECEIVE),
-            User.id != current_user.id,
-        )
-        .order_by(User.full_name)
-        .all()
+    query = db.query(User).filter(
+        User.company_id == current_user.company_id,
+        User.is_active.is_(True),
+        User.role.notin_(ROLES_CANNOT_RECEIVE),
+        User.id != current_user.id,
     )
+    if current_user.role == "admin":
+        assigned_ids = get_assigned_staff_ids(current_user.id, db)
+        query = query.filter((User.role != "staff") | (User.id.in_(assigned_ids)))
+    users = query.order_by(User.full_name).all()
     return [
         {
             "id": str(u.id),

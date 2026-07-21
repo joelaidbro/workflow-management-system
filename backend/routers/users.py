@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, hash_password, require_super_admin, require_admin
 from database import get_db
 from models import ActivityLog, CurrentStatus, MachineToken, Session as UserSession, User
+from team_scope import get_assigned_staff_ids
 
 router = APIRouter()
 
@@ -190,7 +191,8 @@ def list_users(
     )
 
     if current_user.role == "admin":
-        query = query.filter(User.role == "staff")
+        assigned_ids = get_assigned_staff_ids(current_user.id, db)
+        query = query.filter(User.role == "staff", User.id.in_(assigned_ids))
     elif role:
         query = query.filter(User.role == role)
 
@@ -213,16 +215,19 @@ def list_chat_members(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    users = (
-        db.query(User)
-        .filter(
-            User.company_id == current_user.company_id,
-            User.is_active.is_(True),
-            User.id != current_user.id,
-        )
-        .order_by(User.full_name.asc())
-        .all()
+    query = db.query(User).filter(
+        User.company_id == current_user.company_id,
+        User.is_active.is_(True),
+        User.id != current_user.id,
     )
+
+    if current_user.role == "admin":
+        # An admin's own assigned staff, plus every non-staff user (peer
+        # admins, super_admin) stay visible — only unassigned staff are hidden.
+        assigned_ids = get_assigned_staff_ids(current_user.id, db)
+        query = query.filter((User.role != "staff") | (User.id.in_(assigned_ids)))
+
+    users = query.order_by(User.full_name.asc()).all()
 
     return [
         {

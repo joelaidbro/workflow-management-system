@@ -136,6 +136,23 @@ class User(Base):
     )
 
 
+class AdminStaffAssignment(Base):
+    __tablename__ = "admin_staff_assignments"
+    __table_args__ = (
+        UniqueConstraint("admin_id", "staff_id", name="uq_admin_staff_assignment"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    staff_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    assigned_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    admin = relationship("User", foreign_keys=[admin_id])
+    staff = relationship("User", foreign_keys=[staff_id])
+
+
 class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
 
@@ -505,3 +522,5 @@ Index("ix_sessions_user_id", Session.user_id)
 Index("ix_alerts_sender_id", Alert.sender_id)
 Index("ix_salary_records_user_id", SalaryRecord.user_id)
 Index("ix_salary_records_company_id", SalaryRecord.company_id)
+Index("ix_admin_staff_assignments_admin_id", AdminStaffAssignment.admin_id)
+Index("ix_admin_staff_assignments_staff_id", AdminStaffAssignment.staff_id)

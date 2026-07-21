@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Settings as SettingsIcon,
   Users,
+  UsersRound,
 } from "lucide-react";
 
 import api from "../api.js";
@@ -5390,9 +5391,191 @@ function MyDayPanel() {
   );
 }
 
+function TeamAssignmentPanel() {
+  const [staffList, setStaffList] = useState([]);
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [manageStaff, setManageStaff] = useState(null);
+  const [checkedAdminIds, setCheckedAdminIds] = useState(new Set());
+  const [saving, setSaving] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [rosterRes, adminsRes] = await Promise.all([
+        api.get("/api/team/roster"),
+        api.get("/api/team/admins"),
+      ]);
+      setStaffList(rosterRes.data);
+      setAdmins(adminsRes.data);
+    } catch {
+      toast.error("Could not load team assignments");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const openManageModal = (staff) => {
+    setManageStaff(staff);
+    setCheckedAdminIds(new Set(staff.assigned_admin_ids));
+  };
+
+  const toggleAdmin = (adminId) => {
+    setCheckedAdminIds((current) => {
+      const next = new Set(current);
+      if (next.has(adminId)) next.delete(adminId);
+      else next.add(adminId);
+      return next;
+    });
+  };
+
+  const handleSaveAssignments = async () => {
+    if (!manageStaff) return;
+    setSaving(true);
+    const before = new Set(manageStaff.assigned_admin_ids);
+    const toAdd = [...checkedAdminIds].filter((id) => !before.has(id));
+    const toRemove = [...before].filter((id) => !checkedAdminIds.has(id));
+
+    try {
+      await Promise.all([
+        ...toAdd.map((adminId) =>
+          api.post("/api/team/assign", { staff_id: manageStaff.id, admin_id: adminId })
+        ),
+        ...toRemove.map((adminId) =>
+          api.delete("/api/team/assign", { data: { staff_id: manageStaff.id, admin_id: adminId } })
+        ),
+      ]);
+      toast.success("Assignments updated");
+      setManageStaff(null);
+      fetchData();
+    } catch {
+      toast.error("Could not update assignments");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <LoadingState label="Loading team assignments…" />;
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardHeader>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Team Assignment</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Choose which staff each admin can see and manage. Staff with no admin assigned are
+              visible only to you.
+            </p>
+          </div>
+        </CardHeader>
+        <CardBody className="p-0">
+          {staffList.length === 0 ? (
+            <div className="p-5">
+              <EmptyState icon={Users} title="No staff members yet" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-slate-900/8 dark:border-white/10">
+                  <tr>
+                    <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Staff</th>
+                    <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Department</th>
+                    <th className="px-5 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Assigned Admins</th>
+                    <th className="px-5 py-3 text-right font-semibold text-slate-500 dark:text-slate-400">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-900/8 dark:divide-white/10">
+                  {staffList.map((staff) => {
+                    const assignedAdmins = admins.filter((a) =>
+                      staff.assigned_admin_ids.includes(a.id)
+                    );
+                    return (
+                      <tr key={staff.id}>
+                        <td className="px-5 py-4">
+                          <div className="font-semibold text-slate-900 dark:text-white">{staff.full_name}</div>
+                          <div className="text-xs text-slate-400">{staff.employee_id}</div>
+                        </td>
+                        <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
+                          {staff.department || "—"}
+                        </td>
+                        <td className="px-5 py-4">
+                          {assignedAdmins.length === 0 ? (
+                            <Badge tone="neutral" icon={false}>Unassigned</Badge>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {assignedAdmins.map((a) => (
+                                <Badge key={a.id} tone="info" icon={false}>{a.full_name}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <Button variant="secondary" size="sm" onClick={() => openManageModal(staff)}>
+                            Manage
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Modal
+        open={!!manageStaff}
+        onClose={() => setManageStaff(null)}
+        title={manageStaff ? `Assign admins for ${manageStaff.full_name}` : ""}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setManageStaff(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAssignments} loading={saving}>
+              Save
+            </Button>
+          </>
+        }
+      >
+        {admins.length === 0 ? (
+          <EmptyState icon={Users} title="No admins in this company yet" />
+        ) : (
+          <div className="space-y-2">
+            {admins.map((admin) => (
+              <label
+                key={admin.id}
+                className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+              >
+                <input
+                  type="checkbox"
+                  checked={checkedAdminIds.has(admin.id)}
+                  onChange={() => toggleAdmin(admin.id)}
+                  className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="font-medium text-slate-800 dark:text-slate-200">{admin.full_name}</span>
+                <span className="text-xs text-slate-400">{admin.employee_id}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "staff-management", label: "Staff", icon: Users },
+  { id: "team-assignment", label: "Team Assignment", icon: UsersRound, superAdminOnly: true },
   { id: "screenshots", label: "Screenshots", icon: Camera, superAdminOnly: true },
   { id: "reports", label: "Reports", icon: ClipboardList },
   { id: "leave", label: "Leave Requests", icon: CalendarDays },
@@ -5404,6 +5587,7 @@ const navItems = [
 const sectionTitles = {
   dashboard: "Dashboard",
   "staff-management": "Staff",
+  "team-assignment": "Team Assignment",
   screenshots: "Screenshots",
   reports: "Reports",
   leave: "Leave Requests",
@@ -5574,6 +5758,10 @@ function SuperAdminDashboard() {
 
     if (activeSection === "staff-management") {
       return <StaffManagementPanel openProfile={setProfileUser} />;
+    }
+
+    if (activeSection === "team-assignment") {
+      return <TeamAssignmentPanel />;
     }
 
     if (activeSection === "screenshots") {

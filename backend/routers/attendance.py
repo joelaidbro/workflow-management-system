@@ -18,6 +18,7 @@ from routers.notifications import push_to_user_sync
 from database import get_db
 from limiter import limiter
 from models import ActivityLog, Attendance, Company, CurrentStatus, DailyReport, MachineToken, SalaryRecord, User
+from team_scope import get_assigned_admin_ids, get_assigned_staff_ids
 
 router = APIRouter()
 
@@ -87,6 +88,17 @@ def get_staff_for_attendance(user_id: str, current_user: User, db: Session):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
+        )
+
+    if (
+        current_user.role == "admin"
+        and user.role == "staff"
+        and user.id != current_user.id
+        and user.id not in get_assigned_staff_ids(current_user.id, db)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
         )
 
     return user
@@ -379,18 +391,23 @@ def end_day(
 
     db.commit()
 
-    admin_ids = [
-        str(row.id)
+    # super_admin always sees every report (unrestricted); a normal admin only
+    # needs to know about reports from staff actually assigned to them.
+    super_admin_ids = {
+        row.id
         for row in db.query(User.id).filter(
             User.company_id == current_user.company_id,
-            User.role.in_(["admin", "super_admin"]),
+            User.role == "super_admin",
             User.is_active.is_(True),
-            User.id != current_user.id,
         ).all()
-    ]
-    for admin_id in admin_ids:
-        manager.notify_user_sync(admin_id, {"type": "notification", "kind": "new_report"})
-        push_to_user_sync(admin_id, "New Work Report", f"{current_user.full_name} submitted their daily report")
+    }
+    notify_ids = super_admin_ids | (
+        get_assigned_admin_ids(current_user.id, db) if current_user.role == "staff" else set()
+    )
+    for admin_id in notify_ids:
+        admin_id_str = str(admin_id)
+        manager.notify_user_sync(admin_id_str, {"type": "notification", "kind": "new_report"})
+        push_to_user_sync(admin_id_str, "New Work Report", f"{current_user.full_name} submitted their daily report")
 
     return {
         "message": "Day ended successfully",
@@ -530,6 +547,8 @@ def get_team_reports(
             User.role == "staff",
         )
     )
+    if current_user.role == "admin":
+        query = query.filter(User.id.in_(get_assigned_staff_ids(current_user.id, db)))
 
     if date:
         try:
@@ -605,6 +624,12 @@ def reply_to_report(
             detail="Report not found",
         )
 
+    if current_user.role == "admin" and report.user_id not in get_assigned_staff_ids(current_user.id, db):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found",
+        )
+
     if report.admin_reply is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -634,16 +659,14 @@ def export_team_attendance_excel(
     from openpyxl.utils import get_column_letter
 
     require_admin(current_user)
-    staff_members = (
-        db.query(User)
-        .filter(
-            User.company_id == current_user.company_id,
-            User.role == "staff",
-            User.is_active.is_(True),
-        )
-        .order_by(User.full_name.asc())
-        .all()
+    staff_query = db.query(User).filter(
+        User.company_id == current_user.company_id,
+        User.role == "staff",
+        User.is_active.is_(True),
     )
+    if current_user.role == "admin":
+        staff_query = staff_query.filter(User.id.in_(get_assigned_staff_ids(current_user.id, db)))
+    staff_members = staff_query.order_by(User.full_name.asc()).all()
 
     workbook = Workbook()
     worksheet = workbook.active
@@ -922,7 +945,7 @@ def get_reports_unread_dates(
     db: Session = Depends(get_db),
 ):
     require_admin(current_user)
-    rows = (
+    query = (
         db.query(DailyReport.report_date)
         .join(User, User.id == DailyReport.user_id)
         .filter(
@@ -930,9 +953,10 @@ def get_reports_unread_dates(
             DailyReport.is_read_by_admin.is_(False),
             User.role == "staff",
         )
-        .distinct()
-        .all()
     )
+    if current_user.role == "admin":
+        query = query.filter(User.id.in_(get_assigned_staff_ids(current_user.id, db)))
+    rows = query.distinct().all()
     return {"dates": sorted([row.report_date.isoformat() for row in rows], reverse=True)}
 
 
@@ -942,7 +966,7 @@ def get_reports_unread_count(
     db: Session = Depends(get_db),
 ):
     require_admin(current_user)
-    count = (
+    query = (
         db.query(DailyReport)
         .join(User, User.id == DailyReport.user_id)
         .filter(
@@ -950,9 +974,10 @@ def get_reports_unread_count(
             DailyReport.is_read_by_admin.is_(False),
             User.role == "staff",
         )
-        .count()
     )
-    return {"count": count}
+    if current_user.role == "admin":
+        query = query.filter(User.id.in_(get_assigned_staff_ids(current_user.id, db)))
+    return {"count": query.count()}
 
 
 @router.get("/attendance/reports/reply-count")

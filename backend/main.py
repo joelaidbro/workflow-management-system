@@ -33,6 +33,7 @@ from routers.settings import router as settings_router
 from routers.screenshots import router as screenshots_router
 from routers.status import router as status_router
 from routers.tasks import router as tasks_router
+from routers.team import router as team_router
 from routers.users import router as users_router
 
 load_dotenv()
@@ -110,6 +111,7 @@ app.include_router(platform_router, prefix="/api")
 app.include_router(screenshots_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
+app.include_router(team_router, prefix="/api")
 
 
 @app.get("/health")

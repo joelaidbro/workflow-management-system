@@ -14,6 +14,7 @@ from connection_manager import manager
 from routers.notifications import push_to_user_sync
 from database import get_db
 from models import Attendance, Company, LeaveRequest, User
+from team_scope import get_assigned_admin_ids, get_assigned_staff_ids
 
 router = APIRouter()
 
@@ -107,6 +108,16 @@ def get_staff_user(user_id: str, current_user: User, db: Session):
             detail="Forbidden",
         )
 
+    if (
+        current_user.role == "admin"
+        and user.id != current_user.id
+        and user.id not in get_assigned_staff_ids(current_user.id, db)
+    ):
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
     return user
 
 
@@ -192,18 +203,21 @@ def submit_leave_request(
     db.commit()
     db.refresh(leave_request)
 
-    admin_ids = [
-        str(row.id)
+    super_admin_ids = {
+        row.id
         for row in db.query(User.id).filter(
             User.company_id == current_user.company_id,
-            User.role.in_(["admin", "super_admin"]),
+            User.role == "super_admin",
             User.is_active.is_(True),
-            User.id != current_user.id,
         ).all()
-    ]
-    for admin_id in admin_ids:
-        manager.notify_user_sync(admin_id, {"type": "notification", "kind": "new_leave_request"})
-        push_to_user_sync(admin_id, "New Leave Request", f"{current_user.full_name} submitted a leave request")
+    }
+    notify_ids = super_admin_ids | (
+        get_assigned_admin_ids(current_user.id, db) if current_user.role == "staff" else set()
+    )
+    for admin_id in notify_ids:
+        admin_id_str = str(admin_id)
+        manager.notify_user_sync(admin_id_str, {"type": "notification", "kind": "new_leave_request"})
+        push_to_user_sync(admin_id_str, "New Leave Request", f"{current_user.full_name} submitted a leave request")
 
     return {
         "message": "Leave request submitted",
@@ -255,7 +269,7 @@ def get_team_leave_requests(
             detail="Invalid status",
         )
 
-    leave_rows = (
+    leave_query = (
         db.query(LeaveRequest, User)
         .join(User, User.id == LeaveRequest.user_id)
         .filter(
@@ -263,9 +277,10 @@ def get_team_leave_requests(
             LeaveRequest.status == status,
             User.role == "staff",
         )
-        .order_by(LeaveRequest.created_at.asc())
-        .all()
     )
+    if current_user.role == "admin":
+        leave_query = leave_query.filter(User.id.in_(get_assigned_staff_ids(current_user.id, db)))
+    leave_rows = leave_query.order_by(LeaveRequest.created_at.asc()).all()
 
     return [
         {
@@ -309,6 +324,12 @@ def review_leave_request(
         .first()
     )
     if not leave_request:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="Leave request not found",
+        )
+
+    if current_user.role == "admin" and leave_request.user_id not in get_assigned_staff_ids(current_user.id, db):
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Leave request not found",
@@ -444,7 +465,7 @@ def get_leave_pending_count(
     db: Session = Depends(get_db),
 ):
     require_admin(current_user)
-    count = (
+    query = (
         db.query(LeaveRequest)
         .join(User, User.id == LeaveRequest.user_id)
         .filter(
@@ -452,9 +473,10 @@ def get_leave_pending_count(
             LeaveRequest.status == "pending",
             User.role == "staff",
         )
-        .count()
     )
-    return {"count": count}
+    if current_user.role == "admin":
+        query = query.filter(User.id.in_(get_assigned_staff_ids(current_user.id, db)))
+    return {"count": query.count()}
 
 
 @router.get("/leave/decisions-count")
