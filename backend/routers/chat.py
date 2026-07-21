@@ -74,6 +74,11 @@ async def chat_websocket(websocket: WebSocket, user_id: str):
 
         while True:
             incoming = await websocket.receive_json()
+
+            if incoming.get("type") == "visibility":
+                await manager.set_visible(user_id, bool(incoming.get("visible")))
+                continue
+
             recipient_id = incoming.get("recipient_id")
             content = strip_html_tags(incoming.get("content", ""))
 

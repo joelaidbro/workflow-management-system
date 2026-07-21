@@ -79,7 +79,7 @@ async def send_push_to_user(user_id: str, title: str, body: str):
     """
     if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
         return
-    if await manager.is_connected(user_id):
+    if await manager.is_visible(user_id):
         return
 
     try:

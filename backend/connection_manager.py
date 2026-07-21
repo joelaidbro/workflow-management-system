@@ -100,7 +100,7 @@ class ConnectionManager:
     async def _cleanup_redis(self, user_id: str):
         if self._redis:
             try:
-                await self._redis.delete(f"wf:online:{user_id}")
+                await self._redis.delete(f"wf:online:{user_id}", f"wf:visible:{user_id}")
             except Exception as e:
                 logger.warning(f"Redis delete failed for {user_id}: {e}")
         if self._pubsub:
@@ -145,6 +145,31 @@ class ConnectionManager:
             except Exception:
                 pass
         return user_id in self.active_connections
+
+    async def set_visible(self, user_id: str, visible: bool):
+        """Records whether the user's tab is currently foregrounded (Page Visibility API).
+        Backed by a short-TTL Redis key so a backgrounded/closed tab naturally expires
+        even if the WebSocket itself stays open (reconnect logic keeps sockets alive
+        long after the user has stopped looking at the screen)."""
+        if not self._redis:
+            return
+        key = f"wf:visible:{user_id}"
+        try:
+            if visible:
+                await self._redis.set(key, "1", ex=45)
+            else:
+                await self._redis.delete(key)
+        except Exception as e:
+            logger.debug(f"Redis visibility update failed for {user_id}: {e}")
+
+    async def is_visible(self, user_id: str) -> bool:
+        """True only if the user's tab is open AND currently foregrounded/visible."""
+        if self._redis:
+            try:
+                return bool(await self._redis.exists(f"wf:visible:{user_id}"))
+            except Exception:
+                pass
+        return False
 
     def is_online(self, user_id: str) -> bool:
         """Same-worker connection check (kept for backward compatibility)."""

@@ -546,6 +546,14 @@ function StaffDashboard() {
     let reconnectTimeout = null;
     let destroyed = false;
 
+    function sendVisibility() {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({ type: "visibility", visible: document.visibilityState === "visible" })
+        );
+      }
+    }
+
     function connect() {
     const ws = new WebSocket(`${wsUrl}/api/chat/ws/${currentUserId}`);
     wsRef.current = ws;
@@ -553,6 +561,7 @@ function StaffDashboard() {
     ws.onopen = () => {
       reconnectDelay = 3000;
       ws.send(JSON.stringify({ token }));
+      sendVisibility();
     };
 
     ws.onerror = () => {};
@@ -665,9 +674,14 @@ function StaffDashboard() {
 
     connect();
 
+    document.addEventListener("visibilitychange", sendVisibility);
+    const visibilityRefreshInterval = setInterval(sendVisibility, 30000);
+
     return () => {
       destroyed = true;
       clearTimeout(reconnectTimeout);
+      clearInterval(visibilityRefreshInterval);
+      document.removeEventListener("visibilitychange", sendVisibility);
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

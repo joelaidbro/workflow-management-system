@@ -1872,6 +1872,14 @@ function ChatPanel({
     let reconnectTimeout = null;
     let destroyed = false;
 
+    function sendVisibility() {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({ type: "visibility", visible: document.visibilityState === "visible" })
+        );
+      }
+    }
+
     function connect() {
     const ws = new WebSocket(`${wsUrl}/api/chat/ws/${currentUserId}`);
     wsRef.current = ws;
@@ -1879,6 +1887,7 @@ function ChatPanel({
     ws.onopen = () => {
       reconnectDelay = 3000;
       ws.send(JSON.stringify({ token }));
+      sendVisibility();
     };
 
     ws.onerror = () => {};
@@ -1992,9 +2001,14 @@ function ChatPanel({
 
     connect();
 
+    document.addEventListener("visibilitychange", sendVisibility);
+    const visibilityRefreshInterval = setInterval(sendVisibility, 30000);
+
     return () => {
       destroyed = true;
       clearTimeout(reconnectTimeout);
+      clearInterval(visibilityRefreshInterval);
+      document.removeEventListener("visibilitychange", sendVisibility);
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -5539,15 +5553,7 @@ function SuperAdminDashboard() {
     }
 
     if (activeSection === "chat") {
-      return (
-        <ChatPanel
-          chatWithUser={chatWithUser}
-          onUnreadIncrement={() => setUnreadCount((c) => c + 1)}
-          onReportUnreadIncrement={() => setReportUnreadCount((c) => c + 1)}
-          onLeavePendingIncrement={() => setLeavePendingCount((c) => c + 1)}
-          onAlertReplyIncrement={() => setAlertReplyCount((c) => c + 1)}
-        />
-      );
+      return null;
     }
 
     if (activeSection === "tasks") {
@@ -5588,6 +5594,16 @@ function SuperAdminDashboard() {
       }
     >
       {renderContent()}
+
+      <div className={activeSection === "chat" ? "" : "hidden"}>
+        <ChatPanel
+          chatWithUser={chatWithUser}
+          onUnreadIncrement={() => setUnreadCount((c) => c + 1)}
+          onReportUnreadIncrement={() => setReportUnreadCount((c) => c + 1)}
+          onLeavePendingIncrement={() => setLeavePendingCount((c) => c + 1)}
+          onAlertReplyIncrement={() => setAlertReplyCount((c) => c + 1)}
+        />
+      </div>
 
       {profileUser && (
         <StaffProfileModal
