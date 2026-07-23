@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import {
   ArrowLeft,
   Bell,
+  BellRing,
   Camera,
   CalendarDays,
   ClipboardList,
@@ -13,6 +14,7 @@ import {
   MessageSquare,
   Settings as SettingsIcon,
   Users,
+  UserRound,
   UsersRound,
 } from "lucide-react";
 
@@ -32,6 +34,8 @@ import Modal from "../components/ui/Modal.jsx";
 import TabBar from "../components/ui/TabBar.jsx";
 import { EmptyState, LoadingState } from "../components/ui/States.jsx";
 import DashboardShell from "../components/ui/DashboardShell.jsx";
+import ConnectedAccounts from "../components/ConnectedAccounts.jsx";
+import RemindersPanel from "../components/RemindersPanel.jsx";
 
 const statusColors = {
   active: "bg-emerald-500",
@@ -5572,6 +5576,26 @@ function TeamAssignmentPanel() {
   );
 }
 
+function MyProfileSection({ user }) {
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardBody>
+          <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {user?.full_name || "Admin"}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{user?.email || "N/A"}</p>
+          <div className="mt-3">
+            <Badge tone="info">{user?.role === "super_admin" ? "Super Admin" : "Admin"}</Badge>
+          </div>
+        </CardBody>
+      </Card>
+
+      <ConnectedAccounts />
+    </div>
+  );
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "staff-management", label: "Staff", icon: Users },
@@ -5582,6 +5606,8 @@ const navItems = [
   { id: "alerts", label: "Alerts", icon: Bell },
   { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "tasks", label: "Tasks", icon: ListChecks },
+  { id: "reminders", label: "Reminders", icon: BellRing },
+  { id: "my-profile", label: "My Profile", icon: UserRound },
 ];
 
 const sectionTitles = {
@@ -5594,6 +5620,8 @@ const sectionTitles = {
   alerts: "Alerts",
   chat: "Chat",
   tasks: "Tasks",
+  reminders: "Reminders",
+  "my-profile": "My Profile",
   settings: "Settings",
 };
 
@@ -5786,6 +5814,14 @@ function SuperAdminDashboard() {
 
     if (activeSection === "tasks") {
       return <TasksPanel />;
+    }
+
+    if (activeSection === "reminders") {
+      return <RemindersPanel />;
+    }
+
+    if (activeSection === "my-profile") {
+      return <MyProfileSection user={user} />;
     }
 
     return (

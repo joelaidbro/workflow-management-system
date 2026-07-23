@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import {
   ArrowDown,
   Bell,
+  BellRing,
   CalendarClock,
   CalendarDays,
   ChevronLeft,
@@ -34,6 +35,8 @@ import Modal from "../components/ui/Modal.jsx";
 import TabBar from "../components/ui/TabBar.jsx";
 import { EmptyState, LoadingState } from "../components/ui/States.jsx";
 import DashboardShell from "../components/ui/DashboardShell.jsx";
+import ConnectedAccounts from "../components/ConnectedAccounts.jsx";
+import RemindersPanel from "../components/RemindersPanel.jsx";
 
 function formatElapsedDuration(startValue, endValue = new Date()) {
   if (!startValue) {
@@ -97,6 +100,7 @@ const STAFF_SECTION_IDS = [
   "attendance",
   "alerts",
   "tasks",
+  "reminders",
   "profile",
 ];
 
@@ -1079,6 +1083,7 @@ function StaffDashboard() {
     attendance: "Attendance",
     alerts: "Alerts",
     tasks: "My Tasks",
+    reminders: "Reminders",
     profile: "Profile",
   };
   const navItems = [
@@ -1089,6 +1094,7 @@ function StaffDashboard() {
     { id: "attendance", label: "Attendance", icon: CalendarClock },
     { id: "alerts", label: "Alerts", icon: Bell },
     { id: "tasks", label: "My Tasks", icon: ListChecks },
+    { id: "reminders", label: "Reminders", icon: BellRing },
     { id: "profile", label: "Profile", icon: UserRound },
   ];
   const calendarDays = useMemo(() => {
@@ -2123,6 +2129,8 @@ function StaffDashboard() {
           </div>
         )}
 
+        {activeSection === "reminders" && <RemindersPanel />}
+
         {activeSection === "profile" && (
           <div className="space-y-6">
             <Card>
@@ -2179,6 +2187,8 @@ function StaffDashboard() {
                 )}
               </CardBody>
             </Card>
+
+            <ConnectedAccounts />
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
               <div className="rounded-xl border border-emerald-200/60 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-500/10">

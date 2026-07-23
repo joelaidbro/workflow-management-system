@@ -12,16 +12,19 @@ from slowapi.errors import RateLimitExceeded
 
 from sqlalchemy.exc import IntegrityError
 
+import crypto_utils  # noqa: F401  (import triggers fail-fast OAUTH_ENCRYPTION_KEY validation)
 from connection_manager import manager
 from limiter import limiter
 from tasks import (
     company_deletion_task,
     daily_reset_task,
     offline_detection_task,
+    reminder_dispatch_task,
     screenshot_cleanup_task,
 )
 
 from routers.agent import router as agent_router
+from routers.calendar import router as calendar_router
 from routers.notifications import router as notifications_router
 from routers.alerts import router as alerts_router
 from routers.attendance import router as attendance_router
@@ -29,6 +32,7 @@ from routers.auth import router as auth_router
 from routers.chat import router as chat_router
 from routers.leave import router as leave_router
 from routers.platform import router as platform_router
+from routers.reminders import router as reminders_router
 from routers.settings import router as settings_router
 from routers.screenshots import router as screenshots_router
 from routers.status import router as status_router
@@ -48,6 +52,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(screenshot_cleanup_task()),
         asyncio.create_task(company_deletion_task()),
         asyncio.create_task(daily_reset_task()),
+        asyncio.create_task(reminder_dispatch_task()),
     ]
     try:
         yield
@@ -112,6 +117,8 @@ app.include_router(screenshots_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(team_router, prefix="/api")
+app.include_router(calendar_router, prefix="/api")
+app.include_router(reminders_router, prefix="/api")
 
 
 @app.get("/health")

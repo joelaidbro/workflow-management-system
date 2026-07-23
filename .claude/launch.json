@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "D:\\Joel\\Job\\AidBro\\Employee Monitoring Software\\Workflow Management Software\\backend\\.venv\\Scripts\\uvicorn.exe",
+      "runtimeArgs": [
+        "main:app",
+        "--reload",
+        "--port",
+        "8001",
+        "--app-dir",
+        "D:\\Joel\\Job\\AidBro\\Employee Monitoring Software\\Workflow Management Software\\backend"
+      ],
+      "port": 8001
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "D:\\Joel\\Job\\AidBro\\Employee Monitoring Software\\Workflow Management Software\\frontend",
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    }
+  ]
+}

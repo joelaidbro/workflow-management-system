@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Bell,
+  BellRing,
   CalendarDays,
   ClipboardList,
   Home,
@@ -28,6 +29,8 @@ import Modal from "../components/ui/Modal.jsx";
 import TabBar from "../components/ui/TabBar.jsx";
 import { EmptyState, LoadingState } from "../components/ui/States.jsx";
 import DashboardShell from "../components/ui/DashboardShell.jsx";
+import ConnectedAccounts from "../components/ConnectedAccounts.jsx";
+import RemindersPanel from "../components/RemindersPanel.jsx";
 
 import {
   TeamStatusPanel,
@@ -308,6 +311,8 @@ function MyProfilePanel() {
           </div>
         </CardBody>
       </Card>
+
+      <ConnectedAccounts />
     </div>
   );
 }
@@ -1743,6 +1748,7 @@ const adminNavItems = [
   { id: "leave", label: "Leave Requests", icon: CalendarDays },
   { id: "alerts", label: "Alerts", icon: Bell },
   { id: "tasks", label: "Tasks", icon: ListChecks },
+  { id: "reminders", label: "Reminders", icon: BellRing },
   { id: "chat", label: "Chat", icon: MessageSquare },
 ];
 
@@ -1754,6 +1760,7 @@ const adminSectionTitles = {
   leave: "Leave Requests",
   alerts: "Alerts",
   tasks: "Tasks",
+  reminders: "Reminders",
   chat: "Chat",
 };
 
@@ -1897,6 +1904,7 @@ function NormalAdminDashboard() {
     if (activeSection === "leave") return <AdminLeavePanel />;
     if (activeSection === "alerts") return <AdminAlertsPanel />;
     if (activeSection === "tasks") return <AdminTasksPanel />;
+    if (activeSection === "reminders") return <RemindersPanel />;
     if (activeSection === "chat") return null;
 
     return (

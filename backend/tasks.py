@@ -5,7 +5,8 @@ import zoneinfo
 from datetime import datetime, timedelta, timezone
 
 from database import SessionLocal
-from models import ActivityLog, Attendance, Company, CurrentStatus, MachineToken, Screenshot, User
+from models import ActivityLog, Attendance, Company, CurrentStatus, MachineToken, Reminder, Screenshot, User
+from routers.notifications import send_push_to_user
 from routers.platform import delete_company_data
 from routers.settings import get_config
 from utils import compute_working_minutes
@@ -42,6 +43,58 @@ async def offline_detection_task():
 
             db.commit()
         except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+        await asyncio.sleep(60)
+
+
+async def reminder_dispatch_task():
+    """
+    Runs every 60 s. Google Calendar's own notification is the primary delivery
+    channel for a reminder and already happened synchronously when the reminder
+    was created/edited (routers/reminders.py). This task is the in-app push
+    fallback (routers/notifications.send_push_to_user - itself a no-op if the
+    user is already visible via WebSocket or has no push subscription, neither
+    of which counts as a dispatch failure) and the sweep that flips a reminder
+    from "pending" to "sent" once its time has passed. "failed" is reserved for
+    a genuine, unexpected error during dispatch - logged here with the reminder
+    id and timestamp so it can be looked up without exposing internals to the
+    user, who just sees a generic retry message in the UI.
+    """
+    logging.info("Reminder dispatch task started")
+    while True:
+        db = SessionLocal()
+        try:
+            now = datetime.utcnow()
+            due_reminders = (
+                db.query(Reminder)
+                .filter(Reminder.status == "pending", Reminder.remind_at <= now)
+                .all()
+            )
+
+            for reminder in due_reminders:
+                try:
+                    await send_push_to_user(
+                        str(reminder.user_id),
+                        reminder.title,
+                        reminder.description or "",
+                    )
+                    reminder.status = "sent"
+                except Exception as exc:
+                    reminder.status = "failed"
+                    reminder.failure_reason = str(exc)
+                    logging.error(
+                        "Reminder dispatch failed for reminder %s (user %s) at %s: %s",
+                        reminder.id,
+                        reminder.user_id,
+                        now.isoformat(),
+                        exc,
+                    )
+                db.commit()
+        except Exception:
+            logging.exception("Error in reminder dispatch task")
             db.rollback()
         finally:
             db.close()

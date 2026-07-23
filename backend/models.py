@@ -134,6 +134,17 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    google_oauth_token = relationship(
+        "GoogleOAuthToken",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    reminders = relationship(
+        "Reminder",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class AdminStaffAssignment(Base):
@@ -441,6 +452,46 @@ class Task(Base):
     )
 
 
+class GoogleOAuthToken(Base):
+    __tablename__ = "google_oauth_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=False)
+    token_expiry = Column(DateTime, nullable=False)
+    google_email = Column(String(255), nullable=True)
+    connected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="google_oauth_token")
+
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    remind_at = Column(DateTime, nullable=False)
+    reminder_offsets = Column(JSON, nullable=False, default=list)
+    status = Column(String(20), nullable=False, default="pending")
+    google_event_id = Column(String(255), nullable=True)
+    failure_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="reminders")
+
+
 Index(
     "ix_activity_logs_company_id_user_id_timestamp",
     ActivityLog.company_id,
@@ -524,3 +575,5 @@ Index("ix_salary_records_user_id", SalaryRecord.user_id)
 Index("ix_salary_records_company_id", SalaryRecord.company_id)
 Index("ix_admin_staff_assignments_admin_id", AdminStaffAssignment.admin_id)
 Index("ix_admin_staff_assignments_staff_id", AdminStaffAssignment.staff_id)
+Index("ix_reminders_user_id_created_at", Reminder.user_id, Reminder.created_at)
+Index("ix_reminders_status_remind_at", Reminder.status, Reminder.remind_at)
