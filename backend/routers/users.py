@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, hash_password, require_super_admin, require_admin
 from database import get_db
 from models import ActivityLog, CurrentStatus, MachineToken, Session as UserSession, User
+from routers.billing import maybe_create_proration_invoice
 from team_scope import get_assigned_staff_ids
 
 router = APIRouter()
@@ -168,11 +169,20 @@ def create_user(
     db.commit()
     db.refresh(user)
 
-    return {
+    # A new staff/admin seat may push the company over its included
+    # subscription headcount — bill the overage immediately rather than
+    # waiting for the next renewal (see routers/billing.py docstring).
+    proration_invoice = maybe_create_proration_invoice(current_user.company_id, db)
+
+    response = {
         "message": "User created",
         "user_id": str(user.id),
         "employee_id": user.employee_id,
     }
+    if proration_invoice:
+        response["proration_invoice_created"] = True
+        response["proration_amount"] = proration_invoice.amount
+    return response
 
 
 @router.get("/users/list")

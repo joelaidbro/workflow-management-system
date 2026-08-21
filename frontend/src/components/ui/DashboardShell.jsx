@@ -1,7 +1,19 @@
 import { useEffect, useState } from "react";
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { AlertTriangle, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import ThemeToggle from "./ThemeToggle.jsx";
 import NotificationCenter from "./NotificationCenter.jsx";
+import api from "../../api.js";
+
+const BILLING_BANNER_COPY = {
+  overdue: {
+    superAdmin: "Your subscription payment is due. Pay soon to avoid your team losing access to actions.",
+    other: "Your company's subscription payment is due.",
+  },
+  locked: {
+    superAdmin: "Actions are locked — your subscription payment is overdue. Pay now to restore full access for your team.",
+    other: "Actions are temporarily unavailable. Please contact your company's IT department.",
+  },
+};
 
 /**
  * Shared app shell: one continuous matte gradient canvas (`.app-mesh-bg`,
@@ -26,10 +38,37 @@ export default function DashboardShell({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [billingStatus, setBillingStatus] = useState(null);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [activeSection]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const storedUser = localStorage.getItem("user");
+    const role = storedUser ? JSON.parse(storedUser)?.role : null;
+    if (role === "platform_admin" || !role) return;
+
+    api
+      .get("/api/billing/status")
+      .then((response) => {
+        if (!cancelled) setBillingStatus(response.data);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const storedUser = localStorage.getItem("user");
+  const currentRole = storedUser ? JSON.parse(storedUser)?.role : null;
+  const billingBannerCopy =
+    billingStatus && BILLING_BANNER_COPY[billingStatus.status]
+      ? BILLING_BANNER_COPY[billingStatus.status][currentRole === "super_admin" ? "superAdmin" : "other"]
+      : null;
+  const canJumpToSubscriptions = currentRole === "super_admin" && navItems.some((item) => item.id === "subscriptions");
 
   const railWidth = collapsed ? "lg:w-20" : "lg:w-64";
   const contentOffset = collapsed ? "lg:pl-20" : "lg:pl-64";
@@ -201,6 +240,28 @@ export default function DashboardShell({
             <ThemeToggle />
           </div>
         </header>
+
+        {billingBannerCopy && (
+          <div
+            className={`flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm font-medium sm:px-6 ${
+              billingStatus.status === "locked"
+                ? "bg-rose-600 text-white"
+                : "bg-amber-500 text-white"
+            }`}
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="flex-1">{billingBannerCopy}</span>
+            {canJumpToSubscriptions && (
+              <button
+                type="button"
+                onClick={() => onSectionChange("subscriptions")}
+                className="focus-ring shrink-0 rounded-lg bg-white/20 px-3 py-1 text-xs font-semibold hover:bg-white/30"
+              >
+                Go to Subscriptions
+              </button>
+            )}
+          </div>
+        )}
 
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>

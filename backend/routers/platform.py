@@ -17,7 +17,7 @@ from models import (
     Alert, Company, CurrentStatus, Message, User,
     ActivityLog, AlertRecipient, Attendance, DailyReport,
     LeaveRequest, SalaryRecord, Screenshot, MachineToken,
-    Session as SessionModel
+    Session as SessionModel, Subscription, SubscriptionInvoice,
 )
 from routers.settings import DEFAULT_CONFIG
 
@@ -167,6 +167,13 @@ def create_company(
     db.commit()
     db.refresh(company)
     db.refresh(super_admin)
+
+    # Every company gets billed from day one — seeds an active subscription
+    # with its first renewal invoice due within the platform's grace period.
+    from routers.billing import get_or_create_platform_settings, get_or_create_subscription
+
+    settings = get_or_create_platform_settings(db)
+    get_or_create_subscription(company, db, settings)
 
     return {
         "company_id": str(company.id),
@@ -409,7 +416,11 @@ def delete_company_data(company_id: str, db: Session) -> None:
     # 13. users
     db.query(User).filter(User.company_id == company_id).delete(synchronize_session=False)
 
-    # 14. companies
+    # 14. subscription_invoices + subscriptions
+    db.query(SubscriptionInvoice).filter(SubscriptionInvoice.company_id == company_id).delete(synchronize_session=False)
+    db.query(Subscription).filter(Subscription.company_id == company_id).delete(synchronize_session=False)
+
+    # 15. companies
     db.query(Company).filter(Company.id == company_id).delete(synchronize_session=False)
 
 

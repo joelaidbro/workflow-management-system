@@ -5,8 +5,19 @@ import zoneinfo
 from datetime import datetime, timedelta, timezone
 
 from database import SessionLocal
-from models import ActivityLog, Attendance, Company, CurrentStatus, MachineToken, Reminder, Screenshot, User
-from routers.notifications import send_push_to_user
+from models import (
+    ActivityLog,
+    Attendance,
+    Company,
+    CurrentStatus,
+    MachineToken,
+    Reminder,
+    Screenshot,
+    Subscription,
+    SubscriptionInvoice,
+    User,
+)
+from routers.notifications import send_push_to_user, push_to_user_sync
 from routers.platform import delete_company_data
 from routers.settings import get_config
 from utils import compute_working_minutes
@@ -327,3 +338,134 @@ async def daily_reset_task():
             db.close()
 
         await asyncio.sleep(60)
+
+
+async def subscription_billing_task():
+    """
+    Runs every 15 minutes. Drives the three subscription-lifecycle transitions
+    that aren't triggered by a user action:
+      1. active -> overdue: the current billing cycle's end has passed with no
+         renewal payment. Generates the renewal invoice for the new cycle if
+         one doesn't already exist, and notifies the super admin(s).
+      2. overdue -> locked: PlatformSettings.grace_period_hours has elapsed
+         since the cycle ended with still no payment. From this point,
+         SubscriptionLockMiddleware (main.py) blocks mutating requests for
+         everyone in the company except super_admin's own billing actions.
+      3. expiry warning: a one-time push a few days before an active cycle
+         ends, so paying on time doesn't come as a surprise. Tracked via
+         Subscription.expiry_warning_sent_at so it only fires once per cycle.
+    Imports routers.billing lazily (inside the function) to avoid import-order
+    issues at module load time, mirroring how this module already imports
+    routers.platform.delete_company_data at the top.
+    """
+    from routers.billing import compute_cycle_amount, get_billable_staff_count, get_or_create_platform_settings
+
+    logging.info("Subscription billing task started")
+    EXPIRY_WARNING_DAYS = 3
+
+    while True:
+        db = SessionLocal()
+        try:
+            now = datetime.utcnow()
+            settings = get_or_create_platform_settings(db)
+
+            subscriptions = (
+                db.query(Subscription)
+                .filter(Subscription.status.in_(["active", "overdue"]))
+                .all()
+            )
+
+            for subscription in subscriptions:
+                company = db.query(Company).filter(Company.id == subscription.company_id).first()
+                if not company:
+                    continue
+
+                # 1. Cycle ended, still marked active -> flip to overdue and
+                #    generate the renewal invoice for the new cycle if needed.
+                if subscription.status == "active" and now >= subscription.current_period_end:
+                    existing_renewal = (
+                        db.query(SubscriptionInvoice)
+                        .filter(
+                            SubscriptionInvoice.subscription_id == subscription.id,
+                            SubscriptionInvoice.invoice_type == "renewal",
+                            SubscriptionInvoice.status == "pending",
+                        )
+                        .first()
+                    )
+                    if not existing_renewal:
+                        staff_count = get_billable_staff_count(company.id, db)
+                        amount = compute_cycle_amount(settings, subscription.plan_type, staff_count)
+                        db.add(
+                            SubscriptionInvoice(
+                                company_id=company.id,
+                                subscription_id=subscription.id,
+                                invoice_type="renewal",
+                                amount=amount,
+                                staff_count=staff_count,
+                                period_start=subscription.current_period_end,
+                                period_end=subscription.current_period_end,
+                                due_at=subscription.current_period_end,
+                                status="pending",
+                            )
+                        )
+                    subscription.status = "overdue"
+                    db.commit()
+
+                    for super_admin in db.query(User).filter(
+                        User.company_id == company.id, User.role == "super_admin", User.is_active.is_(True)
+                    ):
+                        push_to_user_sync(
+                            str(super_admin.id),
+                            "Subscription payment due",
+                            f"Your plan has renewed and payment is due. Pay within "
+                            f"{settings.grace_period_hours} hours to avoid losing access to actions.",
+                        )
+                    continue
+
+                # 2. Grace period expired while overdue -> lock.
+                if subscription.status == "overdue":
+                    grace_deadline = subscription.current_period_end + timedelta(hours=settings.grace_period_hours)
+                    if now >= grace_deadline:
+                        subscription.status = "locked"
+                        subscription.locked_at = now
+                        db.commit()
+
+                        for super_admin in db.query(User).filter(
+                            User.company_id == company.id, User.role == "super_admin", User.is_active.is_(True)
+                        ):
+                            push_to_user_sync(
+                                str(super_admin.id),
+                                "Account locked - payment overdue",
+                                "Your team can no longer take actions until the outstanding subscription "
+                                "payment is made. Pay now from the Subscriptions page to restore access.",
+                            )
+                    continue
+
+                # 3. One-time expiry warning a few days before an active cycle ends.
+                if subscription.status == "active" and not subscription.expiry_warning_sent_at:
+                    warn_at = subscription.current_period_end - timedelta(days=EXPIRY_WARNING_DAYS)
+                    if now >= warn_at:
+                        subscription.expiry_warning_sent_at = now
+                        db.commit()
+
+                        for super_admin in db.query(User).filter(
+                            User.company_id == company.id, User.role == "super_admin", User.is_active.is_(True)
+                        ):
+                            push_to_user_sync(
+                                str(super_admin.id),
+                                "Subscription expiring soon",
+                                f"Your plan renews in {days_until(subscription.current_period_end, now)} day(s). "
+                                "No action needed if you're on track to pay at renewal.",
+                            )
+
+        except Exception:
+            logging.exception("Error in subscription billing task")
+            db.rollback()
+        finally:
+            db.close()
+
+        await asyncio.sleep(900)
+
+
+def days_until(target: datetime, now: datetime) -> int:
+    return max(0, (target - now).days)

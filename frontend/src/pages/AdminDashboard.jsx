@@ -9,6 +9,7 @@ import {
   Camera,
   CalendarDays,
   ClipboardList,
+  CreditCard,
   Home,
   ListChecks,
   MessageSquare,
@@ -36,6 +37,7 @@ import { EmptyState, LoadingState } from "../components/ui/States.jsx";
 import DashboardShell from "../components/ui/DashboardShell.jsx";
 import ConnectedAccounts from "../components/ConnectedAccounts.jsx";
 import RemindersPanel from "../components/RemindersPanel.jsx";
+import SubscriptionPage from "../components/SubscriptionPage.jsx";
 
 const statusColors = {
   active: "bg-emerald-500",
@@ -5623,6 +5625,7 @@ const sectionTitles = {
   reminders: "Reminders",
   "my-profile": "My Profile",
   settings: "Settings",
+  subscriptions: "Subscriptions",
 };
 
 function SuperAdminDashboard() {
@@ -5759,6 +5762,7 @@ function SuperAdminDashboard() {
     .filter((item) => !item.superAdminOnly || user?.role === "super_admin")
     .map((item) => ({ ...item, badge: badgeCounts[item.id] ?? 0 }));
   if (user?.role === "super_admin") {
+    visibleNavItems.push({ id: "subscriptions", label: "Subscriptions", icon: CreditCard });
     visibleNavItems.push({ id: "settings", label: "Settings", icon: SettingsIcon });
   }
 
@@ -5782,6 +5786,10 @@ function SuperAdminDashboard() {
   const renderContent = () => {
     if (activeSection === "settings") {
       return <SettingsPanel />;
+    }
+
+    if (activeSection === "subscriptions") {
+      return <SubscriptionPage />;
     }
 
     if (activeSection === "staff-management") {

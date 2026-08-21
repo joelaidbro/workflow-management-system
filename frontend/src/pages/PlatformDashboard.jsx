@@ -6,10 +6,12 @@ import {
   AlertTriangle,
   Bell,
   Building2,
+  CreditCard,
   KeyRound,
   LayoutGrid,
   MessageSquare,
   Plus,
+  Save,
   Search,
   Trash2,
   UserCheck,
@@ -39,7 +41,21 @@ function formatLastActive(value) {
   return `${Math.floor(minutes / 60)} hours ago`;
 }
 
-const PLATFORM_SECTION_IDS = ["overview", "companies", "create-company"];
+const PLATFORM_SECTION_IDS = ["overview", "companies", "create-company", "subscriptions"];
+
+const SUBSCRIPTION_STATUS_TONE = {
+  active: "success",
+  overdue: "warning",
+  locked: "danger",
+  cancelled: "neutral",
+};
+
+const SUBSCRIPTION_STATUS_LABEL = {
+  active: "Active",
+  overdue: "Overdue",
+  locked: "Locked",
+  cancelled: "Cancelled",
+};
 
 function PlatformDashboard() {
   const navigate = useNavigate();
@@ -68,6 +84,10 @@ function PlatformDashboard() {
   const [resetPasswordModal, setResetPasswordModal] = useState(null);
   const [resetPasswordResult, setResetPasswordResult] = useState(null);
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [platformSettings, setPlatformSettings] = useState(null);
+  const [settingsForm, setSettingsForm] = useState(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [companySubscriptions, setCompanySubscriptions] = useState([]);
 
   const fetchStats = async () => {
     try {
@@ -98,6 +118,53 @@ function PlatformDashboard() {
       fetchCompanies();
     }
   }, [activeSection]);
+
+  const fetchPlatformSettings = async () => {
+    try {
+      const response = await api.get("/api/billing/platform-settings");
+      setPlatformSettings(response.data);
+      setSettingsForm(response.data);
+    } catch (error) {
+      toast.error("Could not load subscription pricing");
+    }
+  };
+
+  const fetchCompanySubscriptions = async () => {
+    try {
+      const response = await api.get("/api/billing/platform/companies");
+      setCompanySubscriptions(response.data);
+    } catch (error) {
+      toast.error("Could not load company subscriptions");
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === "subscriptions") {
+      fetchPlatformSettings();
+      fetchCompanySubscriptions();
+    }
+  }, [activeSection]);
+
+  const handleSaveSettings = async (event) => {
+    event.preventDefault();
+    setSavingSettings(true);
+    try {
+      const response = await api.patch("/api/billing/platform-settings", {
+        monthly_base_price: Number(settingsForm.monthly_base_price),
+        included_staff_count: Number(settingsForm.included_staff_count),
+        extra_staff_price: Number(settingsForm.extra_staff_price),
+        grace_period_hours: Number(settingsForm.grace_period_hours),
+      });
+      setPlatformSettings(response.data);
+      setSettingsForm(response.data);
+      toast.success("Pricing updated — applies immediately across every panel");
+      fetchCompanySubscriptions();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not update pricing");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");
@@ -258,12 +325,14 @@ function PlatformDashboard() {
     { id: "overview", label: "Overview", icon: LayoutGrid },
     { id: "companies", label: "Companies", icon: Building2 },
     { id: "create-company", label: "Create Company", icon: Plus },
+    { id: "subscriptions", label: "Subscriptions", icon: CreditCard },
   ];
 
   const sectionTitles = {
     overview: "Overview",
     companies: "Companies",
     "create-company": "Onboard New Company",
+    subscriptions: "Subscriptions",
   };
 
   const statTiles = [
@@ -461,6 +530,115 @@ function PlatformDashboard() {
               </form>
             </CardBody>
           </Card>
+        )}
+
+        {activeSection === "subscriptions" && (
+          <div className="space-y-6">
+            <Card className="max-w-2xl">
+              <CardHeader>
+                <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+                  Global Pricing
+                </h2>
+              </CardHeader>
+              <CardBody>
+                <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+                  Changes apply immediately across the platform admin, super admin, and every
+                  company's billing — no restart or redeploy needed.
+                </p>
+                {settingsForm && (
+                  <form onSubmit={handleSaveSettings} className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {[
+                        ["monthly_base_price", "Monthly base price (₹, includes seats below)"],
+                        ["included_staff_count", "Seats included in base price"],
+                        ["extra_staff_price", "Price per extra seat / month (₹)"],
+                        ["grace_period_hours", "Grace period after due date (hours)"],
+                      ].map(([field, label]) => (
+                        <div key={field}>
+                          <label className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                            {label}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step={field.includes("price") ? "0.01" : "1"}
+                            required
+                            value={settingsForm[field]}
+                            onChange={(event) =>
+                              setSettingsForm((current) => ({ ...current, [field]: event.target.value }))
+                            }
+                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      Yearly plan = 12 × the computed monthly amount. A company on the yearly
+                      plan pays this rate for the whole year even if seat count changes later.
+                    </p>
+                    <Button type="submit" loading={savingSettings}>
+                      <Save className="h-4 w-4" /> Save Pricing
+                    </Button>
+                  </form>
+                )}
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+                  Company Subscriptions
+                </h2>
+              </CardHeader>
+              {companySubscriptions.length === 0 ? (
+                <CardBody>
+                  <EmptyState title="No companies yet" />
+                </CardBody>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="text-xs uppercase text-slate-400">
+                      <tr>
+                        <th className="px-5 py-3">Company</th>
+                        <th className="px-5 py-3">Plan</th>
+                        <th className="px-5 py-3">Seats</th>
+                        <th className="px-5 py-3">Amount / cycle</th>
+                        <th className="px-5 py-3">Days Left</th>
+                        <th className="px-5 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                      {companySubscriptions.map((sub) => (
+                        <tr key={sub.company_id}>
+                          <td className="px-5 py-3 font-semibold text-slate-900 dark:text-white">
+                            {sub.company_name}
+                          </td>
+                          <td className="px-5 py-3 capitalize text-slate-600 dark:text-slate-300">
+                            {sub.plan_type}
+                          </td>
+                          <td className="px-5 py-3 text-slate-600 dark:text-slate-300">
+                            {sub.staff_count}{" "}
+                            <span className="text-slate-400">/ {sub.included_staff_count} incl.</span>
+                          </td>
+                          <td className="px-5 py-3 text-slate-600 dark:text-slate-300">
+                            {sub.currency} {sub.current_cycle_amount}
+                          </td>
+                          <td className="px-5 py-3 text-slate-600 dark:text-slate-300">
+                            {sub.status === "locked" ? "—" : `${sub.days_left}d`}
+                          </td>
+                          <td className="px-5 py-3">
+                            <Badge tone={SUBSCRIPTION_STATUS_TONE[sub.status] || "neutral"}>
+                              {SUBSCRIPTION_STATUS_LABEL[sub.status] || sub.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
         )}
       </div>
 
