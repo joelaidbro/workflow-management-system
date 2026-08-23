@@ -1,8 +1,9 @@
 import asyncio
+import calendar
 import io
 import os
 from copy import deepcopy
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -53,7 +54,6 @@ DEFAULT_CONFIG = {
     "read_receipts_enabled": True,
     "chat_retention_months": 6,
     "attendance_rule": "login_and_report",
-    "working_days_per_month": 22,
     "salary_visibility_to_staff": False,
     "currency_symbol": "₹",
     "daily_report_enabled": True,
@@ -67,13 +67,60 @@ DEFAULT_CONFIG = {
     "screenshot_interval_seconds": 600,
     "monitoring_enabled": True,
     "timezone": "UTC",
+    # --- Salary calculation (Phase 1 of the salary overhaul) ---
+    # "working_days_per_month" used to be a flat manually-typed number with no
+    # real connection to the calendar — replaced by compute_working_days_in_month()
+    # below, derived live from working_days (the weekly pattern) + public_holidays.
+    # Not stored here on purpose: it must always reflect the *current* pattern
+    # and holiday list for whichever month is being calculated, not a stale
+    # snapshot someone typed in once.
+    "working_hours_per_day": 8,
+    "salary_calculation_mode": "daily",  # "hourly" | "daily" | "custom"
+    "salary_custom_split": "quarter",  # "half" | "third" | "quarter" — only used when mode == "custom"
+    "overtime_enabled": False,
 }
+
+VALID_SALARY_MODES = {"hourly", "daily", "custom"}
+VALID_SALARY_SPLITS = {"half", "third", "quarter"}
+WEEKDAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+def compute_working_days_in_month(company_config: dict, month: int, year: int) -> int:
+    """The single source of truth for 'how many working days are in this
+    month' — derived from the weekly working-days pattern and the public
+    holiday list, instead of the old flat manually-entered number. A holiday
+    that falls on a day that's already a non-working day (e.g. a Sunday) is
+    not double-subtracted, since it was never counted in the first place."""
+    working_days_set = {
+        d.lower() for d in company_config.get("working_days", DEFAULT_CONFIG["working_days"])
+    }
+    holiday_dates = {h.get("date") for h in company_config.get("public_holidays", [])}
+
+    days_in_month = calendar.monthrange(year, month)[1]
+    count = 0
+    for day in range(1, days_in_month + 1):
+        current_date = date(year, month, day)
+        if WEEKDAY_NAMES[current_date.weekday()] not in working_days_set:
+            continue
+        if current_date.isoformat() in holiday_dates:
+            continue
+        count += 1
+    return count
 
 
 class LeaveTypeRequest(BaseModel):
     name: str
     annual_limit: int
     carry_forward: bool = False
+    is_paid: bool = True
+    allowance_period: str = "yearly"  # "yearly" | "monthly"
+
+
+class UpdateLeaveTypeRequest(BaseModel):
+    annual_limit: int | None = None
+    carry_forward: bool | None = None
+    is_paid: bool | None = None
+    allowance_period: str | None = None
 
 
 class PublicHolidayRequest(BaseModel):
@@ -119,6 +166,25 @@ def update_settings_config(
     db: Session = Depends(get_db),
 ):
     require_super_admin(current_user)
+
+    if "salary_calculation_mode" in config_updates and config_updates["salary_calculation_mode"] not in VALID_SALARY_MODES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"salary_calculation_mode must be one of {sorted(VALID_SALARY_MODES)}",
+        )
+    if "salary_custom_split" in config_updates and config_updates["salary_custom_split"] not in VALID_SALARY_SPLITS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"salary_custom_split must be one of {sorted(VALID_SALARY_SPLITS)}",
+        )
+    if "working_hours_per_day" in config_updates:
+        try:
+            hours = float(config_updates["working_hours_per_day"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="working_hours_per_day must be a number")
+        if hours <= 0 or hours > 24:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="working_hours_per_day must be between 0 and 24")
+
     company = get_current_company(current_user, db)
     config = get_config(company)
     config.update(config_updates)
@@ -127,6 +193,26 @@ def update_settings_config(
     db.commit()
     db.refresh(company)
     return get_config(company)
+
+
+@router.get("/settings/working-days-in-month")
+def get_working_days_in_month(
+    month: int,
+    year: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Read-only, computed live from working_days + public_holidays — this is
+    what replaced the old flat manually-typed 'working days per month'
+    number. Any role can read it (used for salary preview display), but only
+    a super_admin can change the inputs that feed it (weekly pattern,
+    holidays)."""
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid month")
+
+    company = get_current_company(current_user, db)
+    config = get_config(company)
+    return {"month": month, "year": year, "working_days_in_month": compute_working_days_in_month(config, month, year)}
 
 
 @router.post("/settings/leave-types")
@@ -144,10 +230,16 @@ def add_leave_type(
             detail="Leave type name is required",
         )
 
-    if leave_type_data.annual_limit <= 0:
+    if leave_type_data.annual_limit < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Annual limit must be greater than 0",
+            detail="Allowance cannot be negative — use 0 for a leave type with no paid allowance",
+        )
+
+    if leave_type_data.allowance_period not in {"yearly", "monthly"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="allowance_period must be 'yearly' or 'monthly'",
         )
 
     company = get_current_company(current_user, db)
@@ -165,8 +257,53 @@ def add_leave_type(
             "name": leave_type_name,
             "annual_limit": leave_type_data.annual_limit,
             "carry_forward": leave_type_data.carry_forward,
+            "is_paid": leave_type_data.is_paid,
+            "allowance_period": leave_type_data.allowance_period,
         }
     )
+    config["leave_types"] = leave_types
+    company.config = config
+    flag_modified(company, "config")
+    db.commit()
+
+    return leave_types
+
+
+@router.patch("/settings/leave-types/{leave_type_name}")
+def update_leave_type(
+    leave_type_name: str,
+    updates: UpdateLeaveTypeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+
+    update_data = updates.model_dump(exclude_unset=True)
+    if "annual_limit" in update_data and update_data["annual_limit"] < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Allowance cannot be negative — use 0 for a leave type with no paid allowance",
+        )
+    if "allowance_period" in update_data and update_data["allowance_period"] not in {"yearly", "monthly"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="allowance_period must be 'yearly' or 'monthly'",
+        )
+
+    company = get_current_company(current_user, db)
+    config = get_config(company)
+    leave_types = config.get("leave_types", [])
+
+    found = False
+    for leave_type in leave_types:
+        if leave_type.get("name") == leave_type_name:
+            leave_type.update(update_data)
+            found = True
+            break
+
+    if not found:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Leave type not found")
+
     config["leave_types"] = leave_types
     company.config = config
     flag_modified(company, "config")

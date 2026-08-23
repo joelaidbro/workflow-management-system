@@ -356,6 +356,17 @@ class Attendance(Base):
     meeting_minutes = Column(Integer, default=0, nullable=False)
     idle_minutes = Column(Integer, default=0, nullable=False)
     offline_minutes = Column(Integer, default=0, nullable=False)
+    # `working_minutes` above has always meant "raw span from start-day to
+    # end-day" (minus reconstructed offline gaps) and stays that way — other
+    # features already depend on it. `productive_minutes` is the new,
+    # separate figure the salary engine actually uses: working_minutes minus
+    # break_minutes minus idle_minutes (meeting time is NOT deducted — it
+    # counts as work). Computed and stored at end-of-day, same as the others.
+    productive_minutes = Column(Integer, default=0, nullable=False)
+    # Minutes of productive_minutes beyond the company's configured
+    # working_hours_per_day for that day. Informational only — see
+    # Company.config["overtime_enabled"]; never auto-converted into extra pay.
+    overtime_minutes = Column(Integer, default=0, nullable=False)
 
     user = relationship("User", back_populates="attendance_records")
 
@@ -377,6 +388,18 @@ class SalaryRecord(Base):
     is_approved = Column(Boolean, default=False)
     approved_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     approved_at = Column(DateTime)
+    # Snapshot of which formula produced calculated_salary and the exact
+    # numbers that fed it (mode, split, working_hours_per_day, days present,
+    # paid-leave days, etc). Company salary settings can change over time —
+    # once a record is approved, its own row must stay self-explanatory
+    # instead of silently being reinterpreted under whatever the company's
+    # *current* settings happen to be later.
+    calculation_mode = Column(String(20), nullable=True)
+    calculation_snapshot = Column(JSON, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    # Free-text note explaining why final_salary differs from calculated_salary
+    # (bonus, deduction, correction, etc) — optional, set at approval time.
+    remark = Column(Text, nullable=True)
 
     approver = relationship(
         "User",

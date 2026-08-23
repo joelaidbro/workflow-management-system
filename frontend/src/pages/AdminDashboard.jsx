@@ -8,8 +8,11 @@ import {
   BellRing,
   Camera,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   CreditCard,
+  Download,
   Home,
   ListChecks,
   MessageSquare,
@@ -17,6 +20,7 @@ import {
   Users,
   UserRound,
   UsersRound,
+  Wallet,
 } from "lucide-react";
 
 import api from "../api.js";
@@ -410,6 +414,12 @@ function StaffProfileModal({ userId, onClose }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [salaryData, setSalaryData] = useState(null);
+  const [salaryLoading, setSalaryLoading] = useState(false);
+  const [finalSalaryInput, setFinalSalaryInput] = useState("");
+  const [remarkInput, setRemarkInput] = useState("");
+  const [approving, setApproving] = useState(false);
+  const [showDayBreakdown, setShowDayBreakdown] = useState(false);
   const [tooltip, setTooltip] = useState({
     visible: false,
     day: null,
@@ -453,6 +463,54 @@ function StaffProfileModal({ userId, onClose }) {
       fetchSummary();
     }
   }, [userId, currentMonth, currentYear]);
+
+  const isAdminOrAbove = currentUser?.role === "admin" || currentUser?.role === "super_admin";
+
+  const fetchSalary = async () => {
+    setSalaryLoading(true);
+    try {
+      const response = await api.get(`/api/attendance/salary/${userId}`, {
+        params: { month: currentMonth, year: currentYear },
+      });
+      setSalaryData(response.data);
+      setFinalSalaryInput(
+        String(response.data.final_salary ?? response.data.calculated_salary ?? "")
+      );
+      setRemarkInput(response.data.remark || "");
+    } catch (err) {
+      // Not fatal — salary panel just stays hidden.
+    } finally {
+      setSalaryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (userId && isAdminOrAbove) {
+      fetchSalary();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, currentMonth, currentYear]);
+
+  const handleApproveSalary = async () => {
+    const value = Number(finalSalaryInput);
+    if (!finalSalaryInput || Number.isNaN(value) || value < 0) {
+      toast.error("Enter a valid final salary amount");
+      return;
+    }
+    setApproving(true);
+    try {
+      await api.post(`/api/attendance/salary/${userId}/approve`, {
+        final_salary: value,
+        remark: remarkInput.trim() || null,
+      }, { params: { month: currentMonth, year: currentYear } });
+      toast.success("Salary approved");
+      fetchSalary();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Could not approve salary");
+    } finally {
+      setApproving(false);
+    }
+  };
 
   const handleDownloadReport = async () => {
     setDownloading(true);
@@ -638,7 +696,147 @@ function StaffProfileModal({ userId, onClose }) {
                 {minutesToHours(summary?.total_idle_minutes || 0)}
               </div>
             </div>
+            <div className="rounded-xl border border-violet-200/60 bg-violet-50 p-4 dark:border-violet-400/20 dark:bg-violet-500/10">
+              <div className="text-violet-700 dark:text-violet-300">Overtime</div>
+              <div className="mt-1 text-2xl font-bold text-violet-900 dark:text-violet-200">
+                {minutesToHours(summary?.total_overtime_minutes || 0)}
+              </div>
+            </div>
           </div>
+
+          {isAdminOrAbove && (salaryLoading || salaryData) && (
+            <div className="mt-6 rounded-2xl border border-slate-900/10 bg-white/80 p-5 backdrop-blur-xl dark:border-white/15 dark:bg-slate-900/70">
+              <h4 className="mb-3 font-bold tracking-tight text-slate-900 dark:text-white">
+                Salary — {currentMonth}/{currentYear}
+              </h4>
+              {salaryLoading ? (
+                <LoadingState label="Loading salary…" />
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+                    <div>
+                      <span className="text-slate-400">Mode</span>
+                      <div className="font-semibold capitalize text-slate-900 dark:text-white">
+                        {salaryData.calculation_mode}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Working days in month</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {salaryData.working_days_in_month}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Days earned</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {salaryData.days_earned}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Per-day rate</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {salaryData.per_day_rate}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Overtime</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {minutesToHours(salaryData.overtime_minutes || 0)}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Calculated salary</span>
+                      <div className="font-semibold text-slate-900 dark:text-white">
+                        {salaryData.calculated_salary}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDayBreakdown((current) => !current)}
+                    className="mt-3 text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-300"
+                  >
+                    {showDayBreakdown ? "Hide" : "Show"} day-by-day breakdown
+                  </button>
+                  {showDayBreakdown && (
+                    <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/10">
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {(salaryData.day_breakdown || []).map((d) => (
+                            <tr key={d.date} className="border-b border-slate-100 last:border-0 dark:border-white/5">
+                              <td className="px-3 py-1.5 text-slate-500">{d.date}</td>
+                              <td className="px-3 py-1.5 capitalize text-slate-700 dark:text-slate-300">
+                                {d.status.replace("_", " ")}
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-semibold text-slate-900 dark:text-white">
+                                {d.fraction}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex items-center justify-between rounded-lg bg-slate-50 p-3 dark:bg-white/5">
+                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                      {salaryData.is_approved ? "Approved" : "Not yet approved"}
+                    </span>
+                    {salaryData.is_approved && (
+                      <span className="text-xs text-slate-400">
+                        {formatDate(salaryData.approved_at)}
+                      </span>
+                    )}
+                  </div>
+                  {salaryData.is_approved && salaryData.remark && (
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                      <span className="font-medium">Remark:</span> {salaryData.remark}
+                    </p>
+                  )}
+
+                  {currentUser?.role === "super_admin" && (
+                    salaryData.is_approvable ? (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex flex-wrap items-end gap-3">
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-slate-500">
+                              Final salary to approve
+                            </span>
+                            <input
+                              type="number"
+                              value={finalSalaryInput}
+                              onChange={(event) => setFinalSalaryInput(event.target.value)}
+                              className="focus-ring w-40 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                            />
+                          </label>
+                          <Button loading={approving} onClick={handleApproveSalary}>
+                            {salaryData.is_approved ? "Re-approve" : "Approve"}
+                          </Button>
+                        </div>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium text-slate-500">
+                            Remark (optional — why final differs from calculated)
+                          </span>
+                          <textarea
+                            value={remarkInput}
+                            onChange={(event) => setRemarkInput(event.target.value)}
+                            rows={2}
+                            placeholder="e.g. Diwali bonus added, or advance deducted"
+                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-slate-400">
+                        Salary can only be approved once this month has ended.
+                      </p>
+                    )
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           <div className="mt-6">
             <h4 className="mb-3 font-bold tracking-tight text-slate-900 dark:text-white">Attendance Calendar</h4>
@@ -3641,7 +3839,6 @@ function SettingsPanel() {
     break_limit_minutes: 60,
     working_hours_start: "09:00",
     working_hours_end: "18:00",
-    working_days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
     screenshot_enabled: true,
     screenshot_interval_seconds: 600,
     monitoring_enabled: true,
@@ -3658,7 +3855,11 @@ function SettingsPanel() {
     chat_retention_months: 6,
   });
   const [attendanceSettings, setAttendanceSettings] = useState({
-    working_days_per_month: 22,
+    working_days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+    working_hours_per_day: 8,
+    salary_calculation_mode: "daily",
+    salary_custom_split: "quarter",
+    overtime_enabled: false,
     currency_symbol: "₹",
     salary_visibility_to_staff: false,
     daily_report_enabled: true,
@@ -3673,7 +3874,10 @@ function SettingsPanel() {
     name: "",
     annual_limit: 1,
     carry_forward: false,
+    is_paid: true,
+    allowance_period: "yearly",
   });
+  const [workingDaysInMonth, setWorkingDaysInMonth] = useState(null);
   const currentUser = useMemo(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -3698,7 +3902,20 @@ function SettingsPanel() {
       }
     };
 
+    const fetchWorkingDaysInMonth = async () => {
+      const now = new Date();
+      try {
+        const response = await api.get("/api/settings/working-days-in-month", {
+          params: { month: now.getMonth() + 1, year: now.getFullYear() },
+        });
+        setWorkingDaysInMonth(response.data.working_days_in_month);
+      } catch (error) {
+        // Non-critical display value — fail silently.
+      }
+    };
+
     fetchConfig();
+    fetchWorkingDaysInMonth();
   }, []);
 
   useEffect(() => {
@@ -3711,13 +3928,6 @@ function SettingsPanel() {
       break_limit_minutes: config.break_limit_minutes ?? 60,
       working_hours_start: config.working_hours_start || "09:00",
       working_hours_end: config.working_hours_end || "18:00",
-      working_days: config.working_days ?? [
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-      ],
       screenshot_enabled: config.screenshot_enabled ?? true,
       screenshot_interval_seconds: config.screenshot_interval_seconds ?? 600,
       monitoring_enabled: config.monitoring_enabled ?? true,
@@ -3734,7 +3944,17 @@ function SettingsPanel() {
       chat_retention_months: config.chat_retention_months ?? 6,
     });
     setAttendanceSettings({
-      working_days_per_month: config.working_days_per_month ?? 22,
+      working_days: config.working_days ?? [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+      ],
+      working_hours_per_day: config.working_hours_per_day ?? 8,
+      salary_calculation_mode: config.salary_calculation_mode || "daily",
+      salary_custom_split: config.salary_custom_split || "quarter",
+      overtime_enabled: config.overtime_enabled ?? false,
       currency_symbol: config.currency_symbol ?? "₹",
       salary_visibility_to_staff: config.salary_visibility_to_staff ?? false,
       daily_report_enabled: config.daily_report_enabled ?? true,
@@ -3778,8 +3998,8 @@ function SettingsPanel() {
   };
 
   const toggleWorkingDay = (day) => {
-    const workingDays = monitoringSettings.working_days || [];
-    setMonitoringSettings((current) => ({
+    const workingDays = attendanceSettings.working_days || [];
+    setAttendanceSettings((current) => ({
       ...current,
       working_days: workingDays.includes(day)
         ? workingDays.filter((item) => item !== day)
@@ -3816,7 +4036,7 @@ function SettingsPanel() {
   };
 
   const addLeaveType = async () => {
-    if (!newLeaveType.name.trim() || Number(newLeaveType.annual_limit) <= 0) {
+    if (!newLeaveType.name.trim() || Number(newLeaveType.annual_limit) < 0) {
       toast.error("Enter a valid leave type");
       return;
     }
@@ -3826,14 +4046,29 @@ function SettingsPanel() {
         name: newLeaveType.name,
         annual_limit: Number(newLeaveType.annual_limit),
         carry_forward: newLeaveType.carry_forward,
+        is_paid: newLeaveType.is_paid,
+        allowance_period: newLeaveType.allowance_period,
       });
       updateConfig("leave_types", response.data);
-      setNewLeaveType({ name: "", annual_limit: 1, carry_forward: false });
+      setNewLeaveType({ name: "", annual_limit: 1, carry_forward: false, is_paid: true, allowance_period: "yearly" });
       toast.success("Leave type added");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Could not add leave type");
     }
   };
+
+  const updateLeaveType = async (name, updates) => {
+    try {
+      const response = await api.patch(
+        `/api/settings/leave-types/${encodeURIComponent(name)}`,
+        updates
+      );
+      updateConfig("leave_types", response.data);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not update leave type");
+    }
+  };
+
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -3924,6 +4159,25 @@ function SettingsPanel() {
         }
         className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
       />
+    </label>
+  );
+
+  const renderSelectInput = (label, field, state, setState, options) => (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">{label}</span>
+      <select
+        value={state[field] ?? ""}
+        onChange={(event) =>
+          setState((current) => ({ ...current, [field]: event.target.value }))
+        }
+        className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 
@@ -4021,23 +4275,11 @@ function SettingsPanel() {
                 setMonitoringSettings
               )}
             </div>
-            <div>
-              <div className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                Working days
-              </div>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {days.map((day) => (
-                  <label key={day} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={(monitoringSettings.working_days || []).includes(day)}
-                      onChange={() => toggleWorkingDay(day)}
-                    />
-                    {day}
-                  </label>
-                ))}
-              </div>
-            </div>
+            <p className="text-xs text-slate-400">
+              Which days of the week count as working days — and public holidays — are now
+              managed together in the "Attendance &amp; Salary" tab, since they also drive
+              salary calculation.
+            </p>
             <button
               type="button"
               onClick={() => saveSettings(monitoringSettings)}
@@ -4123,14 +4365,85 @@ function SettingsPanel() {
         )}
 
         {activeTab === "attendance" && (
-          <div className="space-y-5">
+          <div className="space-y-6">
+            <div>
+              <div className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                Working days
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {days.map((day) => (
+                  <label key={day} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={(attendanceSettings.working_days || []).includes(day)}
+                      onChange={() => toggleWorkingDay(day)}
+                    />
+                    {day}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                Combined with public holidays below, this determines how many working days
+                are in any given month
+                {workingDaysInMonth !== null ? ` — this month it's ${workingDaysInMonth}.` : "."}
+              </p>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Public holidays are managed from the Leave Management page (the "Public Holidays"
+              tab) — they're subtracted from the working-days count above automatically.
+            </p>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {renderNumberInput(
-                "Working days per month",
-                "working_days_per_month",
+                "Working hours per day",
+                "working_hours_per_day",
+                attendanceSettings,
+                setAttendanceSettings,
+                1,
+                24
+              )}
+              {renderSelectInput(
+                "Salary calculation",
+                "salary_calculation_mode",
+                attendanceSettings,
+                setAttendanceSettings,
+                [
+                  { value: "daily", label: "Daily (present = full day)" },
+                  { value: "hourly", label: "Hourly (proportional to hours worked)" },
+                  { value: "custom", label: "Custom (split the day into parts)" },
+                ]
+              )}
+              {attendanceSettings.salary_calculation_mode === "custom" &&
+                renderSelectInput(
+                  "Day split",
+                  "salary_custom_split",
+                  attendanceSettings,
+                  setAttendanceSettings,
+                  [
+                    { value: "half", label: "Halves (2 parts)" },
+                    { value: "third", label: "Thirds (3 parts)" },
+                    { value: "quarter", label: "Quarters (4 parts)" },
+                  ]
+                )}
+              {renderToggleRow(
+                "Overtime tracking enabled",
+                "overtime_enabled",
                 attendanceSettings,
                 setAttendanceSettings
               )}
+            </div>
+            <div className="rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm text-brand-900 dark:border-brand-900/40 dark:bg-brand-950/30 dark:text-brand-200">
+              {attendanceSettings.salary_calculation_mode === "daily" &&
+                "Daily mode: a staff member earns a full day's pay for any day they're marked present, regardless of exact hours — unless a mode below changes that."}
+              {attendanceSettings.salary_calculation_mode === "hourly" &&
+                `Hourly mode: pay for each day is a direct proportion of actual working minutes against ${attendanceSettings.working_hours_per_day || 8} hours (a full day). Working 4 of 8 hours earns 50% of that day's pay.`}
+              {attendanceSettings.salary_calculation_mode === "custom" &&
+                `Custom mode: each day is split into ${attendanceSettings.salary_custom_split === "half" ? "2 halves" : attendanceSettings.salary_custom_split === "third" ? "3 thirds" : "4 quarters"}. Pay is awarded per part reached, rounded up in the staff member's favor — working even a minute into the next part earns that whole part.`}
+              {" "}Working days and public holidays above determine how many working days are in a month, which sets each day's pay rate. Approved leave: paid leave always pays 100% for that day; unpaid leave pays nothing.
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {renderTextInput(
                 "Currency symbol",
                 "currency_symbol",
@@ -4189,26 +4502,36 @@ function SettingsPanel() {
               {(config.leave_types || []).map((leaveType) => (
                 <div
                   key={leaveType.name}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/10 p-4"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-white/10 p-4"
                 >
                   <div>
                     <div className="font-semibold text-slate-900 dark:text-white">{leaveType.name}</div>
                     <div className="text-sm text-slate-400">
-                      Annual limit: {leaveType.annual_limit}
+                      Annual limit: {leaveType.annual_limit} · {leaveType.allowance_period === "monthly" ? "Resets monthly" : "Resets yearly"}
+                      {leaveType.annual_limit === 0 && " (no leave allowed)"}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => deleteLeaveType(leaveType.name)}
-                    className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                      Paid
+                      <ToggleSwitch
+                        value={Boolean(leaveType.is_paid)}
+                        onChange={(value) => updateLeaveType(leaveType.name, { is_paid: value })}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => deleteLeaveType(leaveType.name)}
+                      className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div className="grid grid-cols-4 gap-3 rounded-lg bg-slate-50 dark:bg-white/5 p-4">
+            <div className="grid grid-cols-1 gap-3 rounded-lg bg-slate-50 dark:bg-white/5 p-4 sm:grid-cols-3 lg:grid-cols-6">
               <input
                 type="text"
                 value={newLeaveType.name}
@@ -4223,6 +4546,7 @@ function SettingsPanel() {
               />
               <input
                 type="number"
+                min="0"
                 value={newLeaveType.annual_limit}
                 onChange={(event) =>
                   setNewLeaveType((current) => ({
@@ -4230,9 +4554,31 @@ function SettingsPanel() {
                     annual_limit: event.target.value,
                   }))
                 }
-                placeholder="Annual limit"
+                placeholder="Allowance (0 = none)"
                 className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
+              <select
+                value={newLeaveType.allowance_period}
+                onChange={(event) =>
+                  setNewLeaveType((current) => ({ ...current, allowance_period: event.target.value }))
+                }
+                className="focus-ring rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+              >
+                <option value="yearly">Yearly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 px-4">
+                <span className="text-sm text-slate-600 dark:text-slate-300">Paid leave</span>
+                <ToggleSwitch
+                  value={newLeaveType.is_paid}
+                  onChange={(value) =>
+                    setNewLeaveType((current) => ({
+                      ...current,
+                      is_paid: value,
+                    }))
+                  }
+                />
+              </div>
               <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 px-4">
                 <span className="text-sm text-slate-600 dark:text-slate-300">Carry forward</span>
                 <ToggleSwitch
@@ -5598,6 +5944,307 @@ function MyProfileSection({ user }) {
   );
 }
 
+function SalaryPanel() {
+  const today = new Date();
+  // Default to last month, since the current month can't be approved yet.
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  );
+  const [rows, setRows] = useState([]);
+  const [editableRows, setEditableRows] = useState({});
+  const [selected, setSelected] = useState({});
+  const [isApprovable, setIsApprovable] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [approving, setApproving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const month = selectedMonth.getMonth() + 1;
+  const year = selectedMonth.getFullYear();
+
+  const currentUser = useMemo(() => {
+    const storedUser = localStorage.getItem("user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  }, []);
+
+  const fetchOverview = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get("/api/attendance/salary/team/overview", {
+        params: { month, year },
+      });
+      setRows(response.data.staff);
+      setIsApprovable(response.data.is_approvable);
+      const drafts = {};
+      response.data.staff.forEach((row) => {
+        drafts[row.user_id] = {
+          final_salary: String(row.final_salary ?? row.calculated_salary ?? ""),
+          remark: row.remark || "",
+        };
+      });
+      setEditableRows(drafts);
+      setSelected({});
+    } catch (err) {
+      toast.error("Could not load salary overview");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month, year]);
+
+  const updateDraft = (userId, field, value) => {
+    setEditableRows((current) => ({
+      ...current,
+      [userId]: { ...current[userId], [field]: value },
+    }));
+  };
+
+  const toggleSelected = (userId) => {
+    setSelected((current) => ({ ...current, [userId]: !current[userId] }));
+  };
+
+  const toggleSelectAllUnapproved = () => {
+    const unapproved = rows.filter((r) => !r.is_approved);
+    const allSelected = unapproved.length > 0 && unapproved.every((r) => selected[r.user_id]);
+    const next = {};
+    unapproved.forEach((r) => {
+      next[r.user_id] = !allSelected;
+    });
+    setSelected(next);
+  };
+
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  const handleBulkApprove = async () => {
+    const approvals = rows
+      .filter((r) => selected[r.user_id])
+      .map((r) => {
+        const draft = editableRows[r.user_id] || {};
+        return {
+          user_id: r.user_id,
+          final_salary: Number(draft.final_salary || r.calculated_salary || 0),
+          remark: draft.remark?.trim() || null,
+        };
+      });
+
+    if (approvals.length === 0) {
+      toast.error("Select at least one staff member to approve");
+      return;
+    }
+
+    setApproving(true);
+    try {
+      const response = await api.post("/api/attendance/salary/team/bulk-approve", {
+        month,
+        year,
+        approvals,
+      });
+      if (response.data.failed?.length) {
+        toast.error(`${response.data.failed.length} approval(s) failed`);
+      }
+      toast.success(`${response.data.approved.length} salary record(s) approved`);
+      fetchOverview();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Bulk approval failed");
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleApproveOne = async (userId) => {
+    const draft = editableRows[userId] || {};
+    setApproving(true);
+    try {
+      await api.post(
+        `/api/attendance/salary/${userId}/approve`,
+        {
+          final_salary: Number(draft.final_salary || 0),
+          remark: draft.remark?.trim() || null,
+        },
+        { params: { month, year } }
+      );
+      toast.success("Salary approved");
+      fetchOverview();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Could not approve salary");
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    setDownloading(true);
+    try {
+      const response = await api.get("/api/attendance/export/team-excel", {
+        params: { month, year },
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `attendance_${month}_${year}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("Could not download report");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+              aria-label="Previous month"
+              className="focus-ring rounded-lg bg-slate-100 p-2 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="text-center">
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+                {selectedMonth.toLocaleDateString([], { month: "long", year: "numeric" })}
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {isApprovable ? "This month can be approved" : "Not yet approvable — month still in progress"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+              aria-label="Next month"
+              className="focus-ring rounded-lg bg-slate-100 p-2 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <Button variant="secondary" loading={downloading} onClick={handleDownloadExcel}>
+            <Download className="mr-1.5 h-4 w-4" />
+            Download Excel
+          </Button>
+        </CardBody>
+      </Card>
+
+      {loading ? (
+        <LoadingState label="Loading salary overview…" />
+      ) : rows.length === 0 ? (
+        <EmptyState title="No staff found" description="Nothing to show for this period." />
+      ) : (
+        <Card>
+          <CardBody className="overflow-x-auto">
+            {currentUser?.role === "super_admin" && isApprovable && (
+              <div className="mb-4 flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={
+                      rows.filter((r) => !r.is_approved).length > 0 &&
+                      rows.filter((r) => !r.is_approved).every((r) => selected[r.user_id])
+                    }
+                    onChange={toggleSelectAllUnapproved}
+                  />
+                  Select all unapproved
+                </label>
+                <Button loading={approving} disabled={selectedCount === 0} onClick={handleBulkApprove}>
+                  Approve Selected ({selectedCount})
+                </Button>
+              </div>
+            )}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400 dark:border-white/10">
+                  {currentUser?.role === "super_admin" && isApprovable && <th className="py-2 pr-2"></th>}
+                  <th className="py-2 pr-4">Staff</th>
+                  <th className="py-2 pr-4">Calculated</th>
+                  <th className="py-2 pr-4">Final salary</th>
+                  <th className="py-2 pr-4">Remark</th>
+                  <th className="py-2 pr-4">Status</th>
+                  {currentUser?.role === "super_admin" && isApprovable && <th className="py-2 pr-2"></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.user_id} className="border-b border-slate-100 last:border-0 dark:border-white/5">
+                    {currentUser?.role === "super_admin" && isApprovable && (
+                      <td className="py-2 pr-2">
+                        {!row.is_approved && (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(selected[row.user_id])}
+                            onChange={() => toggleSelected(row.user_id)}
+                          />
+                        )}
+                      </td>
+                    )}
+                    <td className="py-2 pr-4 font-semibold text-slate-900 dark:text-white">
+                      {row.full_name}
+                      <div className="text-xs font-normal text-slate-400">{row.employee_id}</div>
+                    </td>
+                    <td className="py-2 pr-4 text-slate-600 dark:text-slate-300">{row.calculated_salary}</td>
+                    <td className="py-2 pr-4">
+                      {currentUser?.role === "super_admin" && isApprovable && !row.is_approved ? (
+                        <input
+                          type="number"
+                          value={editableRows[row.user_id]?.final_salary ?? ""}
+                          onChange={(event) => updateDraft(row.user_id, "final_salary", event.target.value)}
+                          className="focus-ring w-28 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                        />
+                      ) : (
+                        row.final_salary ?? "—"
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {currentUser?.role === "super_admin" && isApprovable && !row.is_approved ? (
+                        <input
+                          type="text"
+                          value={editableRows[row.user_id]?.remark ?? ""}
+                          onChange={(event) => updateDraft(row.user_id, "remark", event.target.value)}
+                          placeholder="optional"
+                          className="focus-ring w-40 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                        />
+                      ) : (
+                        <span className="text-slate-400">{row.remark || "—"}</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <Badge tone={row.is_approved ? "success" : "warning"}>
+                        {row.is_approved ? "Approved" : "Pending"}
+                      </Badge>
+                    </td>
+                    {currentUser?.role === "super_admin" && isApprovable && (
+                      <td className="py-2 pr-2">
+                        {!row.is_approved && (
+                          <button
+                            type="button"
+                            onClick={() => handleApproveOne(row.user_id)}
+                            disabled={approving}
+                            className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardBody>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "staff-management", label: "Staff", icon: Users },
@@ -5605,6 +6252,7 @@ const navItems = [
   { id: "screenshots", label: "Screenshots", icon: Camera, superAdminOnly: true },
   { id: "reports", label: "Reports", icon: ClipboardList },
   { id: "leave", label: "Leave Requests", icon: CalendarDays },
+  { id: "salary", label: "Salary", icon: Wallet, superAdminOnly: true },
   { id: "alerts", label: "Alerts", icon: Bell },
   { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "tasks", label: "Tasks", icon: ListChecks },
@@ -5619,6 +6267,7 @@ const sectionTitles = {
   screenshots: "Screenshots",
   reports: "Reports",
   leave: "Leave Requests",
+  salary: "Salary",
   alerts: "Alerts",
   chat: "Chat",
   tasks: "Tasks",
@@ -5810,6 +6459,10 @@ function SuperAdminDashboard() {
 
     if (activeSection === "leave") {
       return <LeavePanel />;
+    }
+
+    if (activeSection === "salary") {
+      return <SalaryPanel />;
     }
 
     if (activeSection === "alerts") {

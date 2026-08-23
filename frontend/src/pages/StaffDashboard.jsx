@@ -1633,6 +1633,12 @@ function StaffDashboard() {
                     {minutesToHours(attendanceSummary?.total_idle_minutes || 0)}
                   </div>
                 </div>
+                <div className="rounded-xl border border-violet-200/60 bg-violet-50 p-4 dark:border-violet-400/20 dark:bg-violet-500/10">
+                  <div className="text-xs font-medium text-violet-700 dark:text-violet-300">Overtime</div>
+                  <div className="mt-2 text-2xl font-bold tracking-tight text-violet-900 dark:text-violet-200">
+                    {minutesToHours(attendanceSummary?.total_overtime_minutes || 0)}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -2219,6 +2225,12 @@ function StaffDashboard() {
                 <div className="text-xs font-medium text-slate-600 dark:text-slate-300">Total Idle Time</div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {minutesToHours(attendanceSummary?.total_idle_minutes || 0)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-violet-200/60 bg-violet-50 p-4 dark:border-violet-400/20 dark:bg-violet-500/10">
+                <div className="text-xs font-medium text-violet-700 dark:text-violet-300">Overtime</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-violet-900 dark:text-violet-200">
+                  {minutesToHours(attendanceSummary?.total_overtime_minutes || 0)}
                 </div>
               </div>
             </div>

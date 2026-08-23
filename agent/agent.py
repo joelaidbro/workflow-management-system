@@ -47,7 +47,7 @@ ALERT_INTERVAL = 15
 SESSION_POLL_INTERVAL = 15
 TRAY_UPDATE_INTERVAL = 5
 UPDATE_CHECK_INTERVAL = 86400  # 24 hours
-PRODUCTION_SERVER_URL = "https://teams.aidbro.com:8001"
+PRODUCTION_SERVER_URL = "https://teams.aidbro.com"
 AGENT_VERSION = "1.0.0"
 
 logging.basicConfig(

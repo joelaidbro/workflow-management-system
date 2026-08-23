@@ -1,8 +1,9 @@
+import math
 import uuid
 from collections import defaultdict
 from io import BytesIO
 from datetime import date as date_type
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -12,12 +13,12 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_staff, require_staff_or_admin, require_admin, require_super_admin
 from utils import compute_working_minutes, format_utc_datetime, strip_html_tags
-from routers.settings import get_config
+from routers.settings import compute_working_days_in_month, get_config, WEEKDAY_NAMES
 from connection_manager import manager
 from routers.notifications import push_to_user_sync
 from database import get_db
 from limiter import limiter
-from models import ActivityLog, Attendance, Company, CurrentStatus, DailyReport, MachineToken, SalaryRecord, User
+from models import ActivityLog, Attendance, Company, CurrentStatus, DailyReport, LeaveRequest, MachineToken, SalaryRecord, User
 from team_scope import get_assigned_admin_ids, get_assigned_staff_ids
 
 router = APIRouter()
@@ -39,8 +40,31 @@ class ReportReplyRequest(BaseModel):
 
 class SalaryApprovalRequest(BaseModel):
     final_salary: Decimal
+    remark: str | None = None
 
 
+class BulkSalaryApprovalItem(BaseModel):
+    user_id: str
+    final_salary: Decimal
+    remark: str | None = None
+
+
+class BulkSalaryApprovalRequest(BaseModel):
+    month: int
+    year: int
+    approvals: list[BulkSalaryApprovalItem]
+
+
+def assert_month_is_approvable(month: int, year: int):
+    """Salary can only be approved for a month that has fully finished —
+    approving the current (still in-progress) or a future month would freeze
+    a calculation based on incomplete attendance data."""
+    today = datetime.utcnow().date()
+    if (year, month) >= (today.year, today.month):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Salary can only be approved for a month that has already ended.",
+        )
 
 
 def get_month_range(month: int, year: int):
@@ -147,6 +171,8 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         "total_meeting_minutes": sum(record.meeting_minutes or 0 for record in records),
         "total_idle_minutes": sum(record.idle_minutes or 0 for record in records),
         "total_offline_minutes": sum(record.offline_minutes or 0 for record in records),
+        "total_productive_minutes": sum(record.productive_minutes or 0 for record in records),
+        "total_overtime_minutes": sum(record.overtime_minutes or 0 for record in records),
         "working_days": working_days,
         "public_holidays": public_holidays,
         "attendance_records": [
@@ -157,6 +183,8 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
                 "working_minutes": record.working_minutes,
                 "break_minutes": record.break_minutes,
                 "idle_minutes": record.idle_minutes,
+                "productive_minutes": record.productive_minutes,
+                "overtime_minutes": record.overtime_minutes,
                 "login_time": format_utc_datetime(record.login_time),
                 "logout_time": format_utc_datetime(record.logout_time),
             }
@@ -165,23 +193,148 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
     }
 
 
-def calculate_monthly_salary(user: User, summary: dict, db: Session):
+def calculate_monthly_salary(user: User, month: int, year: int, db: Session) -> dict:
+    """
+    Company-configurable salary engine. Reads from Company.config:
+      - salary_calculation_mode: "daily" | "hourly" | "custom"
+      - salary_custom_split: "half" | "third" | "quarter" (custom mode only)
+      - working_hours_per_day: hours counted as one full (100%) day
+
+    Walks every working day of the month (per the weekly pattern minus public
+    holidays), starting from the later of the 1st of the month or the user's
+    joining date, and stopping at today for a month still in progress (so a
+    mid-month preview doesn't count future days as absent). For each day:
+      - a day inside an approved PAID leave earns a full day, no attendance
+        needed (that's what "paid" means)
+      - a day inside an approved UNPAID leave earns nothing
+      - otherwise pay is derived from that day's Attendance.productive_minutes:
+          "daily"  -> present ? full day : 0
+          "hourly" -> continuous fraction of productive_minutes / full day
+          "custom" -> stepped half/third/quarter, rounded UP to the nearest
+                      part reached (rounds in the employee's favor)
+    Each earned fraction is paid at base_salary / working_days_in_month, where
+    working_days_in_month is the *whole* month's count — this is what makes a
+    mid-month joiner correctly prorated (they simply can't earn fractions for
+    days before they joined, while the denominator stays the full month).
+    """
     company = db.query(Company).filter(Company.id == user.company_id).first()
     company_config = get_config(company) if company else {}
-    configured_days = company_config.get("working_days_per_month")
-    total_days = configured_days or (
-        summary["days_present"] + summary["days_absent"]
+
+    mode = company_config.get("salary_calculation_mode", "daily")
+    split = company_config.get("salary_custom_split", "quarter")
+    working_hours_per_day = company_config.get("working_hours_per_day", 8) or 8
+    full_day_minutes = working_hours_per_day * 60
+    split_parts = {"half": 2, "third": 3, "quarter": 4}.get(split, 4)
+
+    working_days_in_month = compute_working_days_in_month(company_config, month, year)
+    base_salary = Decimal(user.base_salary or 0)
+    per_day_rate = (
+        (base_salary / Decimal(working_days_in_month)) if working_days_in_month else Decimal("0")
     )
 
-    base_salary = Decimal(user.base_salary or 0)
-    if total_days:
-        calculated_salary = (base_salary / Decimal(total_days)) * Decimal(
-            summary["days_present"]
-        )
-    else:
-        calculated_salary = Decimal("0")
+    start_date, end_date = get_month_range(month, year)
+    joining_date = user.joining_date.date() if user.joining_date else None
+    period_start = max(start_date, joining_date) if joining_date else start_date
+    period_end = min(end_date, datetime.utcnow().date() + timedelta(days=1))
 
-    return calculated_salary.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    attendance_records = {
+        r.date: r
+        for r in db.query(Attendance)
+        .filter(
+            Attendance.user_id == user.id,
+            Attendance.date >= period_start,
+            Attendance.date < period_end,
+        )
+        .all()
+    }
+
+    leave_types_by_name = {lt.get("name"): lt for lt in company_config.get("leave_types", [])}
+    approved_leaves = (
+        db.query(LeaveRequest)
+        .filter(
+            LeaveRequest.user_id == user.id,
+            LeaveRequest.status == "approved",
+            LeaveRequest.start_date < period_end,
+            LeaveRequest.end_date >= period_start,
+        )
+        .all()
+    )
+    paid_leave_dates, unpaid_leave_dates = set(), set()
+    for leave in approved_leaves:
+        is_paid = leave_types_by_name.get(leave.leave_type, {}).get("is_paid", True)
+        d = max(leave.start_date, period_start)
+        last = min(leave.end_date, period_end - timedelta(days=1))
+        while d <= last:
+            (paid_leave_dates if is_paid else unpaid_leave_dates).add(d)
+            d += timedelta(days=1)
+
+    working_days_set = {
+        d.lower() for d in company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
+    }
+    holiday_dates = {h.get("date") for h in company_config.get("public_holidays", [])}
+
+    day_breakdown = []
+    total_fraction = Decimal("0")
+    total_overtime_minutes = 0
+
+    current = period_start
+    while current < period_end:
+        if WEEKDAY_NAMES[current.weekday()] not in working_days_set or current.isoformat() in holiday_dates:
+            current += timedelta(days=1)
+            continue
+
+        if current in paid_leave_dates:
+            fraction, day_status = Decimal("1"), "paid_leave"
+        elif current in unpaid_leave_dates:
+            fraction, day_status = Decimal("0"), "unpaid_leave"
+        else:
+            record = attendance_records.get(current)
+            if not record or not record.is_present:
+                fraction, day_status = Decimal("0"), "absent"
+            else:
+                productive = record.productive_minutes or 0
+                total_overtime_minutes += record.overtime_minutes or 0
+                if mode == "hourly":
+                    fraction = (
+                        min(Decimal("1"), Decimal(productive) / Decimal(full_day_minutes))
+                        if full_day_minutes
+                        else Decimal("0")
+                    )
+                elif mode == "custom":
+                    part_length = full_day_minutes / split_parts if split_parts else full_day_minutes
+                    parts_earned = min(split_parts, math.ceil(productive / part_length)) if part_length else 0
+                    fraction = Decimal(parts_earned) / Decimal(split_parts)
+                else:  # "daily"
+                    fraction = Decimal("1")
+                day_status = "present"
+
+        total_fraction += fraction
+        day_breakdown.append({"date": current.isoformat(), "status": day_status, "fraction": float(fraction)})
+        current += timedelta(days=1)
+
+    calculated_salary = (per_day_rate * total_fraction).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    return {
+        "calculated_salary": calculated_salary,
+        "base_salary": base_salary,
+        "working_days_in_month": working_days_in_month,
+        "days_earned": float(total_fraction),
+        "per_day_rate": per_day_rate.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        "overtime_minutes": total_overtime_minutes,
+        "day_breakdown": day_breakdown,
+        "calculation_mode": mode,
+        "calculation_snapshot": {
+            "mode": mode,
+            "custom_split": split if mode == "custom" else None,
+            "working_hours_per_day": working_hours_per_day,
+            "working_days_in_month": working_days_in_month,
+            "days_earned": float(total_fraction),
+            "base_salary": float(base_salary),
+            "per_day_rate": float(per_day_rate),
+            "overtime_minutes": total_overtime_minutes,
+            "calculated_salary": float(calculated_salary),
+        },
+    }
 
 
 def compute_live_working_minutes(user_id, login_time: datetime, db: Session) -> int:
@@ -362,11 +515,37 @@ def end_day(
 
     working_minutes, offline_minutes = compute_working_minutes(attendance.login_time, now, activity_logs)
 
+    # Flush any idle time still accumulating at the moment of end-day — if the
+    # user was idle and clicks "End Day" directly (without the agent getting a
+    # chance to send one more "active" heartbeat first), that final idle
+    # stretch would otherwise never make it into idle_minutes at all.
+    if current_status and current_status.status == "idle" and current_status.idle_started_at:
+        idle_duration_minutes = round((now - current_status.idle_started_at).total_seconds() / 60)
+        if idle_duration_minutes > 0:
+            attendance.idle_minutes = (attendance.idle_minutes or 0) + idle_duration_minutes
+        current_status.idle_started_at = None
+
     attendance.logout_time = now
     attendance.report_submitted = True
     attendance.is_present = True
     attendance.working_minutes = working_minutes
     attendance.offline_minutes = offline_minutes
+
+    # productive_minutes = actual working hours, net of break and idle time
+    # (meeting time counts as work, so it's not deducted). This is what the
+    # salary engine uses — working_minutes above stays the raw shift span for
+    # anything that still needs that figure.
+    productive_minutes = max(
+        0,
+        working_minutes - (attendance.break_minutes or 0) - (attendance.idle_minutes or 0),
+    )
+    attendance.productive_minutes = productive_minutes
+
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    company_config = get_config(company) if company else {}
+    working_hours_per_day = company_config.get("working_hours_per_day", 8)
+    full_day_minutes = working_hours_per_day * 60
+    attendance.overtime_minutes = max(0, productive_minutes - full_day_minutes)
 
     db.add(
         DailyReport(
@@ -721,10 +900,6 @@ def export_team_attendance_excel(
     )
     salary_by_user = {str(r.user_id): r for r in all_salary_records}
 
-    company = db.query(Company).filter(Company.id == current_user.company_id).first()
-    company_config = get_config(company) if company else {}
-    configured_days = company_config.get("working_days_per_month")
-
     for staff in staff_members:
         records = attendance_by_user[staff.id]
         days_present = sum(1 for r in records if r.is_present)
@@ -732,15 +907,13 @@ def export_team_attendance_excel(
         total_working_minutes = sum(r.working_minutes or 0 for r in records)
         total_break_minutes = sum(r.break_minutes or 0 for r in records)
 
-        total_days = configured_days or (days_present + days_absent)
-        base_salary = Decimal(staff.base_salary or 0)
-        if total_days:
-            calculated_salary = (base_salary / Decimal(total_days)) * Decimal(days_present)
-        else:
-            calculated_salary = Decimal("0")
-        calculated_salary = calculated_salary.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
         salary_record = salary_by_user.get(str(staff.id))
+        # An approved month is history — use the frozen figure rather than
+        # recalculating live, so the export always matches what was approved.
+        if salary_record and salary_record.is_approved:
+            calculated_salary = salary_record.final_salary or salary_record.calculated_salary or Decimal("0")
+        else:
+            calculated_salary = calculate_monthly_salary(staff, month, year, db)["calculated_salary"]
 
         worksheet.append(
             [
@@ -897,7 +1070,10 @@ def get_attendance_summary(
     db: Session = Depends(get_db),
 ):
     user = get_staff_for_attendance(user_id, current_user, db)
-    return build_attendance_summary(user, month, year, db)
+    summary = build_attendance_summary(user, month, year, db)
+    if current_user.role != "super_admin" and current_user.id != user.id:
+        summary.pop("base_salary", None)
+    return summary
 
 
 @router.get("/attendance/salary/{user_id}")
@@ -911,7 +1087,7 @@ def get_salary_calculation(
     require_admin(current_user)
     user = get_staff_for_attendance(user_id, current_user, db)
     summary = build_attendance_summary(user, month, year, db)
-    calculated_salary = calculate_monthly_salary(user, summary, db)
+    result = calculate_monthly_salary(user, month, year, db)
     salary_record = (
         db.query(SalaryRecord)
         .filter(
@@ -927,15 +1103,24 @@ def get_salary_calculation(
         "full_name": user.full_name,
         "month": month,
         "year": year,
-        "base_salary": user.base_salary or Decimal("0"),
+        "base_salary": result["base_salary"],
         "total_working_days": summary["total_working_days"],
         "days_present": summary["days_present"],
-        "calculated_salary": calculated_salary,
+        "working_days_in_month": result["working_days_in_month"],
+        "days_earned": result["days_earned"],
+        "per_day_rate": result["per_day_rate"],
+        "overtime_minutes": result["overtime_minutes"],
+        "calculation_mode": result["calculation_mode"],
+        "day_breakdown": result["day_breakdown"],
+        "calculated_salary": result["calculated_salary"],
+        "final_salary": salary_record.final_salary if salary_record else None,
+        "remark": salary_record.remark if salary_record else None,
         "is_approved": salary_record.is_approved if salary_record else False,
         "approved_by": str(salary_record.approved_by) if salary_record else None,
         "approved_at": format_utc_datetime(salary_record.approved_at)
         if salary_record
         else None,
+        "is_approvable": (year, month) < (datetime.utcnow().year, datetime.utcnow().month),
     }
 
 
@@ -1022,9 +1207,9 @@ def approve_salary(
     db: Session = Depends(get_db),
 ):
     require_super_admin(current_user)
+    assert_month_is_approvable(month, year)
     user = get_staff_for_attendance(user_id, current_user, db)
-    summary = build_attendance_summary(user, month, year, db)
-    calculated_salary = calculate_monthly_salary(user, summary, db)
+    result = calculate_monthly_salary(user, month, year, db)
     final_salary = approval_data.final_salary.quantize(
         Decimal("0.01"),
         rounding=ROUND_HALF_UP,
@@ -1049,15 +1234,149 @@ def approve_salary(
         )
         db.add(salary_record)
 
-    salary_record.base_salary = user.base_salary or Decimal("0")
-    salary_record.calculated_salary = calculated_salary
+    # Once approved, a salary record is history — it freezes the formula and
+    # inputs used, so it stays self-explanatory even if the company later
+    # changes its salary settings. Re-approving (editing an already-approved
+    # month) recalculates fresh, since that's a deliberate correction.
+    salary_record.base_salary = result["base_salary"]
+    salary_record.calculated_salary = result["calculated_salary"]
     salary_record.final_salary = final_salary
+    salary_record.calculation_mode = result["calculation_mode"]
+    salary_record.calculation_snapshot = result["calculation_snapshot"]
+    salary_record.remark = approval_data.remark
     salary_record.is_approved = True
     salary_record.approved_by = current_user.id
     salary_record.approved_at = datetime.utcnow()
+    salary_record.updated_at = datetime.utcnow()
     db.commit()
 
     return {
         "message": "Salary approved",
         "final_salary": final_salary,
     }
+
+
+@router.get("/attendance/salary/team/overview")
+def get_team_salary_overview(
+    month: int,
+    year: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """One row per staff member for the given month — calculated salary,
+    approval status, and (if approved) the final figure and any remark.
+    Backs the bulk salary review/approve screen."""
+    require_admin(current_user)
+
+    staff_query = db.query(User).filter(
+        User.company_id == current_user.company_id,
+        User.role == "staff",
+        User.is_active.is_(True),
+    )
+    if current_user.role == "admin":
+        staff_query = staff_query.filter(User.id.in_(get_assigned_staff_ids(current_user.id, db)))
+    staff_members = staff_query.order_by(User.full_name.asc()).all()
+
+    staff_ids = [s.id for s in staff_members]
+    salary_records = (
+        db.query(SalaryRecord)
+        .filter(
+            SalaryRecord.user_id.in_(staff_ids),
+            SalaryRecord.month == month,
+            SalaryRecord.year == year,
+        )
+        .all()
+    )
+    salary_by_user = {str(r.user_id): r for r in salary_records}
+
+    rows = []
+    for staff in staff_members:
+        record = salary_by_user.get(str(staff.id))
+        if record and record.is_approved:
+            rows.append({
+                "user_id": str(staff.id),
+                "full_name": staff.full_name,
+                "employee_id": staff.employee_id,
+                "base_salary": record.base_salary,
+                "calculated_salary": record.calculated_salary,
+                "final_salary": record.final_salary,
+                "is_approved": True,
+                "approved_at": format_utc_datetime(record.approved_at),
+                "remark": record.remark,
+                "calculation_mode": record.calculation_mode,
+            })
+        else:
+            result = calculate_monthly_salary(staff, month, year, db)
+            rows.append({
+                "user_id": str(staff.id),
+                "full_name": staff.full_name,
+                "employee_id": staff.employee_id,
+                "base_salary": result["base_salary"],
+                "calculated_salary": result["calculated_salary"],
+                "final_salary": None,
+                "is_approved": False,
+                "approved_at": None,
+                "remark": None,
+                "calculation_mode": result["calculation_mode"],
+            })
+
+    return {
+        "month": month,
+        "year": year,
+        "is_approvable": (year, month) < (datetime.utcnow().year, datetime.utcnow().month),
+        "staff": rows,
+    }
+
+
+@router.post("/attendance/salary/team/bulk-approve")
+def bulk_approve_salary(
+    payload: BulkSalaryApprovalRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_super_admin(current_user)
+    assert_month_is_approvable(payload.month, payload.year)
+
+    approved, failed = [], []
+    for item in payload.approvals:
+        try:
+            user = get_staff_for_attendance(item.user_id, current_user, db)
+        except HTTPException:
+            failed.append({"user_id": item.user_id, "detail": "User not found"})
+            continue
+
+        result = calculate_monthly_salary(user, payload.month, payload.year, db)
+        final_salary = item.final_salary.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        salary_record = (
+            db.query(SalaryRecord)
+            .filter(
+                SalaryRecord.user_id == user.id,
+                SalaryRecord.month == payload.month,
+                SalaryRecord.year == payload.year,
+            )
+            .first()
+        )
+        if not salary_record:
+            salary_record = SalaryRecord(
+                company_id=user.company_id,
+                user_id=user.id,
+                month=payload.month,
+                year=payload.year,
+            )
+            db.add(salary_record)
+
+        salary_record.base_salary = result["base_salary"]
+        salary_record.calculated_salary = result["calculated_salary"]
+        salary_record.final_salary = final_salary
+        salary_record.calculation_mode = result["calculation_mode"]
+        salary_record.calculation_snapshot = result["calculation_snapshot"]
+        salary_record.remark = item.remark
+        salary_record.is_approved = True
+        salary_record.approved_by = current_user.id
+        salary_record.approved_at = datetime.utcnow()
+        salary_record.updated_at = datetime.utcnow()
+        approved.append(item.user_id)
+
+    db.commit()
+    return {"approved": approved, "failed": failed}

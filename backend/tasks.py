@@ -41,6 +41,28 @@ async def offline_detection_task():
             )
 
             for current_status, user in stale_statuses:
+                # Flush any idle time that was accumulating when the machine
+                # went stale (sleep, network drop, agent crash) — otherwise
+                # this window of idle time is silently lost, and worse,
+                # idle_started_at would sit dangling until overwritten by the
+                # next active->idle transition.
+                if current_status.status == "idle" and current_status.idle_started_at:
+                    idle_duration_minutes = round(
+                        (now - current_status.idle_started_at).total_seconds() / 60
+                    )
+                    if idle_duration_minutes > 0:
+                        attendance = (
+                            db.query(Attendance)
+                            .filter(
+                                Attendance.user_id == user.id,
+                                Attendance.date == now.date(),
+                            )
+                            .first()
+                        )
+                        if attendance:
+                            attendance.idle_minutes = (attendance.idle_minutes or 0) + idle_duration_minutes
+                    current_status.idle_started_at = None
+
                 current_status.status = "offline"
                 db.add(
                     ActivityLog(
