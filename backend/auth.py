@@ -107,6 +107,34 @@ def require_super_admin(current_user: User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
+def is_sales_department(current_user: User) -> bool:
+    return (current_user.department or "").strip().lower() == "sales"
+
+
+def require_crm_access(current_user: User):
+    """CRM is sales-department tooling: open to super_admin regardless of
+    department, plus any staff/admin whose department is exactly "Sales"
+    (case-insensitive). Admins configure this via the user's Department
+    field — no separate CRM role exists."""
+    if current_user.role == "super_admin":
+        return
+    if is_sales_department(current_user):
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def require_crm_manage(current_user: User):
+    """Managing CRM master data (lead sources/statuses, items, item
+    categories) is restricted to super_admin, or an `admin`-role user who is
+    also in the Sales department — plain sales staff can use the dropdowns
+    but not edit them."""
+    if current_user.role == "super_admin":
+        return
+    if current_user.role == "admin" and is_sales_department(current_user):
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
 def require_platform_admin(current_user: User = Depends(get_current_user)):
     if current_user.role != "platform_admin":
         raise HTTPException(

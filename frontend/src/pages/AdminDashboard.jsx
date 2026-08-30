@@ -13,6 +13,7 @@ import {
   ClipboardList,
   CreditCard,
   Download,
+  Handshake,
   Home,
   ListChecks,
   MessageSquare,
@@ -42,6 +43,7 @@ import DashboardShell from "../components/ui/DashboardShell.jsx";
 import ConnectedAccounts from "../components/ConnectedAccounts.jsx";
 import RemindersPanel from "../components/RemindersPanel.jsx";
 import SubscriptionPage from "../components/SubscriptionPage.jsx";
+import CrmPanel from "../components/crm/CrmPanel.jsx";
 
 const statusColors = {
   active: "bg-emerald-500",
@@ -6268,6 +6270,7 @@ const sectionTitles = {
   reports: "Reports",
   leave: "Leave Requests",
   salary: "Salary",
+  crm: "CRM",
   alerts: "Alerts",
   chat: "Chat",
   tasks: "Tasks",
@@ -6410,6 +6413,9 @@ function SuperAdminDashboard() {
   const visibleNavItems = navItems
     .filter((item) => !item.superAdminOnly || user?.role === "super_admin")
     .map((item) => ({ ...item, badge: badgeCounts[item.id] ?? 0 }));
+  // CRM is sales-department tooling: super_admin always sees it regardless
+  // of department, same as the backend's require_crm_access gate.
+  visibleNavItems.push({ id: "crm", label: "CRM", icon: Handshake });
   if (user?.role === "super_admin") {
     visibleNavItems.push({ id: "subscriptions", label: "Subscriptions", icon: CreditCard });
     visibleNavItems.push({ id: "settings", label: "Settings", icon: SettingsIcon });
@@ -6463,6 +6469,10 @@ function SuperAdminDashboard() {
 
     if (activeSection === "salary") {
       return <SalaryPanel />;
+    }
+
+    if (activeSection === "crm") {
+      return <CrmPanel />;
     }
 
     if (activeSection === "alerts") {

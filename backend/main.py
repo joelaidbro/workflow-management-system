@@ -35,6 +35,10 @@ from routers.alerts import router as alerts_router
 from routers.attendance import router as attendance_router
 from routers.auth import router as auth_router
 from routers.chat import router as chat_router
+from routers.crm_settings import router as crm_settings_router
+from routers.crm_leads import router as crm_leads_router
+from routers.crm_quotations import router as crm_quotations_router
+from routers.crm_bulk import router as crm_bulk_router
 from routers.leave import router as leave_router
 from routers.platform import router as platform_router
 from routers.reminders import router as reminders_router
@@ -190,6 +194,10 @@ app.include_router(team_router, prefix="/api")
 app.include_router(calendar_router, prefix="/api")
 app.include_router(reminders_router, prefix="/api")
 app.include_router(billing_router, prefix="/api")
+app.include_router(crm_settings_router, prefix="/api")
+app.include_router(crm_leads_router, prefix="/api")
+app.include_router(crm_quotations_router, prefix="/api")
+app.include_router(crm_bulk_router, prefix="/api")
 
 
 @app.get("/health")

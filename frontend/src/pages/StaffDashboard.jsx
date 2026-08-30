@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Handshake,
   Home,
   ListChecks,
   MessageSquare,
@@ -37,6 +38,7 @@ import { EmptyState, LoadingState } from "../components/ui/States.jsx";
 import DashboardShell from "../components/ui/DashboardShell.jsx";
 import ConnectedAccounts from "../components/ConnectedAccounts.jsx";
 import RemindersPanel from "../components/RemindersPanel.jsx";
+import CrmPanel from "../components/crm/CrmPanel.jsx";
 
 function formatElapsedDuration(startValue, endValue = new Date()) {
   if (!startValue) {
@@ -101,6 +103,7 @@ const STAFF_SECTION_IDS = [
   "alerts",
   "tasks",
   "reminders",
+  "crm",
   "profile",
 ];
 
@@ -1085,7 +1088,9 @@ function StaffDashboard() {
     tasks: "My Tasks",
     reminders: "Reminders",
     profile: "Profile",
+    crm: "CRM",
   };
+  const isSalesDept = (user?.department || "").trim().toLowerCase() === "sales";
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: Home },
     { id: "reports", label: "Reports", icon: ClipboardList, badge: reportReplyCount },
@@ -1095,6 +1100,9 @@ function StaffDashboard() {
     { id: "alerts", label: "Alerts", icon: Bell },
     { id: "tasks", label: "My Tasks", icon: ListChecks },
     { id: "reminders", label: "Reminders", icon: BellRing },
+    // CRM is sales-department tooling — only shown to staff whose
+    // department is Sales, mirroring the backend's require_crm_access gate.
+    ...(isSalesDept ? [{ id: "crm", label: "CRM", icon: Handshake }] : []),
     { id: "profile", label: "Profile", icon: UserRound },
   ];
   const calendarDays = useMemo(() => {
@@ -2136,6 +2144,7 @@ function StaffDashboard() {
         )}
 
         {activeSection === "reminders" && <RemindersPanel />}
+        {activeSection === "crm" && <CrmPanel />}
 
         {activeSection === "profile" && (
           <div className="space-y-6">

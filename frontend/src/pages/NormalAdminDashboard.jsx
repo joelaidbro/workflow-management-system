@@ -7,6 +7,7 @@ import {
   BellRing,
   CalendarDays,
   ClipboardList,
+  Handshake,
   Home,
   ListChecks,
   MessageSquare,
@@ -31,6 +32,7 @@ import { EmptyState, LoadingState } from "../components/ui/States.jsx";
 import DashboardShell from "../components/ui/DashboardShell.jsx";
 import ConnectedAccounts from "../components/ConnectedAccounts.jsx";
 import RemindersPanel from "../components/RemindersPanel.jsx";
+import CrmPanel from "../components/crm/CrmPanel.jsx";
 
 import {
   TeamStatusPanel,
@@ -1754,12 +1756,16 @@ const adminNavItems = [
   { id: "tasks", label: "Tasks", icon: ListChecks },
   { id: "reminders", label: "Reminders", icon: BellRing },
   { id: "chat", label: "Chat", icon: MessageSquare },
+  // CRM is sales-department tooling — only shown to admins whose
+  // department is Sales, mirroring the backend's require_crm_access gate.
+  { id: "crm", label: "CRM", icon: Handshake, salesOnly: true },
 ];
 
 const adminSectionTitles = {
   dashboard: "Dashboard",
   "my-profile": "My Profile",
   "staff-management": "Staff",
+  crm: "CRM",
   reports: "Reports",
   leave: "Leave Requests",
   alerts: "Alerts",
@@ -1879,7 +1885,10 @@ function NormalAdminDashboard() {
     leave: leavePendingCount,
     alerts: alertReplyCount,
   };
-  const visibleNavItems = adminNavItems.map((item) => ({
+  const isSalesDept = (user?.department || "").trim().toLowerCase() === "sales";
+  const visibleNavItems = adminNavItems
+    .filter((item) => !item.salesOnly || isSalesDept)
+    .map((item) => ({
     ...item,
     badge: badgeCounts[item.id] ?? 0,
   }));
@@ -1909,6 +1918,7 @@ function NormalAdminDashboard() {
     if (activeSection === "alerts") return <AdminAlertsPanel />;
     if (activeSection === "tasks") return <AdminTasksPanel />;
     if (activeSection === "reminders") return <RemindersPanel />;
+    if (activeSection === "crm") return <CrmPanel />;
     if (activeSection === "chat") return null;
 
     return (

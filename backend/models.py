@@ -692,3 +692,208 @@ Index("ix_subscriptions_status_current_period_end", Subscription.status, Subscri
 Index("ix_subscription_invoices_company_id_created_at", SubscriptionInvoice.company_id, SubscriptionInvoice.created_at)
 Index("ix_subscription_invoices_status_due_at", SubscriptionInvoice.status, SubscriptionInvoice.due_at)
 Index("ix_subscription_invoices_razorpay_order_id", SubscriptionInvoice.razorpay_order_id)
+
+
+# ============================================================================
+# CRM — enquiry -> lead -> followup -> quotation pipeline for sales staff.
+# Every business table carries company_id like the rest of the app. Extra
+# per-lead/per-quotation attributes (candidate age, CV, skill, budget, etc.)
+# deliberately live in the `custom_fields` JSON blob rather than as named
+# columns — the exact field set is sales-team-specific and expected to change
+# without needing a migration each time.
+# ============================================================================
+
+class LeadSource(Base):
+    __tablename__ = "lead_sources"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class LeadStatus(Base):
+    __tablename__ = "lead_statuses"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    # Which pipeline stage this named status maps to — drives the New / In
+    # Follow Up / Won / Lost tabs on the Leads page without hardcoding
+    # specific status names (companies can rename/add statuses freely).
+    nature = Column(String(20), nullable=False, default="new")  # new | in_progress | won | lost
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ItemCategory(Base):
+    __tablename__ = "item_categories"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Item(Base):
+    __tablename__ = "items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    item_category_id = Column(UUID(as_uuid=True), ForeignKey("item_categories.id"), nullable=True)
+    name = Column(String(255), nullable=False)
+    default_rate = Column(Numeric(10, 2), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    category = relationship("ItemCategory", foreign_keys=[item_category_id])
+
+
+class Lead(Base):
+    __tablename__ = "leads"
+    __table_args__ = (
+        UniqueConstraint("company_id", "number", name="uq_leads_company_number"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    number = Column(String(30), nullable=False)  # e.g. "ENQ-0001"
+    customer_name = Column(String(255), nullable=False)
+    phone = Column(String(20), nullable=False)
+    place = Column(String(255), nullable=True)
+    lead_source_id = Column(UUID(as_uuid=True), ForeignKey("lead_sources.id"), nullable=True)
+    lead_status_id = Column(UUID(as_uuid=True), ForeignKey("lead_statuses.id"), nullable=False)
+    assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    business_value = Column(Numeric(12, 2), nullable=False, default=0)
+    lead_quality = Column(String(10), nullable=True)  # cold | warm | hot
+    next_followup_date = Column(DateTime, nullable=True)
+    last_followup_date = Column(DateTime, nullable=True)
+    won_at = Column(DateTime, nullable=True)
+    lost_at = Column(DateTime, nullable=True)
+    lost_reason = Column(Text, nullable=True)
+    # Sales-team-defined extra attributes (age, CV path, budget, etc.) — see
+    # module docstring above for why this is JSON instead of fixed columns.
+    custom_fields = Column(JSON, nullable=False, default=dict)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    source = relationship("LeadSource", foreign_keys=[lead_source_id])
+    lead_status = relationship("LeadStatus", foreign_keys=[lead_status_id])
+    assignee = relationship("User", foreign_keys=[assigned_to])
+    creator = relationship("User", foreign_keys=[created_by])
+    followups = relationship(
+        "Followup",
+        back_populates="lead",
+        cascade="all, delete-orphan",
+        order_by="Followup.followup_date.desc()",
+    )
+    quotations = relationship("Quotation", back_populates="lead")
+
+
+class Followup(Base):
+    __tablename__ = "followups"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id"), nullable=False)
+    followup_date = Column(DateTime, nullable=False)
+    note = Column(Text, nullable=True)
+    # Snapshot of the lead's status name at the time this followup was
+    # logged — so the history reads correctly even if the status is later
+    # renamed or the lead moves further down the pipeline.
+    status_at_time = Column(String(100), nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    lead = relationship("Lead", back_populates="followups")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class Quotation(Base):
+    __tablename__ = "quotations"
+    __table_args__ = (
+        UniqueConstraint("company_id", "number", name="uq_quotations_company_number"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    number = Column(String(30), nullable=False)  # e.g. "QUO-0001"
+    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id"), nullable=False)
+    sales_executive_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    lead_source_id = Column(UUID(as_uuid=True), ForeignKey("lead_sources.id"), nullable=True)
+    currency = Column(String(3), nullable=False, default="INR")
+    valid_upto = Column(Date, nullable=True)
+    next_followup_date = Column(DateTime, nullable=True)
+    description = Column(Text, nullable=True)
+    terms_and_conditions = Column(Text, nullable=True)
+    discount_type = Column(String(10), nullable=False, default="percent")  # percent | flat
+    discount_value = Column(Numeric(12, 2), nullable=False, default=0)
+    # Always server-computed at create/edit time from the line items — never
+    # trust client-sent totals.
+    gross_total = Column(Numeric(12, 2), nullable=False, default=0)
+    tax_total = Column(Numeric(12, 2), nullable=False, default=0)
+    total_payable = Column(Numeric(12, 2), nullable=False, default=0)
+    custom_fields = Column(JSON, nullable=False, default=dict)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    lead = relationship("Lead", back_populates="quotations")
+    sales_executive = relationship("User", foreign_keys=[sales_executive_id])
+    source = relationship("LeadSource", foreign_keys=[lead_source_id])
+    creator = relationship("User", foreign_keys=[created_by])
+    items = relationship(
+        "QuotationItem",
+        back_populates="quotation",
+        cascade="all, delete-orphan",
+        order_by="QuotationItem.id",
+    )
+
+
+class QuotationItem(Base):
+    __tablename__ = "quotation_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    quotation_id = Column(UUID(as_uuid=True), ForeignKey("quotations.id"), nullable=False)
+    item_id = Column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=True)
+    item_name = Column(String(255), nullable=False)  # snapshot — survives item rename/delete
+    rate = Column(Numeric(12, 2), nullable=False, default=0)
+    qty = Column(Numeric(12, 2), nullable=False, default=1)
+    tax_percent = Column(Numeric(5, 2), nullable=False, default=0)
+    gross = Column(Numeric(12, 2), nullable=False, default=0)
+    inc_tax = Column(Numeric(12, 2), nullable=False, default=0)
+    note = Column(Text, nullable=True)
+
+    quotation = relationship("Quotation", back_populates="items")
+    item = relationship("Item", foreign_keys=[item_id])
+
+
+class SequenceCounter(Base):
+    """Concurrency-safe auto-numbering (ENQ-0001, QUO-0001, ...). Row is
+    locked with SELECT ... FOR UPDATE inside the same transaction as the
+    record it's numbering, so two simultaneous requests can't hand out the
+    same number — plain Python-side count()+1 breaks under concurrency and
+    after deletions."""
+    __tablename__ = "sequence_counters"
+    __table_args__ = (
+        UniqueConstraint("company_id", "key", name="uq_sequence_counters_company_key"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    key = Column(String(30), nullable=False)  # "enquiry" | "quotation"
+    next_value = Column(Integer, nullable=False, default=1)
+
+
+Index("ix_lead_sources_company_id", LeadSource.company_id)
+Index("ix_lead_statuses_company_id", LeadStatus.company_id)
+Index("ix_item_categories_company_id", ItemCategory.company_id)
+Index("ix_items_company_id", Item.company_id)
+Index("ix_leads_company_id", Lead.company_id)
+Index("ix_leads_company_id_lead_status_id", Lead.company_id, Lead.lead_status_id)
+Index("ix_leads_assigned_to", Lead.assigned_to)
+Index("ix_leads_next_followup_date", Lead.next_followup_date)
+Index("ix_followups_company_id", Followup.company_id)
+Index("ix_followups_lead_id", Followup.lead_id)
+Index("ix_quotations_company_id", Quotation.company_id)
+Index("ix_quotations_lead_id", Quotation.lead_id)
+Index("ix_quotation_items_quotation_id", QuotationItem.quotation_id)
