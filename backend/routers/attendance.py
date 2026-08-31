@@ -129,6 +129,16 @@ def get_staff_for_attendance(user_id: str, current_user: User, db: Session):
 
 
 def build_attendance_summary(user: User, month: int, year: int, db: Session):
+    """Both `days_absent`/`days_present` and the per-day `attendance_records`
+    calendar used to be built from *existing* Attendance rows only — a
+    genuine no-show day never gets a row at all (rows are only created in
+    start_day()), so it was silently excluded from every count and the
+    calendar fell back to "No record" instead of "Absent". This walks the
+    calendar the same way calculate_monthly_salary() does (bounded to
+    elapsed days, working-day/holiday/approved-leave aware) and synthesizes
+    an explicit absent/leave entry for every day that has no real
+    Attendance row, so the two admin/staff views and the salary engine all
+    agree on the same numbers."""
     start_date, end_date = get_month_range(month, year)
     records = (
         db.query(Attendance)
@@ -140,15 +150,103 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         .order_by(Attendance.date.asc())
         .all()
     )
-
-    total_working_days = sum(1 for record in records if record.logged_in)
-    days_present = sum(1 for record in records if record.is_present)
-    days_absent = total_working_days - days_present
+    records_by_date = {record.date: record for record in records}
 
     company = db.query(Company).filter(Company.id == user.company_id).first()
     company_config = get_config(company) if company else {}
     working_days = company_config.get("working_days", ["monday", "tuesday", "wednesday", "thursday", "friday"])
     public_holidays = company_config.get("public_holidays", [])
+    working_days_set = {d.lower() for d in working_days}
+    holiday_dates = {h.get("date") for h in public_holidays}
+
+    joining_date = user.joining_date.date() if user.joining_date else None
+    period_start = max(start_date, joining_date) if joining_date else start_date
+    # Bounded to "today" (inclusive) for a month still in progress, so future
+    # days are never counted as absent — mirrors calculate_monthly_salary().
+    period_end = min(end_date, datetime.utcnow().date() + timedelta(days=1))
+
+    approved_leaves = (
+        db.query(LeaveRequest)
+        .filter(
+            LeaveRequest.user_id == user.id,
+            LeaveRequest.status == "approved",
+            LeaveRequest.start_date < period_end,
+            LeaveRequest.end_date >= period_start,
+        )
+        .all()
+    ) if period_start < period_end else []
+    leave_dates = set()
+    for leave in approved_leaves:
+        d = max(leave.start_date, period_start)
+        last = min(leave.end_date, period_end - timedelta(days=1))
+        while d <= last:
+            leave_dates.add(d)
+            d += timedelta(days=1)
+
+    total_working_days = 0
+    days_present = 0
+    days_absent = 0
+    days_on_leave = 0
+    attendance_records = []
+
+    current = period_start
+    while current < period_end:
+        record = records_by_date.get(current)
+        if WEEKDAY_NAMES[current.weekday()] not in working_days_set or current.isoformat() in holiday_dates:
+            current += timedelta(days=1)
+            continue
+
+        total_working_days += 1
+
+        if record:
+            if record.is_present:
+                days_present += 1
+            elif current in leave_dates:
+                days_on_leave += 1
+            else:
+                days_absent += 1
+            attendance_records.append({
+                "date": record.date,
+                "is_present": record.is_present,
+                "work_mode": "leave" if (not record.is_present and current in leave_dates) else record.work_mode,
+                "working_minutes": record.working_minutes,
+                "break_minutes": record.break_minutes,
+                "idle_minutes": record.idle_minutes,
+                "productive_minutes": record.productive_minutes,
+                "overtime_minutes": record.overtime_minutes,
+                "login_time": format_utc_datetime(record.login_time),
+                "logout_time": format_utc_datetime(record.logout_time),
+            })
+        elif current in leave_dates:
+            days_on_leave += 1
+            attendance_records.append({
+                "date": current,
+                "is_present": False,
+                "work_mode": "leave",
+                "working_minutes": 0,
+                "break_minutes": 0,
+                "idle_minutes": 0,
+                "productive_minutes": 0,
+                "overtime_minutes": 0,
+                "login_time": None,
+                "logout_time": None,
+            })
+        else:
+            days_absent += 1
+            attendance_records.append({
+                "date": current,
+                "is_present": False,
+                "work_mode": None,
+                "working_minutes": 0,
+                "break_minutes": 0,
+                "idle_minutes": 0,
+                "productive_minutes": 0,
+                "overtime_minutes": 0,
+                "login_time": None,
+                "logout_time": None,
+            })
+
+        current += timedelta(days=1)
 
     return {
         "user_id": str(user.id),
@@ -166,6 +264,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         "total_working_days": total_working_days,
         "days_present": days_present,
         "days_absent": days_absent,
+        "days_on_leave": days_on_leave,
         "total_working_minutes": sum(record.working_minutes or 0 for record in records),
         "total_break_minutes": sum(record.break_minutes or 0 for record in records),
         "total_meeting_minutes": sum(record.meeting_minutes or 0 for record in records),
@@ -175,21 +274,7 @@ def build_attendance_summary(user: User, month: int, year: int, db: Session):
         "total_overtime_minutes": sum(record.overtime_minutes or 0 for record in records),
         "working_days": working_days,
         "public_holidays": public_holidays,
-        "attendance_records": [
-            {
-                "date": record.date,
-                "is_present": record.is_present,
-                "work_mode": record.work_mode,
-                "working_minutes": record.working_minutes,
-                "break_minutes": record.break_minutes,
-                "idle_minutes": record.idle_minutes,
-                "productive_minutes": record.productive_minutes,
-                "overtime_minutes": record.overtime_minutes,
-                "login_time": format_utc_datetime(record.login_time),
-                "logout_time": format_utc_datetime(record.logout_time),
-            }
-            for record in records
-        ],
+        "attendance_records": attendance_records,
     }
 
 
@@ -902,8 +987,13 @@ def export_team_attendance_excel(
 
     for staff in staff_members:
         records = attendance_by_user[staff.id]
-        days_present = sum(1 for r in records if r.is_present)
-        days_absent = sum(1 for r in records if r.logged_in) - days_present
+        # Same calendar-walk as build_attendance_summary() — counting only
+        # existing Attendance rows silently excluded genuine no-show days
+        # (they never get a row) from "Days Absent", understating it here
+        # the same way the dashboards used to.
+        staff_summary = build_attendance_summary(staff, month, year, db)
+        days_present = staff_summary["days_present"]
+        days_absent = staff_summary["days_absent"]
         total_working_minutes = sum(r.working_minutes or 0 for r in records)
         total_break_minutes = sum(r.break_minutes or 0 for r in records)
 
