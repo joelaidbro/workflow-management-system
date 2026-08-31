@@ -63,6 +63,20 @@ export default function CrmSettingsTab({ masterData, refreshMasterData, canManag
   const [newStatus, setNewStatus] = useState({ name: "", nature: "new" });
   const [newCategory, setNewCategory] = useState("");
   const [newItem, setNewItem] = useState({ name: "", item_category_id: "", default_rate: "" });
+  const [loadingDefaults, setLoadingDefaults] = useState(false);
+
+  const loadStarterDefaults = async () => {
+    setLoadingDefaults(true);
+    try {
+      await api.post("/api/crm/bootstrap-defaults");
+      refreshMasterData();
+      toast.success("Starter defaults loaded — anything you'd already added was left untouched");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Could not load starter defaults");
+    } finally {
+      setLoadingDefaults(false);
+    }
+  };
 
   const addLeadSource = async () => {
     if (!newSource.trim()) return;
@@ -153,7 +167,29 @@ export default function CrmSettingsTab({ masterData, refreshMasterData, canManag
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="space-y-6">
+      {canManage && (
+        <div className="flex items-center justify-between rounded-lg border border-dashed border-slate-300 p-4 dark:border-white/15">
+          <div>
+            <h4 className="font-semibold text-slate-900 dark:text-white">Starter Defaults</h4>
+            <p className="text-xs text-slate-400">
+              Fills in the standard New/In Follow Up/Won/Lost statuses and a few common lead sources —
+              only for whichever of the two is currently empty. Safe to click anytime; never
+              touches or duplicates anything you've already set up.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={loadStarterDefaults}
+            disabled={loadingDefaults}
+            className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            {loadingDefaults ? "Loading…" : "Load Starter Defaults"}
+          </button>
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
       <MasterListCard
         title="Lead Sources"
         description="Where enquiries come from (Website, Referral, WhatsApp, etc.)"
@@ -300,6 +336,7 @@ export default function CrmSettingsTab({ masterData, refreshMasterData, canManag
           </button>
         </div>
       </MasterListCard>
+      </div>
     </div>
   );
 }

@@ -4,12 +4,54 @@ Kept separate from crm_settings.py because these are used across multiple
 CRM routers and none of them own this logic more than another.
 """
 import uuid
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from models import Followup, Lead, LeadStatus, Quotation, SequenceCounter, User
+from models import Followup, Lead, LeadSource, LeadStatus, Quotation, SequenceCounter, User
+
+# Starting-point master data so a brand-new company's CRM isn't a blank,
+# confusing screen. Lead statuses are the load-bearing one — enquiry
+# creation is blocked without a "new"-nature status to default into — lead
+# sources are just a convenience list. Both are fully editable/deletable
+# afterward; this is only ever inserted when the table is completely empty,
+# so it never overwrites or duplicates anything a company has customized.
+DEFAULT_LEAD_STATUSES = [
+    ("New", "new"),
+    ("In Follow Up", "in_progress"),
+    ("Won", "won"),
+    ("Lost", "lost"),
+]
+DEFAULT_LEAD_SOURCES = ["Website", "Referral", "Phone Call", "Walk-in", "Social Media"]
+
+
+def ensure_default_lead_statuses(db: Session, company_id) -> None:
+    exists = db.query(LeadStatus.id).filter(LeadStatus.company_id == company_id).first()
+    if exists:
+        return
+    now = datetime.utcnow()
+    for name, nature in DEFAULT_LEAD_STATUSES:
+        db.add(LeadStatus(company_id=company_id, name=name, nature=nature, created_at=now))
+    db.commit()
+
+
+def ensure_default_lead_sources(db: Session, company_id) -> None:
+    exists = db.query(LeadSource.id).filter(LeadSource.company_id == company_id).first()
+    if exists:
+        return
+    now = datetime.utcnow()
+    for name in DEFAULT_LEAD_SOURCES:
+        db.add(LeadSource(company_id=company_id, name=name, created_at=now))
+    db.commit()
+
+
+def ensure_default_crm_setup(db: Session, company_id) -> None:
+    """Idempotent — safe to call on every request. Seeds whichever of
+    lead statuses / lead sources is currently empty for this company."""
+    ensure_default_lead_statuses(db, company_id)
+    ensure_default_lead_sources(db, company_id)
 
 
 def build_lead_filter_query(db: Session, company_id, filters: dict):

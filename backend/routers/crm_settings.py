@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_crm_access, require_crm_manage
 from database import get_db
 from models import Item, ItemCategory, LeadSource, LeadStatus, User
+from routers.crm_common import ensure_default_crm_setup, ensure_default_lead_sources, ensure_default_lead_statuses
 
 router = APIRouter()
 
@@ -66,11 +67,35 @@ def get_in_company(model, row_id: str, company_id, db: Session):
     return row
 
 
+@router.post("/crm/bootstrap-defaults")
+def bootstrap_crm_defaults(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Manual fallback for the silent auto-seed that already runs on every
+    GET /crm/lead-statuses and /crm/lead-sources call — idempotent, only
+    fills in whichever of the two is currently empty, never touches or
+    duplicates anything the company has already customized."""
+    require_crm_manage(current_user)
+    ensure_default_crm_setup(db, current_user.company_id)
+    return {
+        "lead_statuses": [
+            format_lead_status(r)
+            for r in db.query(LeadStatus).filter(LeadStatus.company_id == current_user.company_id).order_by(LeadStatus.name.asc()).all()
+        ],
+        "lead_sources": [
+            format_lead_source(r)
+            for r in db.query(LeadSource).filter(LeadSource.company_id == current_user.company_id).order_by(LeadSource.name.asc()).all()
+        ],
+    }
+
+
 # ---- Lead Sources ----
 
 @router.get("/crm/lead-sources")
 def list_lead_sources(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     require_crm_access(current_user)
+    ensure_default_lead_sources(db, current_user.company_id)
     rows = (
         db.query(LeadSource)
         .filter(LeadSource.company_id == current_user.company_id)
@@ -116,6 +141,7 @@ def delete_lead_source(
 @router.get("/crm/lead-statuses")
 def list_lead_statuses(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     require_crm_access(current_user)
+    ensure_default_lead_statuses(db, current_user.company_id)
     rows = (
         db.query(LeadStatus)
         .filter(LeadStatus.company_id == current_user.company_id)
