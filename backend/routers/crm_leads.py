@@ -15,6 +15,8 @@ from routers.crm_common import (
     get_default_new_status,
     get_lead_in_company,
     next_sequence_number,
+    sync_lead_calendar_event,
+    to_naive_utc,
 )
 
 router = APIRouter()
@@ -120,7 +122,7 @@ def create_enquiry(
         assigned_to=assignee_id,
         business_value=body.business_value,
         lead_quality=body.lead_quality,
-        next_followup_date=body.next_followup_date,
+        next_followup_date=to_naive_utc(body.next_followup_date) if body.next_followup_date else None,
         custom_fields=body.custom_fields or {},
         created_by=current_user.id,
         created_at=now,
@@ -303,7 +305,7 @@ def create_followup(
     assert_can_touch_lead(lead, current_user)
 
     now = datetime.utcnow()
-    followup_date = body.followup_date or now
+    followup_date = to_naive_utc(body.followup_date) if body.followup_date else now
 
     followup = Followup(
         company_id=current_user.company_id,
@@ -317,8 +319,12 @@ def create_followup(
     db.add(followup)
 
     lead.last_followup_date = followup_date
-    lead.next_followup_date = body.next_followup_date
+    lead.next_followup_date = to_naive_utc(body.next_followup_date) if body.next_followup_date else None
     lead.updated_at = now
+
+    # Best-effort — never blocks saving the followup if the user hasn't
+    # connected Google or the sync call fails for any reason.
+    sync_lead_calendar_event(db, current_user, lead, latest_note=body.note)
 
     db.commit()
     db.refresh(followup)

@@ -769,6 +769,12 @@ class Lead(Base):
     won_at = Column(DateTime, nullable=True)
     lost_at = Column(DateTime, nullable=True)
     lost_reason = Column(Text, nullable=True)
+    # Google Calendar event id for this lead's current next_followup_date,
+    # on whichever user last logged a followup — kept in sync (created,
+    # moved, or deleted) each time a followup changes that date. Null if
+    # that user never connected Google, or there's currently no next
+    # followup date to represent.
+    google_event_id = Column(String(255), nullable=True)
     # Sales-team-defined extra attributes (age, CV path, budget, etc.) — see
     # module docstring above for why this is JSON instead of fixed columns.
     custom_fields = Column(JSON, nullable=False, default=dict)

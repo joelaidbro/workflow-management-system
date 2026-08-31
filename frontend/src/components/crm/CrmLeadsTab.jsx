@@ -501,6 +501,14 @@ function LeadDetailModal({ leadId, masterData, onClose, onChanged, onCreateQuota
             </div>
           </div>
 
+          {lead.next_followup_date && (
+            <p className="text-xs text-slate-400">
+              {lead.calendar_synced
+                ? "📅 Synced to your Google Calendar."
+                : "Not on your Google Calendar — connect your Google account from your profile to sync this automatically."}
+            </p>
+          )}
+
           <div>
             <h4 className="mb-2 font-semibold text-slate-900 dark:text-white">Followup History</h4>
             {lead.followups.length === 0 ? (

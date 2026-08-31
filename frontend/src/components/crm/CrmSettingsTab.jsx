@@ -68,9 +68,9 @@ export default function CrmSettingsTab({ masterData, refreshMasterData, canManag
   const loadStarterDefaults = async () => {
     setLoadingDefaults(true);
     try {
-      await api.post("/api/crm/bootstrap-defaults");
+      const response = await api.post("/api/crm/bootstrap-defaults");
       refreshMasterData();
-      toast.success("Starter defaults loaded — anything you'd already added was left untouched");
+      toast.success(response.data.message || "Starter defaults loaded");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Could not load starter defaults");
     } finally {
@@ -173,9 +173,9 @@ export default function CrmSettingsTab({ masterData, refreshMasterData, canManag
           <div>
             <h4 className="font-semibold text-slate-900 dark:text-white">Starter Defaults</h4>
             <p className="text-xs text-slate-400">
-              Fills in the standard New/In Follow Up/Won/Lost statuses and a few common lead sources —
-              only for whichever of the two is currently empty. Safe to click anytime; never
-              touches or duplicates anything you've already set up.
+              Adds whichever of the standard New/In Follow Up/Won/Lost statuses and common lead
+              sources you're missing by name — safe to click anytime, never duplicates anything
+              you've already added.
             </p>
           </div>
           <button

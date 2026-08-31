@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_crm_manage
 from database import get_db
-from models import Followup, User
+from models import Followup, Lead, User
 from routers.crm_common import build_lead_filter_query, format_lead
 
 router = APIRouter()
@@ -24,10 +24,12 @@ class LeadFilterBody(BaseModel):
 
 class BulkAssignBody(LeadFilterBody):
     target_user_id: str
+    lead_ids: list[str] | None = None
 
 
 class BulkTransferBody(LeadFilterBody):
     target_user_id: str
+    lead_ids: list[str] | None = None
 
 
 def _resolve_target_user(target_user_id: str, company_id, db: Session) -> User:
@@ -64,8 +66,13 @@ def bulk_assign_leads(
     require_crm_manage(current_user)
     target = _resolve_target_user(body.target_user_id, current_user.company_id, db)
 
-    filters = body.model_dump(exclude={"target_user_id"})
-    leads = build_lead_filter_query(db, current_user.company_id, filters).all()
+    filters = body.model_dump(exclude={"target_user_id", "lead_ids"})
+    query = build_lead_filter_query(db, current_user.company_id, filters)
+    if body.lead_ids is not None:
+        if not body.lead_ids:
+            return {"message": "0 lead(s) assigned to " + target.full_name, "count": 0}
+        query = query.filter(Lead.id.in_(body.lead_ids))
+    leads = query.all()
 
     now = datetime.utcnow()
     for lead in leads:
@@ -89,8 +96,13 @@ def bulk_transfer_leads(
     require_crm_manage(current_user)
     target = _resolve_target_user(body.target_user_id, current_user.company_id, db)
 
-    filters = body.model_dump(exclude={"target_user_id"})
-    leads = build_lead_filter_query(db, current_user.company_id, filters).all()
+    filters = body.model_dump(exclude={"target_user_id", "lead_ids"})
+    query = build_lead_filter_query(db, current_user.company_id, filters)
+    if body.lead_ids is not None:
+        if not body.lead_ids:
+            return {"message": "0 lead(s) transferred to " + target.full_name, "count": 0}
+        query = query.filter(Lead.id.in_(body.lead_ids))
+    leads = query.all()
 
     now = datetime.utcnow()
     for lead in leads:

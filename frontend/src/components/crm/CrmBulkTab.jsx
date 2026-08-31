@@ -27,6 +27,7 @@ export default function CrmBulkTab({ masterData }) {
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   useEffect(() => {
     api.get("/api/users/list", { params: { department: "Sales" } })
@@ -42,11 +43,21 @@ export default function CrmBulkTab({ masterData }) {
     try {
       const response = await api.post("/api/crm/leads/preview-filter", cleanFilters());
       setPreview(response.data);
+      setSelectedIds(response.data.leads.map((l) => l.id));
     } catch (err) {
       toast.error(err.response?.data?.detail || "Could not preview leads");
     } finally {
       setPreviewing(false);
     }
+  };
+
+  const toggleOne = (leadId) => {
+    setSelectedIds((c) => (c.includes(leadId) ? c.filter((id) => id !== leadId) : [...c, leadId]));
+  };
+
+  const toggleAll = () => {
+    if (!preview) return;
+    setSelectedIds((c) => (c.length === preview.leads.length ? [] : preview.leads.map((l) => l.id)));
   };
 
   const runAction = async () => {
@@ -58,12 +69,17 @@ export default function CrmBulkTab({ masterData }) {
       toast.error("Preview the filter first — nothing to act on");
       return;
     }
+    if (selectedIds.length === 0) {
+      toast.error("Select at least one lead");
+      return;
+    }
     setSubmitting(true);
     try {
       const endpoint = mode === "assign" ? "/api/crm/leads/bulk-assign" : "/api/crm/leads/bulk-transfer";
-      const response = await api.post(endpoint, { ...cleanFilters(), target_user_id: targetUserId });
+      const response = await api.post(endpoint, { ...cleanFilters(), target_user_id: targetUserId, lead_ids: selectedIds });
       toast.success(response.data.message);
       setPreview(null);
+      setSelectedIds([]);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Bulk action failed");
     } finally {
@@ -144,8 +160,8 @@ export default function CrmBulkTab({ masterData }) {
 
           <div className="flex gap-3">
             <Button variant="secondary" loading={previewing} onClick={runPreview}>Preview Matching Leads</Button>
-            <Button loading={submitting} disabled={!preview || preview.count === 0} onClick={runAction}>
-              {mode === "assign" ? "Assign" : "Transfer"} {preview ? `(${preview.count})` : ""}
+            <Button loading={submitting} disabled={!preview || selectedIds.length === 0} onClick={runAction}>
+              {mode === "assign" ? "Assign" : "Transfer"} {preview ? `(${selectedIds.length} selected)` : ""}
             </Button>
           </div>
         </CardBody>
@@ -160,8 +176,16 @@ export default function CrmBulkTab({ masterData }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400 dark:border-white/10">
+                    <th className="py-2 pr-4">
+                      <input
+                        type="checkbox"
+                        checked={preview.leads.length > 0 && selectedIds.length === preview.leads.length}
+                        onChange={toggleAll}
+                      />
+                    </th>
                     <th className="py-2 pr-4">Number</th>
                     <th className="py-2 pr-4">Customer</th>
+                    <th className="py-2 pr-4">Phone</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4">Currently assigned</th>
                   </tr>
@@ -169,8 +193,16 @@ export default function CrmBulkTab({ masterData }) {
                 <tbody>
                   {preview.leads.map((lead) => (
                     <tr key={lead.id} className="border-b border-slate-100 last:border-0 dark:border-white/5">
+                      <td className="py-2 pr-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(lead.id)}
+                          onChange={() => toggleOne(lead.id)}
+                        />
+                      </td>
                       <td className="py-2 pr-4 font-semibold text-slate-900 dark:text-white">{lead.number}</td>
-                      <td className="py-2 pr-4">{lead.customer_name}</td>
+                      <td className="py-2 pr-4 font-medium text-slate-900 dark:text-white">{lead.customer_name}</td>
+                      <td className="py-2 pr-4 text-slate-500">{lead.phone}</td>
                       <td className="py-2 pr-4 text-slate-500">{lead.lead_status_name}</td>
                       <td className="py-2 pr-4 text-slate-500">{lead.assigned_to_name || "Unassigned"}</td>
                     </tr>

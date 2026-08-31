@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_crm_access, require_crm_manage
 from database import get_db
 from models import Item, ItemCategory, LeadSource, LeadStatus, User
-from routers.crm_common import ensure_default_crm_setup, ensure_default_lead_sources, ensure_default_lead_statuses
+from routers.crm_common import (
+    ensure_default_lead_sources,
+    ensure_default_lead_statuses,
+    top_up_default_lead_sources,
+    top_up_default_lead_statuses,
+)
 
 router = APIRouter()
 
@@ -72,13 +77,24 @@ def bootstrap_crm_defaults(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Manual fallback for the silent auto-seed that already runs on every
-    GET /crm/lead-statuses and /crm/lead-sources call — idempotent, only
-    fills in whichever of the two is currently empty, never touches or
-    duplicates anything the company has already customized."""
+    """Manual "Load Starter Defaults" button. Unlike the silent auto-seed on
+    every GET /crm/lead-statuses and /crm/lead-sources call (which only
+    fires when a table is completely empty, so it never resurrects a
+    deliberate full wipe), this checks each default item individually by
+    name and adds only the ones missing — so it reliably tops up standard
+    statuses/sources even for a company that already added some of its own,
+    instead of silently no-op'ing the moment any row exists."""
     require_crm_manage(current_user)
-    ensure_default_crm_setup(db, current_user.company_id)
+    added_statuses = top_up_default_lead_statuses(db, current_user.company_id)
+    added_sources = top_up_default_lead_sources(db, current_user.company_id)
     return {
+        "message": (
+            f"Added {added_statuses} lead status(es) and {added_sources} lead source(s)"
+            if (added_statuses or added_sources)
+            else "All starter defaults were already present — nothing new to add"
+        ),
+        "added_statuses": added_statuses,
+        "added_sources": added_sources,
         "lead_statuses": [
             format_lead_status(r)
             for r in db.query(LeadStatus).filter(LeadStatus.company_id == current_user.company_id).order_by(LeadStatus.name.asc()).all()
